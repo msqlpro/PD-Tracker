@@ -38,7 +38,7 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 var ANTHROPIC_API_KEY = "";
 var CURRENT_UID = null;
-var { useState, useEffect } = React;
+var { useState, useEffect, useCallback } = React;
 
 // ── AI Meal Analysis ──
 async function analyzeMealWithAI(description) {
