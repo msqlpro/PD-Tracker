@@ -742,9 +742,40 @@ function Setup(p) {
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mt-6">
       <h3 className="font-bold text-gray-700 mb-3">🤖 AI Features</h3>
-      <p className="text-xs text-gray-500 mb-3">For meal analysis, photo analysis and AI reports. Get a key from console.anthropic.com</p>
-      <input type="password" value={typeof window !== "undefined" ? (localStorage.getItem("pd_api_key") || "") : ""} onChange={function(e) { localStorage.setItem("pd_api_key", e.target.value); ANTHROPIC_API_KEY = e.target.value; }} placeholder="sk-ant-..." className="w-full border rounded-xl p-3 text-sm mb-2 font-mono text-xs" />
-      {typeof window !== "undefined" && localStorage.getItem("pd_api_key") && <p className="text-xs text-green-600">✅ API key set</p>}
+      <p className="text-xs text-gray-500 mb-3">For meal analysis, photo analysis and AI reports.</p>
+      {typeof window !== "undefined" && localStorage.getItem("pd_api_key") ? 
+        <div>
+          <p className="text-sm text-green-600 font-bold mb-2">✅ API key set</p>
+          <button onClick={function() { localStorage.removeItem("pd_api_key"); ANTHROPIC_API_KEY = ""; window.location.reload(); }} className="w-full py-3 bg-red-500 text-white rounded-xl font-bold text-sm">Remove API Key</button>
+        </div>
+        :
+        <div>
+          <button onClick={async function() { 
+            try {
+              var text = await navigator.clipboard.readText();
+              if (text && text.trim().startsWith("sk-")) {
+                localStorage.setItem("pd_api_key", text.trim());
+                ANTHROPIC_API_KEY = text.trim();
+                alert("✅ API key saved!");
+                window.location.reload();
+              } else {
+                alert("❌ No valid API key found on clipboard. Copy your key first (starts with sk-), then tap this button.");
+              }
+            } catch(e) {
+              var key = prompt("Paste your Anthropic API key:");
+              if (key && key.trim().startsWith("sk-")) {
+                localStorage.setItem("pd_api_key", key.trim());
+                ANTHROPIC_API_KEY = key.trim();
+                alert("✅ API key saved!");
+                window.location.reload();
+              } else if (key) {
+                alert("❌ Key should start with sk-");
+              }
+            }
+          }} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-base">📋 Paste API Key from Clipboard</button>
+          <p className="text-xs text-gray-400 mt-2 text-center">Copy your key first, then tap the button above</p>
+        </div>
+      }
     </div>
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mt-6">
