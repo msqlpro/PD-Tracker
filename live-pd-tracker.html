@@ -145,7 +145,7 @@ async function generateReport(period, data) {
 }
 
 // ── Storage ──
-var K = { meds: "pd_m", logs: "pd_l", meals: "pd_ml", ex: "pd_e", sleep: "pd_s", sym: "pd_sy", onoff: "pd_oo", cex: "pd_ce", fast: "pd_fa", drinks: "pd_dr", waterTarget: "pd_wt", weight: "pd_wg", mood: "pd_mo", bowel: "pd_bw", darkMode: "pd_dk", activity: "pd_ac", cact: "pd_ca" };
+var K = { meds: "pd_m", logs: "pd_l", meals: "pd_ml", ex: "pd_e", sleep: "pd_s", sym: "pd_sy", onoff: "pd_oo", cex: "pd_ce", fast: "pd_fa", drinks: "pd_dr", waterTarget: "pd_wt", weight: "pd_wg", mood: "pd_mo", bowel: "pd_bw", darkMode: "pd_dk", activity: "pd_ac", cact: "pd_ca", calTarget: "pd_ct", protTarget: "pd_pt", medTarget: "pd_mt" };
 function canStore() { return true; }
 async function ld(k, fb) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } }
 async function sv(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -729,6 +729,93 @@ function Setup(p) {
       <p className="text-xs text-gray-500 mt-2">💡 2L minimum recommended for PD — helps with constipation, blood pressure & medication absorption. Increase in hot weather or if exercising.</p>
     </div>
 
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">🔥 Daily Calorie Target</h3>
+      <div className="flex items-center gap-3">
+        <input type="range" min={1200} max={3500} step={100} value={p.calTarget || 2000} onChange={function(e) { p.setCalTarget(parseInt(e.target.value)); }} className="flex-1" style={{ accentColor: "#f59e0b" }} />
+        <span className="text-lg font-bold text-amber-700 w-20 text-right">{p.calTarget || 2000} kcal</span>
+      </div>
+      <div className="flex justify-between mt-1 text-[10px] text-gray-400"><span>1200</span><span>2000</span><span>2800</span><span>3500</span></div>
+      <p className="text-xs text-gray-500 mt-2">💡 Net target = calories consumed minus exercise burned. Average adult: 2000 kcal/day.</p>
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">💪 Daily Protein Target</h3>
+      <div className="flex items-center gap-3">
+        <input type="range" min={20} max={200} step={5} value={p.protTarget || 50} onChange={function(e) { p.setProtTarget(parseInt(e.target.value)); }} className="flex-1" style={{ accentColor: "#dc2626" }} />
+        <span className="text-lg font-bold text-red-700 w-16 text-right">{p.protTarget || 50}g</span>
+      </div>
+      <div className="flex justify-between mt-1 text-[10px] text-gray-400"><span>20g</span><span>75g</span><span>125g</span><span>200g</span></div>
+      <p className="text-xs text-gray-500 mt-2">💡 Average adult: 50g/day. Higher if active or building muscle. Important for PD to maintain muscle mass.</p>
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">💊 Daily Med Target</h3>
+      <div className="flex items-center gap-3">
+        <input type="range" min={1} max={10} step={1} value={p.medTarget || 4} onChange={function(e) { p.setMedTarget(parseInt(e.target.value)); }} className="flex-1" style={{ accentColor: "#4f46e5" }} />
+        <span className="text-lg font-bold text-indigo-700 w-16 text-right">{p.medTarget || 4}</span>
+      </div>
+      <div className="flex justify-between mt-1 text-[10px] text-gray-400"><span>1</span><span>4</span><span>7</span><span>10</span></div>
+      <p className="text-xs text-gray-500 mt-2">💡 Total doses per day across all medications. Default: 4 doses.</p>
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">⏰ Medication Reminders</h3>
+      <p className="text-xs text-gray-500 mb-3">Get browser notifications at your med times. You must allow notifications when prompted.</p>
+      {(function() {
+        var alarmEnabled = typeof window !== "undefined" && localStorage.getItem("pd_alarms") === "true";
+        var alarmTimes = typeof window !== "undefined" && localStorage.getItem("pd_alarm_times") ? JSON.parse(localStorage.getItem("pd_alarm_times")) : ["08:00","12:00","17:00","22:00"];
+        return (<div>
+          <button onClick={function() {
+            if (alarmEnabled) {
+              localStorage.setItem("pd_alarms", "false");
+              window.location.reload();
+            } else {
+              if ("Notification" in window) {
+                Notification.requestPermission().then(function(perm) {
+                  if (perm === "granted") {
+                    localStorage.setItem("pd_alarms", "true");
+                    localStorage.setItem("pd_alarm_times", JSON.stringify(alarmTimes));
+                    alert("✅ Medication reminders enabled!");
+                    window.location.reload();
+                  } else {
+                    alert("❌ Please allow notifications in your browser settings to use reminders.");
+                  }
+                });
+              } else {
+                alert("❌ Notifications not supported on this device/browser.");
+              }
+            }
+          }} className={"w-full py-3 rounded-xl font-bold text-sm " + (alarmEnabled ? "bg-red-500 text-white" : "bg-green-600 text-white")}>
+            {alarmEnabled ? "🔕 Disable Reminders" : "🔔 Enable Medication Reminders"}
+          </button>
+          {alarmEnabled && <div className="mt-3">
+            <p className="text-xs font-medium text-gray-600 mb-2">Reminder times:</p>
+            {alarmTimes.map(function(t, i) {
+              return (<div key={i} className="flex gap-2 mb-1 items-center">
+                <input type="time" value={t} onChange={function(e) {
+                  var newTimes = alarmTimes.slice(); newTimes[i] = e.target.value;
+                  localStorage.setItem("pd_alarm_times", JSON.stringify(newTimes));
+                  window.location.reload();
+                }} className="flex-1 border rounded-lg p-2 text-sm" />
+                {alarmTimes.length > 1 && <button onClick={function() {
+                  var newTimes = alarmTimes.filter(function(_, j) { return j !== i; });
+                  localStorage.setItem("pd_alarm_times", JSON.stringify(newTimes));
+                  window.location.reload();
+                }} className="text-red-400 text-lg">✕</button>}
+              </div>);
+            })}
+            <button onClick={function() {
+              var newTimes = alarmTimes.concat(["15:00"]);
+              localStorage.setItem("pd_alarm_times", JSON.stringify(newTimes));
+              window.location.reload();
+            }} className="text-blue-600 text-sm mt-1">+ Add time</button>
+          </div>}
+          <p className="text-xs text-gray-400 mt-2">⚠️ Reminders only work while the app is open in your browser. For iPhone, add to Home Screen and keep Safari running.</p>
+        </div>);
+      })()}
+    </div>
+
     <h3 className="font-bold text-gray-700 mb-3">💊 Medications</h3>
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <input value={n} onChange={function(e) { sN(e.target.value); }} placeholder="Medication name" className="w-full border rounded-xl p-3 text-sm mb-2" />
@@ -819,73 +906,77 @@ function TodayPage(p) {
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-3">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</h2>
     <div className="grid grid-cols-3 gap-2 mb-2">
-      <div className="bg-white rounded-xl p-2.5 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
-      <div className="bg-white rounded-xl p-2.5 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
-      <div className="bg-white rounded-xl p-2.5 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{dn.fibre}g</div><div className="text-[10px] text-gray-500">Fibre</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{dn.fibre}g</div><div className="text-[10px] text-gray-500">Fibre</div></div>
     </div>
     <div className="grid grid-cols-3 gap-2 mb-2">
-      <div className="bg-white rounded-xl p-2.5 text-center shadow-sm"><div className="text-lg font-bold text-pink-600">{totalCalsIn}</div><div className="text-[10px] text-gray-500">Cal In</div></div>
-      <div className="bg-white rounded-xl p-2.5 text-center shadow-sm"><div className="text-lg font-bold text-orange-500">-{calBurned}</div><div className="text-[10px] text-gray-500">Burned</div></div>
-      <div className="bg-white rounded-xl p-2.5 text-center shadow-sm"><div className="text-lg font-bold text-amber-700">{drinkCaff}<span className="text-[10px] font-normal">mg</span></div><div className="text-[10px] text-gray-500">Caffeine</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-pink-600">{totalCalsIn}</div><div className="text-[10px] text-gray-500">Cal In</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-orange-500">-{calBurned}</div><div className="text-[10px] text-gray-500">Burned</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-700">{drinkCaff}<span className="text-[10px] font-normal">mg</span></div><div className="text-[10px] text-gray-500">Caffeine</div></div>
     </div>
-    <div className="bg-white rounded-xl p-3 shadow-sm mb-4">
-      <div className="flex justify-between items-center mb-1.5">
-        <span className="text-sm font-bold text-cyan-700">💧 Hydration</span>
-        <span className="text-xs text-gray-500">{waterMl}ml / {waterTarget}ml</span>
+    <div className="grid grid-cols-2 gap-2 mb-2">
+      <div className="bg-white rounded-xl p-2.5 shadow-sm">
+        <div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-cyan-700">💧</span><span className="text-[10px] text-gray-400">{waterPct}%</span></div>
+        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className={"h-full rounded-full " + (waterPct >= 100 ? "bg-cyan-500" : "bg-cyan-300")} style={{ width: waterPct + "%" }} /></div>
+        <div className="text-[10px] text-gray-500 mt-1">{waterMl}ml / {waterTarget}ml</div>
       </div>
-      <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
-        <div className={"h-full rounded-full transition-all " + (waterPct >= 100 ? "bg-cyan-500" : waterPct >= 60 ? "bg-cyan-400" : "bg-cyan-300")} style={{ width: waterPct + "%" }} />
-      </div>
-      <div className="flex justify-between mt-1">
-        <span className={"text-xs font-medium " + (waterPct >= 100 ? "text-cyan-600" : "text-gray-500")}>{waterPct >= 100 ? "✅ Target reached!" : waterRemain + "ml remaining"}</span>
-        <span className="text-[10px] text-gray-400">{waterPct}%</span>
-      </div>
+      {(function() {
+        var ct = p.calTarget || 2000;
+        var calPct = Math.min(100, Math.round((netCal / ct) * 100));
+        var over = netCal > ct;
+        return (<div className="bg-white rounded-xl p-2.5 shadow-sm">
+          <div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-amber-700">🔥</span><span className="text-[10px] text-gray-400">{calPct}%</span></div>
+          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className={"h-full rounded-full " + (over ? "bg-red-500" : "bg-amber-400")} style={{ width: Math.min(calPct, 100) + "%" }} /></div>
+          <div className={"text-[10px] mt-1 " + (over ? "text-red-600" : "text-gray-500")}>{netCal} / {ct} kcal</div>
+        </div>);
+      })()}
     </div>
     {(function() {
+      var pt = p.protTarget || 50;
+      var protPct = Math.min(100, Math.round((dn.protein / pt) * 100));
+      var mt = p.medTarget || 4;
+      var medsTaken = tL.length;
+      var medPct = Math.min(100, Math.round((medsTaken / mt) * 100));
       var sorted = weight.slice().sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
-      if (sorted.length === 0) return null;
-      var latest = sorted[0];
-      var prev = sorted.length > 1 ? sorted[1] : null;
-      var diff = prev ? (latest.weight - prev.weight).toFixed(1) : null;
-      var first = sorted[sorted.length - 1];
-      var totalDiff = sorted.length > 2 ? (latest.weight - first.weight).toFixed(1) : null;
-      return (<div className="bg-white rounded-xl p-3 shadow-sm mb-4">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-bold text-violet-700">⚖️ Weight</span>
-          <span className="text-xs text-gray-400">{latest.date}</span>
-        </div>
-        <div className="flex items-baseline gap-3 mt-1">
-          <span className="text-2xl font-bold text-violet-600">{latest.weight}<span className="text-sm font-normal">kg</span></span>
-          {diff !== null && <span className={"text-sm font-bold " + (parseFloat(diff) < 0 ? "text-green-600" : parseFloat(diff) > 0 ? "text-red-500" : "text-gray-500")}>{parseFloat(diff) > 0 ? "▲" : parseFloat(diff) < 0 ? "▼" : "="} {Math.abs(parseFloat(diff))}kg</span>}
-          {totalDiff !== null && <span className={"text-xs " + (parseFloat(totalDiff) < 0 ? "text-green-500" : parseFloat(totalDiff) > 0 ? "text-red-400" : "text-gray-400")}>total: {parseFloat(totalDiff) > 0 ? "+" : ""}{totalDiff}kg</span>}
-        </div>
-      </div>);
-    })()}
-    {(function() {
+      var latestW = sorted.length > 0 ? sorted[0] : null;
+      var prevW = sorted.length > 1 ? sorted[1] : null;
+      var wDiff = prevW && latestW ? (latestW.weight - prevW.weight).toFixed(1) : null;
       var todayMood = mood.find(function(m) { return m.date === td(); });
-      if (!todayMood) return null;
-      return (<div className="bg-yellow-50 rounded-xl p-3 shadow-sm mb-3 border border-yellow-200">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-bold text-yellow-700">😊 Today's Mood</span>
-          <span className="text-2xl">{MOOD_EMOJI[todayMood.level]}</span>
+      return (<div className="grid grid-cols-2 gap-2 mb-2">
+        <div className="bg-white rounded-xl p-2 shadow-sm">
+          <div className="text-[10px] font-bold text-violet-600 mb-0.5">⚖️ Weight</div>
+          {latestW ? <div className="flex items-baseline gap-1"><span className="text-lg font-bold text-violet-700">{latestW.weight}<span className="text-[10px] font-normal">kg</span></span>{wDiff !== null && <span className={"text-[10px] font-bold " + (parseFloat(wDiff) < 0 ? "text-green-600" : parseFloat(wDiff) > 0 ? "text-red-500" : "text-gray-400")}>{parseFloat(wDiff) > 0 ? "+" : ""}{wDiff}</span>}</div> : <div className="text-xs text-gray-400">—</div>}
         </div>
-        <div className="text-sm text-yellow-800 font-medium">{MOOD_LABELS[todayMood.level]} ({todayMood.level}/5)</div>
-        {todayMood.note && <div className="text-xs text-gray-500 mt-1">{todayMood.note}</div>}
+        <div className={"rounded-xl p-2 shadow-sm " + (todayMood ? "bg-amber-50 border border-amber-100" : "bg-white")}>
+          <div className="text-[10px] font-bold text-amber-600 mb-0.5">😊 Mood</div>
+          {todayMood ? <div className="flex items-center gap-1"><span className="text-lg">{MOOD_EMOJI[todayMood.level]}</span><span className="text-xs font-medium text-amber-800">{MOOD_LABELS[todayMood.level]}</span></div> : <div className="text-xs text-gray-400">—</div>}
+        </div>
+        <div className="bg-white rounded-xl p-2 shadow-sm">
+          <div className="flex justify-between"><span className="text-[10px] font-bold text-red-600">💪 Protein</span><span className="text-[10px] text-gray-400">{protPct}%</span></div>
+          <div className="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (protPct >= 100 ? "bg-emerald-500" : "bg-red-400")} style={{ width: Math.min(protPct, 100) + "%" }} /></div>
+          <div className="text-[10px] text-gray-500 mt-0.5">{dn.protein}g / {pt}g</div>
+        </div>
+        <div className="bg-white rounded-xl p-2 shadow-sm">
+          <div className="flex justify-between"><span className="text-[10px] font-bold text-blue-600">💊 Meds</span><span className="text-[10px] text-gray-400">{medPct}%</span></div>
+          <div className="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (medPct >= 100 ? "bg-emerald-500" : "bg-blue-400")} style={{ width: Math.min(medPct, 100) + "%" }} /></div>
+          <div className="text-[10px] text-gray-500 mt-0.5">{medsTaken} / {mt} doses</div>
+        </div>
       </div>);
     })()}
-    {lO && <div className={"rounded-xl p-3 mb-3 " + (lO.state === "on" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200")}><span className="font-medium">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-sm text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
+    {lO && <div className={"rounded-xl p-2.5 mb-2 " + (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200")}><span className="font-medium text-sm">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-xs text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
     <div className="grid grid-cols-2 gap-2 mb-4">
-      {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-blue-600 text-white rounded-xl py-3 text-sm font-bold">💊 {m.name}</button>; })}
-      <button onClick={function() { setM({ type: "meal" }); }} className="bg-green-600 text-white rounded-xl py-3 text-sm font-bold">🍽️ Meal</button>
-      <button onClick={function() { setM({ type: "drink" }); }} className="bg-cyan-600 text-white rounded-xl py-3 text-sm font-bold">🥤 Drink</button>
-      <button onClick={function() { setM({ type: "ex" }); }} className="bg-orange-500 text-white rounded-xl py-3 text-sm font-bold">🏃 Exercise</button>
-      <button onClick={function() { setM({ type: "symstate" }); }} className="bg-red-500 text-white rounded-xl py-3 text-sm font-bold">🩺 Symptom / State</button>
-      <button onClick={function() { setM({ type: "fast" }); }} className="bg-teal-600 text-white rounded-xl py-3 text-sm font-bold">⏱️ Fasting</button>
-      <button onClick={function() { setM({ type: "weight" }); }} className="bg-violet-600 text-white rounded-xl py-3 text-sm font-bold">⚖️ Weight</button>
-      <button onClick={function() { setM({ type: "mood" }); }} className="bg-yellow-500 text-white rounded-xl py-3 text-sm font-bold">😊 Mood</button>
-      <button onClick={function() { setM({ type: "bowel" }); }} className="bg-amber-600 text-white rounded-xl py-3 text-sm font-bold">🚽 Bowel</button>
-      <button onClick={function() { setM({ type: "activity" }); }} className="bg-pink-600 text-white rounded-xl py-3 text-sm font-bold">🧘 Activity</button>
-      <button onClick={function() { setM({ type: "slp" }); }} className="bg-indigo-600 text-white rounded-xl py-3 text-sm font-bold">😴 Sleep</button>
+      {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">💊 {m.name}</button>; })}
+      <button onClick={function() { setM({ type: "meal" }); }} className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🍽️ Meal</button>
+      <button onClick={function() { setM({ type: "drink" }); }} className="bg-gradient-to-r from-cyan-600 to-sky-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🥤 Drink</button>
+      <button onClick={function() { setM({ type: "ex" }); }} className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🏃 Exercise</button>
+      <button onClick={function() { setM({ type: "symstate" }); }} className="bg-gradient-to-r from-rose-600 to-pink-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🩺 Symptom / State</button>
+      <button onClick={function() { setM({ type: "fast" }); }} className="bg-gradient-to-r from-teal-600 to-emerald-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">⏱️ Fasting</button>
+      <button onClick={function() { setM({ type: "weight" }); }} className="bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">⚖️ Weight</button>
+      <button onClick={function() { setM({ type: "mood" }); }} className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">😊 Mood</button>
+      <button onClick={function() { setM({ type: "bowel" }); }} className="bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🚽 Bowel</button>
+      <button onClick={function() { setM({ type: "activity" }); }} className="bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🧘 Activity</button>
+      <button onClick={function() { setM({ type: "slp" }); }} className="bg-gradient-to-r from-indigo-700 to-slate-600 text-white rounded-xl py-3 text-sm font-bold shadow-sm">😴 Sleep</button>
     </div>
     {/* Streaks */}
     {(function() {
@@ -923,21 +1014,6 @@ function TodayPage(p) {
         </div>
       </div>);
     })()}
-    <h3 className="font-bold text-gray-600 mb-2">Today's Log</h3>
-    {(function() { var noCal = p.meals.filter(function(m) { return !m.calories && m.description; }); return noCal.length > 0 ? <button onClick={p.onReanalyse} disabled={p.reanalyzing} className="w-full py-2.5 mb-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">{p.reanalyzing ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />{p.reProgress}</> : <>✨ Re-analyse {noCal.length} meal{noCal.length > 1 ? "s" : ""} for calories</>}</button> : null; })()}
-    {tS && <button onClick={function() { setM({ type: "eSlp", data: tS }); }} className="w-full bg-indigo-50 rounded-xl p-3 mb-2 text-sm text-left">😴 {tS.hours}h · {["", "😫", "😕", "😐", "😊", "😁"][tS.quality]} · {tS.bedtime}→{tS.wakeTime}</button>}
-    {tL.map(function(l) { return (<button key={l.id} onClick={function() { setM({ type: "eDose", log: l }); }} className="w-full bg-blue-50 rounded-xl p-3 mb-2 text-left"><div className="flex justify-between"><span className="font-medium text-sm">💊 {l.medName} {l.dose}</span><span className="text-xs text-gray-400">{ft(l.takenAt)}</span></div>{l.effectiveness > 0 && <div className="text-xs text-blue-600">{"⭐".repeat(l.effectiveness)}</div>}</button>); })}
-    {tMl.map(function(m) { return (<button key={m.id} onClick={function() { setM({ type: "eMeal", meal: m }); }} className="w-full bg-green-50 rounded-xl p-3 mb-2 text-left"><div className="flex justify-between items-start"><span className="font-semibold text-sm">🍽️ {m.description}</span><span className="text-xs text-gray-400 shrink-0 ml-2">{ft(m.loggedAt)}</span></div>{m.foodBreakdown && m.foodBreakdown.length > 0 ? <div className="mt-1.5 ml-1"><FoodBreakdown items={m.foodBreakdown} totals={{ protein: m.protein || 0, carbs: m.carbs || 0, fibre: m.fibre || 0, calories: m.calories || 0, sugar: m.sugar || 0 }} /></div> : <div className="mt-1 flex gap-2 flex-wrap"><NB l="P" v={m.protein || 0} c="text-red-600" /><NB l="C" v={m.carbs || 0} c="text-amber-600" /><NB l="F" v={m.fibre || 0} c="text-green-600" /><NB l="Cal" v={m.calories || 0} c="text-pink-600" /><NB l="S" v={m.sugar || 0} c="text-purple-600" /></div>}</button>); })}
-    {tE.map(function(e) { return <button key={e.id} onClick={function() { setM({ type: "eEx", data: e }); }} className="w-full bg-orange-50 rounded-xl p-3 mb-2 text-sm text-left"><div className="flex justify-between"><span className="font-medium">🏃 {e.type}</span><span className="text-xs text-gray-400">{ft(e.loggedAt)}</span></div><div className="text-xs text-gray-600">{e.duration}min · {e.intensity}</div></button>; })}
-    {tSy.map(function(s) { var st = SYMS.find(function(t) { return t.id === s.symptomId; }); return <button key={s.id} onClick={function() { setM({ type: "eSym", data: s }); }} className="w-full bg-red-50 rounded-xl p-3 mb-2 text-sm text-left"><div className="flex justify-between"><span className="font-medium">{st ? st.e : ""} {st ? st.l : s.symptomId}</span><span className="text-xs text-gray-400">{ft(s.loggedAt)}</span></div><div className="text-xs text-gray-600">Severity: {s.severity}/5{s.notes ? " · " + s.notes : ""}</div></button>; })}
-    {tO.sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).map(function(o) { return <button key={o.id} onClick={function() { setM({ type: "eOo", data: o }); }} className={"w-full rounded-xl p-3 mb-2 text-sm text-left " + (o.state === "on" ? "bg-green-50" : "bg-red-50")}>{o.state === "on" ? "🟢 ON" : "🔴 OFF"} <span className="text-gray-400 text-xs">{ft(o.loggedAt)}</span></button>; })}
-    {fast.filter(function(f) { return f.date === td(); }).map(function(f) { return <button key={f.id} onClick={function() { setM({ type: "eFast", data: f }); }} className={"w-full rounded-xl p-3 mb-2 text-sm text-left " + (f.hours >= 14 ? "bg-teal-50 border border-teal-200" : "bg-amber-50 border border-amber-200")}><div className="flex justify-between"><span className="font-medium">⏱️ Fast: {f.hours}h</span><span className="text-xs text-gray-400">{f.startTime}→{f.endTime}</span></div><div className="text-xs text-gray-600">{f.hours >= 14 ? "✅ Target met" : "Below 14h target"}</div></button>; })}
-    {tDr.sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).map(function(d) { return <button key={d.id} onClick={function() { setM({ type: "eDrink", data: d }); }} className="w-full bg-cyan-50 rounded-xl p-3 mb-2 text-sm text-left"><div className="flex justify-between"><span className="font-medium">{d.emoji || "🥤"} {d.name}</span><span className="text-xs text-gray-400">{ft(d.loggedAt)}</span></div><div className="text-xs text-gray-600">{d.volume}ml{d.caffeine ? " · ☕" + d.caffeine + "mg" : ""}{d.calories ? " · " + d.calories + "kcal" : ""}{d.note ? " · " + d.note : ""}</div></button>; })}
-    {weight.filter(function(w) { return w.date === td(); }).map(function(w) { var sorted = weight.slice().sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); }); var idx = sorted.findIndex(function(s) { return s.id === w.id; }); var prev = idx < sorted.length - 1 ? sorted[idx + 1] : null; var diff = prev ? (w.weight - prev.weight).toFixed(1) : null; return <button key={w.id} onClick={function() { setM({ type: "eWeight", data: w }); }} className="w-full bg-violet-50 rounded-xl p-3 mb-2 text-sm text-left"><div className="flex justify-between"><span className="font-medium">⚖️ {w.weight}kg</span><span className="text-xs text-gray-400">{w.date}</span></div>{diff !== null && <div className={"text-xs " + (parseFloat(diff) < 0 ? "text-green-600" : parseFloat(diff) > 0 ? "text-red-500" : "text-gray-500")}>{parseFloat(diff) > 0 ? "▲+" : parseFloat(diff) < 0 ? "▼" : "="}{diff}kg from last</div>}{w.note ? <div className="text-xs text-gray-500 mt-0.5">{w.note}</div> : null}</button>; })}
-    {mood.filter(function(m) { return m.date === td(); }).map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "eMood", data: m }); }} className="w-full bg-yellow-50 rounded-xl p-3 mb-2 text-sm text-left"><div className="flex justify-between"><span className="font-medium">{MOOD_EMOJI[m.level]} Mood: {MOOD_LABELS[m.level]}</span><span className="text-xs text-gray-400">{m.level}/5</span></div>{m.note ? <div className="text-xs text-gray-500 mt-0.5">{m.note}</div> : null}</button>; })}
-    {bowel.filter(function(b) { return b.loggedAt && isT(b.loggedAt); }).map(function(b) { return <button key={b.id} onClick={function() { setM({ type: "eBowel", data: b }); }} className="w-full bg-amber-50 rounded-xl p-3 mb-2 text-sm text-left"><div className="flex justify-between"><span className="font-medium">🚽 Bowel movement</span><span className="text-xs text-gray-400">{ft(b.loggedAt)}</span></div>{b.strain && <span className="text-xs text-red-500">⚠️ Straining</span>}{b.note ? <span className="text-xs text-gray-500 ml-2">{b.note}</span> : null}</button>; })}
-    {activity.filter(function(a) { return a.loggedAt && isT(a.loggedAt); }).map(function(a) { return <button key={a.id} onClick={function() { setM({ type: "eActivity", data: a }); }} className="w-full bg-pink-50 rounded-xl p-3 mb-2 text-sm text-left"><div className="flex justify-between"><span className="font-medium">🧘 {a.type}</span><span className="text-xs text-gray-400">{ft(a.loggedAt)}</span></div><div className="text-xs text-gray-600">{a.duration}min{a.note ? " · " + a.note : ""}</div></button>; })}
-    {tL.length === 0 && tMl.length === 0 && tE.length === 0 && !tS && tSy.length === 0 && tO.length === 0 && tDr.length === 0 && fast.filter(function(f) { return f.date === td(); }).length === 0 && weight.filter(function(w) { return w.date === td(); }).length === 0 && mood.filter(function(m) { return m.date === td(); }).length === 0 && bowel.filter(function(b) { return b.loggedAt && isT(b.loggedAt); }).length === 0 && activity.filter(function(a) { return a.loggedAt && isT(a.loggedAt); }).length === 0 && <p className="text-gray-400 text-center py-8">No entries yet</p>}
   </div>);
 }
 
@@ -961,7 +1037,7 @@ function HistoryPage(p) {
 
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-4">📋 History</h2>
-    {Object.entries(groups).slice(0, 14).map(function(entry) {
+    {Object.entries(groups).slice(0, 4).map(function(entry) {
       var date = entry[0], items = entry[1];
       return (<div key={date} className="mb-4">
         <h3 className="font-bold text-gray-500 text-sm mb-2">{new Date(date + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</h3>
@@ -1113,6 +1189,9 @@ function App() {
   var [bowel, sBowel] = useState([]);
   var [activity, sActivity] = useState([]);
   var [waterTarget, sWaterTarget] = useState(2000);
+  var [calTarget, sCalTarget] = useState(2000);
+  var [protTarget, sProtTarget] = useState(50);
+  var [medTarget, sMedTarget] = useState(4);
   var [dark, sDark] = useState(false);
   var [modal, sModal] = useState(null);
   var [ready, setReady] = useState(false);
@@ -1121,18 +1200,49 @@ function App() {
   useEffect(function() {
     (async function() {
       try {
-        var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, [])]);
-        var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14];
+        var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4)]);
+        var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17];
         var fm = m.length > 0 ? m : DEF_MEDS;
         fm = fm.filter(function(x) { return x && x.name; });
         var seen = {}; fm = fm.filter(function(x) { var k = (x.name || "").toLowerCase().trim(); if (!k || seen[k]) return false; seen[k] = true; return true; });
         if (m.length === 0 || fm.length !== m.length) sv(K.meds, fm);
         var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
         if (cs.length !== sy.length) sv(K.sym, cs);
-        sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac);
+        sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt);
       } catch (err) {}
       setReady(true);
     })();
+  }, []);
+
+  // Medication alarm system
+  useEffect(function() {
+    if (typeof window === "undefined") return;
+    var alarmsOn = localStorage.getItem("pd_alarms") === "true";
+    if (!alarmsOn) return;
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    var alarmTimes = [];
+    try { alarmTimes = JSON.parse(localStorage.getItem("pd_alarm_times") || '["08:00","12:00","17:00","22:00"]'); } catch(e) { alarmTimes = ["08:00","12:00","17:00","22:00"]; }
+    var firedKey = "pd_alarm_fired_" + td();
+    var fired = {};
+    try { fired = JSON.parse(localStorage.getItem(firedKey) || "{}"); } catch(e) { fired = {}; }
+    var check = function() {
+      var now = new Date();
+      var hh = String(now.getHours()).padStart(2, "0");
+      var mm = String(now.getMinutes()).padStart(2, "0");
+      var nowTime = hh + ":" + mm;
+      for (var i = 0; i < alarmTimes.length; i++) {
+        if (alarmTimes[i] === nowTime && !fired[nowTime]) {
+          fired[nowTime] = true;
+          localStorage.setItem(firedKey, JSON.stringify(fired));
+          try {
+            new Notification("💊 Medication Reminder", { body: "Time to take your medication! (" + nowTime + ")", icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>", tag: "med-" + nowTime, requireInteraction: true });
+          } catch(e) {}
+        }
+      }
+    };
+    check();
+    var interval = setInterval(check, 30000);
+    return function() { clearInterval(interval); };
   }, []);
 
   function add(setter, key) { return function(item) { setter(function(prev) { var u = prev.concat(Array.isArray(item) ? item : [item]); sv(key, u); return u; }); }; }
@@ -1151,6 +1261,9 @@ function App() {
   var aAct = add(sActivity, K.activity), uAct = upd(sActivity, K.activity), dAct = del(sActivity, K.activity);
   var toggleDark = function() { var nd = !dark; sDark(nd); sv(K.darkMode, nd); };
   var setWT = function(v) { sWaterTarget(v); sv(K.waterTarget, v); };
+  var setCT = function(v) { sCalTarget(v); sv(K.calTarget, v); };
+  var setPT = function(v) { sProtTarget(v); sv(K.protTarget, v); };
+  var setMT = function(v) { sMedTarget(v); sv(K.medTarget, v); };
   var aMeal = add(sMeals, K.meals), uMeal = upd(sMeals, K.meals), dMeal = del(sMeals, K.meals);
   var aSlp = function(s) { sSlp(function(prev) { var u = prev.filter(function(x) { return x.id !== s.id; }).concat([s]); sv(K.sleep, u); return u; }); };
   var uSlp = upd(sSlp, K.sleep), dSlp = del(sSlp, K.sleep);
@@ -1182,11 +1295,11 @@ function App() {
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center" style={{ fontFamily: "system-ui, sans-serif" }}><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")} style={{ fontFamily: "system-ui, sans-serif" }}>
-    <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-4 pt-8 pb-5"><h1 className="text-2xl font-bold">PD Tracker</h1><p className="text-sm text-blue-200 mt-0.5">Parkinson's Daily Monitor</p></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><h1 className="text-lg font-bold tracking-tight">PD Tracker</h1></div>
+    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} dark={dark} toggleDark={toggleDark} />}
+    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { sTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
