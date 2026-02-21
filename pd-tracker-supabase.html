@@ -1309,22 +1309,34 @@ function App() {
   var [ready, setReady] = useState(false);
   var DEF_MEDS = [{ id: "sinemet_default", name: "Sinemet", dose: "", times: [] }];
 
-  useEffect(function() {
-    (async function() {
-      try {
-        var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4)]);
-        var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17];
-        var fm = m.length > 0 ? m : DEF_MEDS;
-        fm = fm.filter(function(x) { return x && x.name; });
-        var seen = {}; fm = fm.filter(function(x) { var k = (x.name || "").toLowerCase().trim(); if (!k || seen[k]) return false; seen[k] = true; return true; });
-        if (m.length === 0 || fm.length !== m.length) sv(K.meds, fm);
-        var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
-        if (cs.length !== sy.length) sv(K.sym, cs);
-        sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt);
-      } catch (err) {}
-      setReady(true);
-    })();
+  var loadData = useCallback(async function(isInitial) {
+    try {
+      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4)]);
+      var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17];
+      var fm = m.length > 0 ? m : DEF_MEDS;
+      fm = fm.filter(function(x) { return x && x.name; });
+      var seen = {}; fm = fm.filter(function(x) { var k = (x.name || "").toLowerCase().trim(); if (!k || seen[k]) return false; seen[k] = true; return true; });
+      if (isInitial && (m.length === 0 || fm.length !== m.length)) sv(K.meds, fm);
+      var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
+      if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
+      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt);
+    } catch (err) {}
+    if (isInitial) setReady(true);
   }, []);
+
+  useEffect(function() { loadData(true); }, []);
+
+  // Auto-refresh every 30 seconds for cross-device sync
+  useEffect(function() {
+    var interval = setInterval(function() { loadData(false); }, 30000);
+    // Also refresh when app comes back to foreground (phone tab switch, screen wake)
+    var onVisible = function() { if (document.visibilityState === "visible") loadData(false); };
+    document.addEventListener("visibilitychange", onVisible);
+    return function() { clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [loadData]);
+
+  // Refresh on tab switch
+  var switchTab = function(id) { sTab(id); loadData(false); };
 
   // Medication alarm system
   useEffect(function() {
@@ -1413,7 +1425,7 @@ function App() {
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
     {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
-      {tabs.map(function(t) { return <button key={t.id} onClick={function() { sTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
+      {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
 
     {modal && modal.type === "dose" && <DoseMod med={modal.med} onSave={function(l) { aLog(l); close(); }} onClose={close} />}
