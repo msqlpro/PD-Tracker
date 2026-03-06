@@ -10,12 +10,13 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#1e3a5f">
-<title>PD Tracker</title>
+<title>PD Tracker Cloud</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 * { -webkit-tap-highlight-color: transparent; }
 body { margin:0; font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
@@ -26,19 +27,18 @@ input, select, textarea, button { font-family: inherit; }
 </head>
 <body>
 <div id="root"></div>
-<script>
-// Preload seed data - force write all if no med logs exist
-(function() {
-  var existing = localStorage.getItem("pd_l");
-  if (existing && existing.length > 10) return;
-  var seed = {"pd_m":[{"id":"1771587037628","name":"Sinemet","dose":"25x100","times":["08:00"]}],"pd_l":[{"id":"1771587308680","medId":"1771587037628","medName":"Sinemet","dose":"25x100","takenAt":"2026-02-20T08:15:00","effectiveness":3},{"id":"1771587320629","medId":"1771587037628","medName":"Sinemet","dose":"25x100","takenAt":"2026-02-20T12:00:00","effectiveness":4},{"id":"1771665163594","medId":"1771587037628","medName":"Sinemet","dose":"25x100","takenAt":"2026-02-21T05:12:00","effectiveness":0},{"id":"1771666861312","medId":"1771587037628","medName":"Sinemet","dose":"25x100","takenAt":"2026-02-21T09:40:00","effectiveness":0},{"id":"1771699867532","medId":"1771587037628","medName":"Sinemet","dose":"25x100","takenAt":"2026-02-21T13:08:00","effectiveness":0},{"id":"1771700017409","medId":"1771587037628","medName":"Sinemet","dose":"25x100","takenAt":"2026-02-21T18:24:00","effectiveness":0}],"pd_ml":[{"id":"1771588063970","description":"Flaxseed 30g, Walnut halves 6, Almonds 8, Chia seeds 30g, Blackberries 6, Blueberries 10g, Mango chunks 4 small, Raspberries 6, Muesli 30g, 120ml coconut kefir","loggedAt":"2026-02-20T10:30:00","protein":19,"carbs":63,"fibre":27,"calories":675,"sugar":15,"foodBreakdown":[]},{"id":"1771600093295","description":"fish soup, 8 squares of 70pct dark chocolate, 2 large slice sourdough bread","loggedAt":"2026-02-20T15:07:00","protein":28,"carbs":82,"fibre":9,"calories":672,"sugar":16,"foodBreakdown":[]},{"id":"1771601577683","description":"2 tangerines","loggedAt":"2026-02-20T15:32:00","protein":1,"carbs":20,"fibre":3,"calories":80,"sugar":16,"foodBreakdown":[]},{"id":"1771602481876","description":"4 walnut halves, 1 slice sourdough bread, 1 avocado","loggedAt":"2026-02-20T16:15:00","protein":10,"carbs":40,"fibre":15,"calories":556,"sugar":3,"foodBreakdown":[]},{"id":"1771665150477","description":"Flaxseed 30g, Walnut halves 6, Almonds 8, Chia seeds 30g, Blackberries 6, Blueberries 10g, Mango chunks 4 small, Raspberries 6, Muesli 30g, 120ml coconut kefir","loggedAt":"2026-02-21T10:30:00","protein":19,"carbs":63,"fibre":27,"calories":675,"sugar":15,"foodBreakdown":[]},{"id":"1771669087549","description":"skate wing, focaccia bread, brocoli and roast potatoes","loggedAt":"2026-02-20T20:30:00","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"foodBreakdown":[]},{"id":"1771700085846","description":"Chicken soup with two slices of sourdough","loggedAt":"2026-02-21T18:54:00","protein":17,"carbs":56,"fibre":5,"calories":315,"sugar":4,"foodBreakdown":[]},{"id":"1771700155804","description":"Slice of sourdough bread and whole avocado","loggedAt":"2026-02-21T18:55:00","protein":7,"carbs":34,"fibre":11,"calories":346,"sugar":2,"foodBreakdown":[]},{"id":"1771701030232","description":"Cherry tomatoes on the vine with butternut squash from a meal kit box","loggedAt":"2026-02-21T19:09:00","protein":20,"carbs":74,"fibre":12,"calories":140,"sugar":12,"foodBreakdown":[]},{"id":"1771702020647","description":"Chicken thigh mushroom tomato","loggedAt":"2026-02-21T19:26:00","protein":28,"carbs":7,"fibre":2,"calories":249,"sugar":5,"foodBreakdown":[]}],"pd_e":[{"id":"17715892081050","type":"Spinning","duration":45,"intensity":"vigorous","loggedAt":"2026-02-20T07:00:00"},{"id":"1771700044593","type":"Walking","duration":30,"intensity":"moderate","loggedAt":"2026-02-21T15:40:00"}],"pd_s":[{"id":"1771587331579","hours":7,"quality":3,"bedtime":"22:00","wakeTime":"06:00","date":"2026-02-20"}],"pd_sy":[{"id":"1771588093269_tremor_v5ei","symptomId":"tremor","severity":3,"notes":"","loggedAt":"2026-02-20T11:47:00"},{"id":"1771588093269_stiffness_igwt","symptomId":"stiffness","severity":3,"notes":"","loggedAt":"2026-02-20T11:47:00"},{"id":"1771588093269_slowness_5vq6","symptomId":"slowness","severity":3,"notes":"","loggedAt":"2026-02-20T11:47:00"},{"id":"1771600227626_slowness_htsu","symptomId":"slowness","severity":3,"notes":"","loggedAt":"2026-02-20T15:10:00"},{"id":"1771600227626_stiffness_vetr","symptomId":"stiffness","severity":3,"notes":"","loggedAt":"2026-02-20T15:10:00"},{"id":"1771665186710_tremor_s3ze","symptomId":"tremor","severity":3,"notes":"","loggedAt":"2026-02-21T09:12:00"},{"id":"1771665186710_slowness_5ot5","symptomId":"slowness","severity":3,"notes":"","loggedAt":"2026-02-21T09:12:00"},{"id":"1771665186710_fatigue_4u4j","symptomId":"fatigue","severity":3,"notes":"","loggedAt":"2026-02-21T09:12:00"},{"id":"1771666882994_tremor_pdy1","symptomId":"tremor","severity":4,"notes":"","loggedAt":"2026-02-21T09:41:00"},{"id":"1771667444792_tremor_gyf2","symptomId":"tremor","severity":4,"notes":"","loggedAt":"2026-02-21T09:50:00"}],"pd_oo":[{"id":"1771592300479","state":"on","loggedAt":"2026-02-20T12:58:00"},{"id":"1771592310528","state":"off","loggedAt":"2026-02-20T11:00:00"},{"id":"1771600104828_oo","state":"off","loggedAt":"2026-02-20T15:08:00"},{"id":"1771602656009_oo","state":"on","loggedAt":"2026-02-20T09:00:00"},{"id":"1771667526858_oo","state":"off","loggedAt":"2026-02-21T09:51:00"}],"pd_fa":[{"id":"1771600033079","startTime":"20:30","endTime":"10:45","hours":14.3,"date":"2026-02-20"},{"id":"1771666982359","startTime":"22:00","endTime":"11:30","hours":13.5,"date":"2026-02-21"}],"pd_dr":[{"id":"1771602097720","drinkId":"coffee","name":"Coffee","emoji":"☕","volume":100,"caffeine":38,"calories":1,"note":"black","loggedAt":"2026-02-20T06:30:00"},{"id":"1771602117536","drinkId":"coffee","name":"Coffee","emoji":"☕","volume":100,"caffeine":38,"calories":1,"note":"black","loggedAt":"2026-02-20T09:00:00"},{"id":"1771602170985","drinkId":"water","name":"Water","emoji":"💧","volume":568,"caffeine":0,"calories":0,"note":"","loggedAt":"2026-02-20T15:41:00"},{"id":"1771602383078","drinkId":"water","name":"Water","emoji":"💧","volume":568,"caffeine":0,"calories":0,"note":"","loggedAt":"2026-02-20T15:46:00"},{"id":"1771665231060","drinkId":"water","name":"Water","emoji":"💧","volume":250,"caffeine":0,"calories":0,"note":"","loggedAt":"2026-02-21T05:13:00"},{"id":"1771666872428","drinkId":"water","name":"Water","emoji":"💧","volume":568,"caffeine":0,"calories":0,"note":"","loggedAt":"2026-02-21T09:41:00"},{"id":"1771667351176","drinkId":"other","name":"wine","emoji":"🥤","volume":500,"caffeine":0,"calories":0,"note":"wine","loggedAt":"2026-02-20T09:48:00"},{"id":"1771667418758","drinkId":"other","name":"beer","emoji":"🥤","volume":100,"caffeine":0,"calories":0,"note":"beer","loggedAt":"2026-02-20T09:49:00"},{"id":"1771699355482","drinkId":"water","name":"Water","emoji":"💧","volume":568,"caffeine":0,"calories":0,"note":"","loggedAt":"2026-02-21T18:02:00"}],"pd_wt":2000,"pd_wg":[{"id":"1771666932461","weight":69.5,"unit":"kg","note":"lowest i have been for 3 months","date":"2026-02-21"}],"pd_mo":[{"id":"1771668659297","level":3,"note":"","date":"2026-02-21"}],"pd_bw":[{"id":"1771669195532","strain":false,"note":"","loggedAt":"2026-02-21T08:19:00"}],"pd_dk":false,"pd_ac":[{"id":"1771669178465","type":"Infrared Session","duration":30,"note":"","loggedAt":"2026-02-21T10:18:00"}]};
-  Object.keys(seed).forEach(function(k) { localStorage.setItem(k, typeof seed[k] === "object" ? JSON.stringify(seed[k]) : String(seed[k])); });
-})();
-</script>
 
 <script type="text/babel" data-type="module">
-var ANTHROPIC_API_KEY = localStorage.getItem("pd_api_key") || "";
-var { useState, useEffect } = React;
+// ══════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ══════════════════════════════════════════════════════
+var SUPABASE_URL = "https://dbhsxzbqkwuisvvvukxq.supabase.co";
+var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHN4emJxa3d1aXN2dnZ1a3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDgzMTIsImV4cCI6MjA4NzI4NDMxMn0.HBrCVs8SxYP1LXHGyNB3sNdYcMkcyjcygx8B_HSmYck";
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+var ANTHROPIC_API_KEY = "";
+var CURRENT_UID = null;
+var { useState, useEffect, useCallback } = React;
 
 // ── AI Meal Analysis ──
 async function analyzeMealWithAI(description) {
@@ -150,11 +150,94 @@ async function generateReport(period, data) {
   } catch (e) { return "Report generation failed. Please try again."; }
 }
 
-// ── Storage ──
-var K = { meds: "pd_m", logs: "pd_l", meals: "pd_ml", ex: "pd_e", sleep: "pd_s", sym: "pd_sy", onoff: "pd_oo", cex: "pd_ce", fast: "pd_fa", drinks: "pd_dr", waterTarget: "pd_wt", weight: "pd_wg", mood: "pd_mo", bowel: "pd_bw", darkMode: "pd_dk", activity: "pd_ac", cact: "pd_ca", calTarget: "pd_ct", protTarget: "pd_pt", medTarget: "pd_mt", defDose: "pd_dd", defDrink: "pd_ddr", defDrinkSize: "pd_dds", showBowel: "pd_sb", weightGoal: "pd_wgoal" };
+// ── Supabase Storage Layer ──
+var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
+var TO_ROW = {
+  meds: function(d) { return { id: d.id, user_id: CURRENT_UID, name: d.name, dose: d.dose || "", times: d.times || [] }; },
+  logs: function(d) { return { id: d.id, user_id: CURRENT_UID, med_id: d.medId, med_name: d.medName, dose: d.dose || "", taken_at: d.takenAt, effectiveness: d.effectiveness || 0 }; },
+  meals: function(d) { return { id: d.id, user_id: CURRENT_UID, description: d.description, logged_at: d.loggedAt, protein: d.protein || 0, carbs: d.carbs || 0, fibre: d.fibre || 0, calories: d.calories || 0, sugar: d.sugar || 0, food_breakdown: d.foodBreakdown || [] }; },
+  ex: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, intensity: d.intensity || "moderate", logged_at: d.loggedAt }; },
+  sleep: function(d) { return { id: d.id, user_id: CURRENT_UID, hours: d.hours, quality: d.quality, bedtime: d.bedtime, wake_time: d.wakeTime, date: d.date }; },
+  sym: function(d) { return { id: d.id, user_id: CURRENT_UID, symptom_id: d.symptomId, severity: d.severity, notes: d.notes || "", logged_at: d.loggedAt }; },
+  onoff: function(d) { return { id: d.id, user_id: CURRENT_UID, state: d.state, logged_at: d.loggedAt }; },
+  fast: function(d) { return { id: d.id, user_id: CURRENT_UID, start_time: d.startTime, end_time: d.endTime, hours: d.hours, date: d.date }; },
+  drinks: function(d) { return { id: d.id, user_id: CURRENT_UID, drink_id: d.drinkId, name: d.name, emoji: d.emoji || "🥤", volume: d.volume || 0, caffeine: d.caffeine || 0, calories: d.calories || 0, note: d.note || "", logged_at: d.loggedAt }; },
+  weight: function(d) { return { id: d.id, user_id: CURRENT_UID, weight: d.weight, unit: d.unit || "kg", note: d.note || "", date: d.date }; },
+  mood: function(d) { return { id: d.id, user_id: CURRENT_UID, level: d.level, note: d.note || "", date: d.date }; },
+  bowel: function(d) { return { id: d.id, user_id: CURRENT_UID, strain: d.strain || false, note: d.note || "", logged_at: d.loggedAt }; },
+  activity: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, note: d.note || "", logged_at: d.loggedAt }; }
+};
+var FROM_ROW = {
+  meds: function(r) { return { id: r.id, name: r.name, dose: r.dose, times: r.times || [] }; },
+  logs: function(r) { return { id: r.id, medId: r.med_id, medName: r.med_name, dose: r.dose, takenAt: r.taken_at, effectiveness: r.effectiveness || 0 }; },
+  meals: function(r) { return { id: r.id, description: r.description, loggedAt: r.logged_at, protein: Number(r.protein)||0, carbs: Number(r.carbs)||0, fibre: Number(r.fibre)||0, calories: Number(r.calories)||0, sugar: Number(r.sugar)||0, foodBreakdown: r.food_breakdown || [] }; },
+  ex: function(r) { return { id: r.id, type: r.type, duration: r.duration, intensity: r.intensity, loggedAt: r.logged_at }; },
+  sleep: function(r) { return { id: r.id, hours: Number(r.hours), quality: r.quality, bedtime: r.bedtime, wakeTime: r.wake_time, date: r.date }; },
+  sym: function(r) { return { id: r.id, symptomId: r.symptom_id, severity: r.severity, notes: r.notes, loggedAt: r.logged_at }; },
+  onoff: function(r) { return { id: r.id, state: r.state, loggedAt: r.logged_at }; },
+  fast: function(r) { return { id: r.id, startTime: r.start_time, endTime: r.end_time, hours: Number(r.hours), date: r.date }; },
+  drinks: function(r) { return { id: r.id, drinkId: r.drink_id, name: r.name, emoji: r.emoji, volume: r.volume, caffeine: r.caffeine, calories: r.calories, note: r.note, loggedAt: r.logged_at }; },
+  weight: function(r) { return { id: r.id, weight: Number(r.weight), unit: r.unit, note: r.note, date: r.date }; },
+  mood: function(r) { return { id: r.id, level: r.level, note: r.note, date: r.date }; },
+  bowel: function(r) { return { id: r.id, strain: r.strain, note: r.note, loggedAt: r.logged_at }; },
+  activity: function(r) { return { id: r.id, type: r.type, duration: r.duration, note: r.note, loggedAt: r.logged_at }; }
+};
+async function dbLoad(key) { var t = TBL[key]; if (!t) return []; var { data, error } = await sb.from(t).select("*").eq("user_id", CURRENT_UID); if (error) { console.error("Load " + key, error); return []; } return (data || []).map(FROM_ROW[key]); }
+async function dbSave(key, item) { var t = TBL[key]; if (!t) return; var row = TO_ROW[key](item); var { error } = await sb.from(t).upsert(row); if (error) console.error("Save " + key, error); }
+async function dbDel(key, id) { var t = TBL[key]; if (!t) return; var { error } = await sb.from(t).delete().eq("id", id); if (error) console.error("Del " + key, error); }
+var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", defDose: "defDose", defDrink: "defDrink", defDrinkSize: "defDrinkSize", showBowel: "showBowel", weightGoal: "weightGoal" };
 function canStore() { return true; }
-async function ld(k, fb) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } }
-async function sv(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+async function ld(k, fb) {
+  // Profile settings come from Supabase profiles table
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode) {
+    try {
+      var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single();
+      if (data && data.settings) {
+        var s = data.settings;
+        if (k === K.waterTarget) return s.waterTarget || fb;
+        if (k === K.calTarget) return s.calTarget || fb;
+        if (k === K.protTarget) return s.protTarget || fb;
+        if (k === K.medTarget) return s.medTarget || fb;
+        if (k === K.darkMode) return s.darkMode || fb;
+      }
+    } catch(e) {}
+    return fb;
+  }
+  // Custom exercise/activity types stored in localStorage as they're minor
+  if (k === K.cex || k === K.cact) { try { var v = localStorage.getItem("pd_" + k); return v ? JSON.parse(v) : fb; } catch(e) { return fb; } }
+  // All data tables load from Supabase
+  if (TBL[k]) return await dbLoad(k);
+  return fb;
+}
+async function sv(k, v) {
+  // Profile settings
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode) {
+    try {
+      var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single();
+      var settings = (existing && existing.settings) || {};
+      if (k === K.waterTarget) settings.waterTarget = v;
+      else if (k === K.calTarget) settings.calTarget = v;
+      else if (k === K.protTarget) settings.protTarget = v;
+      else if (k === K.medTarget) settings.medTarget = v;
+      else if (k === K.darkMode) settings.darkMode = v;
+      await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings });
+    } catch(e) { console.error("Save setting", e); }
+    return;
+  }
+  // Custom types stay in localStorage
+  if (k === K.cex || k === K.cact) { try { localStorage.setItem("pd_" + k, JSON.stringify(v)); } catch(e) {} return; }
+  // Array data: full replace via Supabase (used by bulk operations like setMeds)
+  if (TBL[k] && Array.isArray(v)) {
+    // For meds, do a full replace: delete all then insert
+    if (k === K.meds) {
+      await sb.from(TBL[k]).delete().eq("user_id", CURRENT_UID);
+      for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); }
+    }
+    // For other arrays we upsert each item
+    else { for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } }
+    return;
+  }
+}
 
 // ── Helpers ──
 function td() { return new Date().toISOString().slice(0, 10); }
@@ -227,8 +310,7 @@ function DoseMod(p) {
   var med = p.med, ex = p.existing, isEdit = !!ex;
   var [time, sTime] = useState(isEdit ? ft(ex.takenAt) : nw());
   var [date, sDate] = useState(isEdit ? dateOf(ex.takenAt) : td());
-  // Use per-med default dose from settings if available, fall back to med.dose
-  var defDoses = (function() { try { return JSON.parse(localStorage.getItem(K.defDose) || "{}"); } catch(e) { return {}; } })();
+  var defDoses = (function() { try { return JSON.parse(localStorage.getItem("pd_defDose") || "{}"); } catch(e) { return {}; } })();
   var initDose = isEdit ? (ex.dose || "") : (defDoses[med.id] || med.dose || "");
   var [dose, setDose] = useState(initDose);
   return (<Mod onClose={p.onClose}>
@@ -240,7 +322,7 @@ function DoseMod(p) {
     <label className="block mb-3"><span className="text-sm font-medium">Dose / amount</span><input type="text" value={dose} onChange={function(e) { setDose(e.target.value); }} placeholder="e.g. 25/100, 1 tablet" className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
 
     <SaveDel canDel={isEdit} label={isEdit ? "Update" : "Log Dose"} onDel={function() { p.onDelete(ex.id); }} onSave={function() {
-      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), medId: med.id, medName: med.name, dose: dose, takenAt: date + "T" + time + ":00" });
+      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), medId: med.id, medName: med.name, dose: dose, takenAt: date + "T" + time + ":00");
     }} />
   </Mod>);
 }
@@ -380,8 +462,8 @@ var DRINKS = [
 
 function DrinkMod(p) {
   var ex = p.existing, isEdit = !!ex;
-  var defDrinkId = (function(){ try{ return localStorage.getItem(K.defDrink) || "water"; }catch(e){ return "water"; }})();
-  var defDrinkSz = (function(){ try{ return parseInt(localStorage.getItem(K.defDrinkSize) || "250"); }catch(e){ return 250; }})();
+  var defDrinkId = (function(){ try{ return localStorage.getItem("pd_defDrink") || "water"; }catch(e){ return "water"; }})();
+  var defDrinkSz = (function(){ try{ return parseInt(localStorage.getItem("pd_defDrinkSize") || "250"); }catch(e){ return 250; }})();
   var [sel, sSel] = useState(isEdit ? ex.drinkId : defDrinkId);
   var [vol, sVol] = useState(isEdit ? ex.volume : defDrinkSz);
   var [custom, setCust] = useState(isEdit && !DRINKS.find(function(d) { return d.id === ex.drinkId; }) ? ex.name : "");
@@ -675,45 +757,8 @@ function Setup(p) {
   var meds = p.meds, setMeds = p.setMeds;
   var [n, sN] = useState(""); var [d, sD] = useState(""); var [ts, sTs] = useState(["08:00"]);
   var wt = p.waterTarget || 2000;
-  var [expJson, sExpJson] = useState("");
   var [impJson, sImpJson] = useState("");
   var [impStatus, sImpStatus] = useState("");
-
-  var doExport = async function() {
-    try {
-      var keys = [K.meds, K.logs, K.meals, K.ex, K.sleep, K.sym, K.onoff, K.fast, K.drinks, K.waterTarget, K.weight, K.mood, K.bowel, K.darkMode, K.activity];
-      var data = {};
-      for (var i = 0; i < keys.length; i++) {
-        try { var r = localStorage.getItem(keys[i]); data[keys[i]] = r ? JSON.parse(r) : null; } catch(e) { data[keys[i]] = null; }
-      }
-      var json = JSON.stringify(data);
-      sExpJson(json);
-      if (navigator.clipboard) { await navigator.clipboard.writeText(json); sImpStatus("✅ Copied to clipboard!"); } else { sImpStatus("⬆️ Select all & copy the text above"); }
-      setTimeout(function() { sImpStatus(""); }, 3000);
-    } catch(e) { sImpStatus("❌ Export failed: " + e.message); }
-  };
-
-  var doImport = async function() {
-    if (!impJson.trim()) return;
-    try {
-      var data = JSON.parse(impJson);
-      var keys = Object.keys(data);
-      var ok = 0, fail = 0;
-      for (var i = 0; i < keys.length; i++) {
-        if (data[keys[i]] !== null) {
-          try {
-            var val = typeof data[keys[i]] === "string" ? data[keys[i]] : JSON.stringify(data[keys[i]]);
-            localStorage.setItem(keys[i], val);
-            ok++;
-          } catch(e2) {
-            try { localStorage.setItem(keys[i], JSON.stringify(data[keys[i]])); ok++; } catch(e3) { fail++; }
-          }
-        }
-      }
-      if (ok > 0) { sImpStatus("✅ Imported " + ok + " items!" + (fail ? " (" + fail + " failed)" : "") + " Reloading..."); setTimeout(function() { window.location.reload(); }, 1500); }
-      else { sImpStatus("❌ Import failed — storage may not be available here"); }
-    } catch(e) { sImpStatus("❌ Invalid JSON data"); }
-  };
 
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-4">⚙️ Settings</h2>
@@ -729,36 +774,28 @@ function Setup(p) {
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <div className="flex justify-between items-center">
-        <div><h3 className="font-bold text-gray-700">🚽 Bowel Tracking</h3><p className="text-xs text-gray-500">Show/hide the bowel logging button and data</p></div>
+        <div><h3 className="font-bold text-gray-700">🚽 Bowel Tracking</h3><p className="text-xs text-gray-500">Show/hide the bowel logging button</p></div>
         <button onClick={function() {
-          var cur = localStorage.getItem(K.showBowel);
-          var next = cur === "false" ? "true" : "false";
-          localStorage.setItem(K.showBowel, next);
+          var cur = localStorage.getItem("pd_showBowel");
+          localStorage.setItem("pd_showBowel", cur === "false" ? "true" : "false");
           window.location.reload();
-        }} className={"w-14 h-8 rounded-full relative transition-colors " + (localStorage.getItem(K.showBowel) !== "false" ? "bg-blue-600" : "bg-gray-300")}>
-          <div className={"w-6 h-6 bg-white rounded-full absolute top-1 transition-transform " + (localStorage.getItem(K.showBowel) !== "false" ? "translate-x-7" : "translate-x-1")} />
+        }} className={"w-14 h-8 rounded-full relative transition-colors " + (localStorage.getItem("pd_showBowel") !== "false" ? "bg-blue-600" : "bg-gray-300")}>
+          <div className={"w-6 h-6 bg-white rounded-full absolute top-1 transition-transform " + (localStorage.getItem("pd_showBowel") !== "false" ? "translate-x-7" : "translate-x-1")} />
         </button>
       </div>
     </div>
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <h3 className="font-bold text-gray-700 mb-3">🎯 Weight Goal</h3>
-      <p className="text-xs text-gray-500 mb-3">Set a target weight — you'll get a popup celebration when you reach it!</p>
+      <p className="text-xs text-gray-500 mb-3">Set a target — you'll get a celebration popup when you reach it!</p>
       {(function() {
         var wg = p.weightGoal;
         return (<div className="flex items-center gap-3">
-          <input type="number" step="0.1" min="30" max="200"
-            defaultValue={wg ? wg.target : ""}
-            placeholder="e.g. 72.0"
-            onBlur={function(e) {
-              var val = parseFloat(e.target.value);
-              if (!isNaN(val) && val > 0) {
-                p.setWeightGoal({ target: val, unit: "kg", achieved: false });
-              }
-            }}
+          <input type="number" step="0.1" min="30" max="200" defaultValue={wg ? wg.target : ""} placeholder="e.g. 72.0"
+            onBlur={function(e) { var val = parseFloat(e.target.value); if (!isNaN(val) && val > 0) { p.setWeightGoal({ target: val, unit: "kg" }); } }}
             className="flex-1 border rounded-xl p-3 text-sm" />
           <span className="text-sm font-medium text-gray-600">kg</span>
-          {wg && <button onClick={function(){ p.setWeightGoal(null); }} className="text-red-400 text-sm">✕ Clear</button>}
+          {wg && <button onClick={function(){ p.setWeightGoal(null); }} className="text-red-400 text-sm">✕</button>}
         </div>);
       })()}
       {p.weightGoal && <p className="text-xs text-green-600 mt-2 font-medium">🎯 Target: {p.weightGoal.target}kg</p>}
@@ -776,23 +813,23 @@ function Setup(p) {
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <h3 className="font-bold text-gray-700 mb-3">🥤 Default Drink</h3>
-      <p className="text-xs text-gray-500 mb-3">Pre-selects when you tap the Drink button — change it on the day if needed.</p>
+      <p className="text-xs text-gray-500 mb-3">Pre-selects when you tap the Drink button.</p>
       {(function() {
         var DRINK_OPTS = [{id:"water",name:"Water",e:"💧"},{id:"coffee",name:"Coffee",e:"☕"},{id:"tea",name:"Tea",e:"🍵"},{id:"herbal",name:"Herbal Tea",e:"🌿"},{id:"green_tea",name:"Green Tea",e:"🍃"},{id:"decaf",name:"Decaf",e:"☕"},{id:"juice",name:"Juice",e:"🧃"},{id:"smoothie",name:"Smoothie",e:"🥤"},{id:"milk",name:"Milk",e:"🥛"},{id:"other",name:"Other",e:"🥤"}];
         var SIZES = [100,150,200,250,330,400,500,568,750];
-        var curDrink = (function(){ try{ return localStorage.getItem(K.defDrink) || "water"; }catch(e){ return "water"; }})();
-        var curSize = (function(){ try{ return parseInt(localStorage.getItem(K.defDrinkSize) || "250"); }catch(e){ return 250; }})();
+        var curDrink = (function(){ try{ return localStorage.getItem("pd_defDrink") || "water"; }catch(e){ return "water"; }})();
+        var curSize = (function(){ try{ return parseInt(localStorage.getItem("pd_defDrinkSize") || "250"); }catch(e){ return 250; }})();
         return (<div>
           <div className="mb-3">
             <span className="text-xs font-medium text-gray-600 block mb-1.5">Drink type</span>
             <div className="grid grid-cols-3 gap-1.5">
-              {DRINK_OPTS.map(function(d) { return (<button key={d.id} onClick={function(){ localStorage.setItem(K.defDrink, d.id); window.location.reload(); }} className={"p-2 rounded-xl text-xs font-medium border " + (curDrink===d.id ? "bg-cyan-600 text-white border-cyan-600" : "bg-gray-50 border-gray-200 text-gray-700")}>{d.e} {d.name}</button>); })}
+              {DRINK_OPTS.map(function(d) { return (<button key={d.id} onClick={function(){ localStorage.setItem("pd_defDrink", d.id); window.location.reload(); }} className={"p-2 rounded-xl text-xs font-medium border " + (curDrink===d.id ? "bg-cyan-600 text-white border-cyan-600" : "bg-gray-50 border-gray-200 text-gray-700")}>{d.e} {d.name}</button>); })}
             </div>
           </div>
           <div>
             <span className="text-xs font-medium text-gray-600 block mb-1.5">Default size</span>
             <div className="flex flex-wrap gap-1.5">
-              {SIZES.map(function(s) { return (<button key={s} onClick={function(){ localStorage.setItem(K.defDrinkSize, s.toString()); window.location.reload(); }} className={"px-3 py-1.5 rounded-lg text-xs font-medium border " + (curSize===s ? "bg-cyan-600 text-white border-cyan-600" : "bg-gray-50 border-gray-200 text-gray-700")}>{s>=1000?(s/1000)+"L":s+"ml"}</button>); })}
+              {SIZES.map(function(s) { return (<button key={s} onClick={function(){ localStorage.setItem("pd_defDrinkSize", s.toString()); window.location.reload(); }} className={"px-3 py-1.5 rounded-lg text-xs font-medium border " + (curSize===s ? "bg-cyan-600 text-white border-cyan-600" : "bg-gray-50 border-gray-200 text-gray-700")}>{s>=1000?(s/1000)+"L":s+"ml"}</button>); })}
             </div>
           </div>
         </div>);
@@ -893,32 +930,33 @@ function Setup(p) {
       <span className="text-sm font-medium">Times:</span>
       {ts.map(function(t, i) { return (<div key={i} className="flex gap-2 mt-1"><input type="time" value={t} onChange={function(e) { sTs(function(prev) { return prev.map(function(x, j) { return j === i ? e.target.value : x; }); }); }} className="flex-1 border rounded-lg p-2 text-sm" />{ts.length > 1 && <button onClick={function() { sTs(function(prev) { return prev.filter(function(_, j) { return j !== i; }); }); }} className="text-red-400">✕</button>}</div>); })}
       <button onClick={function() { sTs(function(prev) { return prev.concat(["12:00"]); }); }} className="text-blue-600 text-sm mt-1">+ time</button>
-      <button onClick={function() { if (!n.trim()) return; var nm = { id: Date.now().toString(), name: n, dose: d, times: ts }; setMeds(function(prev) { var u = prev.concat([nm]); sv(K.meds, u); return u; }); sN(""); sD(""); sTs(["08:00"]); }} className="w-full mt-3 py-3 bg-blue-600 text-white rounded-xl font-bold">Add</button>
+      <button onClick={function() { if (!n.trim()) return; var nm = { id: Date.now().toString(), name: n, dose: d, times: ts }; setMeds(function(prev) { var u = prev.concat([nm]); dbSave("meds", nm); return u; }); sN(""); sD(""); sTs(["08:00"]); }} className="w-full mt-3 py-3 bg-blue-600 text-white rounded-xl font-bold">Add</button>
     </div>
-    {meds.length > 0 && (<div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-      <h3 className="font-bold text-gray-700 mb-3">💊 Default Doses</h3>
-      <p className="text-xs text-gray-500 mb-3">Set a default dose for each medication — pre-filled when logging, but you can still change it.</p>
+    {meds.map(function(m) { return (<div key={m.id} className="bg-white rounded-2xl p-4 shadow-sm mb-2 flex justify-between items-center"><div><div className="font-bold">{m.name} <span className="text-gray-500 font-normal">{m.dose}</span></div><div className="text-sm text-gray-400">{(m.times || []).join(", ")}</div></div><button onClick={function() { setMeds(function(prev) { var u = prev.filter(function(x) { return x.id !== m.id; }); dbDel("meds", m.id); return u; }); }} className="text-red-400">🗑️</button></div>); })}
+
+    {meds.length > 0 && <div className="bg-white rounded-2xl p-4 shadow-sm mt-4 mb-4">
+      <h3 className="font-bold text-gray-700 mb-1">💊 Default Dose Per Medication</h3>
+      <p className="text-xs text-gray-500 mb-3">Pre-fills the dose field when logging.</p>
       {meds.map(function(m) {
-        var defDoses = (function() { try { return JSON.parse(localStorage.getItem(K.defDose) || "{}"); } catch(e) { return {}; } })();
-        var cur = defDoses[m.id] || m.dose || "";
-        return (<div key={m.id} className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-medium w-24 truncate">{m.name}</span>
-          <input type="text" defaultValue={cur} placeholder={m.dose || "e.g. 25/100"}
+        var defDoses = (function(){ try{ return JSON.parse(localStorage.getItem("pd_defDose") || "{}"); }catch(e){ return {}; }})();
+        return (<div key={m.id} className="flex items-center gap-3 mb-2">
+          <span className="flex-1 text-sm font-medium">{m.name}</span>
+          <input type="text" defaultValue={defDoses[m.id] || m.dose || ""}
+            placeholder={m.dose || "e.g. 25/100"}
             onBlur={function(e) {
               var val = e.target.value.trim();
-              var dd = (function() { try { return JSON.parse(localStorage.getItem(K.defDose) || "{}"); } catch(e2) { return {}; } })();
-              dd[m.id] = val;
-              localStorage.setItem(K.defDose, JSON.stringify(dd));
+              var doses = (function(){ try{ return JSON.parse(localStorage.getItem("pd_defDose") || "{}"); }catch(e){ return {}; }})();
+              if (val) { doses[m.id] = val; } else { delete doses[m.id]; }
+              localStorage.setItem("pd_defDose", JSON.stringify(doses));
             }}
-            className="flex-1 border rounded-xl p-2 text-sm" />
+            className="w-28 border rounded-xl p-2 text-sm text-center" />
         </div>);
       })}
-    </div>)}
-    {meds.map(function(m) { return (<div key={m.id} className="bg-white rounded-2xl p-4 shadow-sm mb-2 flex justify-between items-center"><div><div className="font-bold">{m.name} <span className="text-gray-500 font-normal">{m.dose}</span></div><div className="text-sm text-gray-400">{(m.times || []).join(", ")}</div></div><button onClick={function() { setMeds(function(prev) { var u = prev.filter(function(x) { return x.id !== m.id; }); sv(K.meds, u); return u; }); }} className="text-red-400">🗑️</button></div>); })}
+    </div>}
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mt-6">
       <h3 className="font-bold text-gray-700 mb-3">🤖 AI Features</h3>
-      <p className="text-xs text-gray-500 mb-3">For meal analysis, photo analysis and AI reports.</p>
+      <p className="text-xs text-gray-500 mb-3">For meal analysis, photo analysis and AI reports. Your key is stored locally on this device only.</p>
       {typeof window !== "undefined" && localStorage.getItem("pd_api_key") ? 
         <div>
           <p className="text-sm text-green-600 font-bold mb-2">✅ API key set</p>
@@ -955,12 +993,36 @@ function Setup(p) {
     </div>
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mt-6">
-      <h3 className="font-bold text-gray-700 mb-3">📦 Backup & Sync</h3>
-      <p className="text-xs text-gray-500 mb-3">Transfer data between devices. Export on one device, paste & import on the other.</p>
-      <button onClick={doExport} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm mb-2">📤 Export Data (Copy to Clipboard)</button>
-      {expJson && <textarea value={expJson} readOnly className="w-full border rounded-xl p-2 text-[10px] text-gray-500 mb-3 resize-none" rows={3} onClick={function(e) { e.target.select(); }} />}
+      <h3 className="font-bold text-gray-700 mb-3">☁️ Account</h3>
+      <p className="text-xs text-gray-500 mb-3">Your data syncs automatically to the cloud. Sign out to switch accounts.</p>
+      <button onClick={async function() { await sb.auth.signOut(); window.location.reload(); }} className="w-full py-3 bg-red-500 text-white rounded-xl font-bold text-sm">🚪 Sign Out</button>
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mt-6">
+      <h3 className="font-bold text-gray-700 mb-3">📦 Import from Local Version</h3>
+      <p className="text-xs text-gray-500 mb-3">Paste exported JSON from the offline version to migrate your data to the cloud.</p>
       <textarea value={impJson} onChange={function(e) { sImpJson(e.target.value); }} placeholder="Paste exported data here..." className="w-full border rounded-xl p-3 text-sm mb-2 resize-none" rows={3} />
-      <button onClick={doImport} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm">📥 Import Data</button>
+      <button onClick={async function() {
+        if (!impJson.trim()) return;
+        try {
+          var data = JSON.parse(impJson);
+          sImpStatus("⏳ Importing...");
+          var keyMap = { pd_m: "meds", pd_l: "logs", pd_ml: "meals", pd_e: "ex", pd_s: "sleep", pd_sy: "sym", pd_oo: "onoff", pd_fa: "fast", pd_dr: "drinks", pd_wg: "weight", pd_mo: "mood", pd_bw: "bowel", pd_ac: "activity" };
+          var ok = 0;
+          for (var oldKey in keyMap) {
+            if (data[oldKey] && Array.isArray(data[oldKey])) {
+              var sbKey = keyMap[oldKey];
+              for (var i = 0; i < data[oldKey].length; i++) {
+                try { await dbSave(sbKey, data[oldKey][i]); ok++; } catch(e2) {}
+              }
+            }
+          }
+          // Import settings
+          if (data.pd_wt) { var wt = typeof data.pd_wt === "string" ? parseInt(data.pd_wt) : data.pd_wt; await sv(K.waterTarget, wt); }
+          sImpStatus("✅ Imported " + ok + " records! Reloading...");
+          setTimeout(function() { window.location.reload(); }, 1500);
+        } catch(e) { sImpStatus("❌ Invalid JSON data"); }
+      }} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm">📥 Import Data</button>
       {impStatus && <p className="text-center text-sm mt-2 font-medium">{impStatus}</p>}
     </div>
   </div>);
@@ -968,17 +1030,6 @@ function Setup(p) {
 
 function TodayPage(p) {
   var meds = p.meds, logs = p.logs, meals = p.meals, ex = p.ex, slp = p.slp, sym = p.sym, oo = p.oo, fast = p.fast, drinks = p.drinks, weight = p.weight || [], mood = p.mood || [], bowel = p.bowel || [], activity = p.activity || [], setM = p.setM;
-  var weightGoal = p.weightGoal;
-  // Check weight goal achievement
-  var [goalPopup, setGoalPopup] = React.useState(false);
-  React.useEffect(function() {
-    if (!weightGoal || weightGoal.achieved) return;
-    var sorted = weight.slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
-    var latest = sorted[0];
-    if (latest && parseFloat(latest.weight) <= parseFloat(weightGoal.target)) {
-      setGoalPopup(true);
-    }
-  }, [weight, weightGoal]);
   var tL = logs.filter(function(l) { return l.takenAt && isT(l.takenAt); });
   var tMl = meals.filter(function(m) { return m.loggedAt && isT(m.loggedAt); }).sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); });
   var tE = ex.filter(function(e) { return e.loggedAt && isT(e.loggedAt); });
@@ -1003,18 +1054,23 @@ function TodayPage(p) {
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
   var waterRemain = Math.max(0, waterTarget - waterMl);
 
+  // Auto fasting: from last meal yesterday/today to first meal today
+  var autoFastHrs = (function() {
+    var allMeals = (p.meals || []).slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); });
+    var yd = (function() { var d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })();
+    var todayMeals = allMeals.filter(function(m) { return m.loggedAt && m.loggedAt.slice(0, 10) === td(); });
+    var yesterdayMeals = allMeals.filter(function(m) { return m.loggedAt && m.loggedAt.slice(0, 10) === yd; });
+    var lastMeal = (yesterdayMeals.length ? yesterdayMeals[yesterdayMeals.length - 1] : null) || (todayMeals.length ? todayMeals[0] : null);
+    if (!lastMeal) return null;
+    var endTime = todayMeals.length ? new Date(todayMeals[0].loggedAt) : new Date();
+    var startTime = new Date(lastMeal.loggedAt);
+    var hrs = (endTime - startTime) / 3600000;
+    return hrs > 0 ? Math.round(hrs * 10) / 10 : null;
+  })();
+
   return (<div className="p-4 pb-28">
-    {goalPopup && (<div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={function(){ setGoalPopup(false); }}>
-      <div className="bg-white rounded-3xl p-8 text-center max-w-xs shadow-2xl" onClick={function(e){ e.stopPropagation(); }}>
-        <div className="text-6xl mb-3">🏆</div>
-        <h2 className="text-2xl font-bold text-emerald-600 mb-2">Goal Reached!</h2>
-        <p className="text-gray-600 mb-1">You've hit your target weight of</p>
-        <p className="text-4xl font-bold text-emerald-700 mb-4">{weightGoal && weightGoal.target}kg</p>
-        <p className="text-sm text-gray-500 mb-6">Amazing work — your dedication is paying off! 🎉</p>
-        <button onClick={function(){ setGoalPopup(false); }} className="w-full py-3 bg-emerald-600 text-white rounded-2xl font-bold text-lg">Celebrate! 🎊</button>
-      </div>
-    </div>)}
     <h2 className="text-xl font-bold mb-3">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</h2>
+    {autoFastHrs !== null && <div className={"inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium mb-3 " + (autoFastHrs >= 16 ? "bg-emerald-100 text-emerald-700" : autoFastHrs >= 14 ? "bg-teal-100 text-teal-700" : "bg-amber-100 text-amber-700")}>⏱️ Fast: {autoFastHrs}h {autoFastHrs >= 16 ? "🎉" : autoFastHrs >= 14 ? "✅" : ""}</div>}
     <div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
@@ -1075,35 +1131,6 @@ function TodayPage(p) {
       </div>);
     })()}
     {lO && <div className={"rounded-xl p-2.5 mb-2 " + (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200")}><span className="font-medium text-sm">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-xs text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
-    {(function() {
-      // Auto-calculate fasting: last meal yesterday/today → first meal today
-      var allMeals = meals.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
-      var todayMeals = allMeals.filter(function(m){ return m.loggedAt && isT(m.loggedAt); });
-      var yesterdayStr = dAgo(1);
-      var yesterdayMeals = allMeals.filter(function(m){ return m.loggedAt && m.loggedAt.slice(0,10) === yesterdayStr; });
-      var lastMealYest = yesterdayMeals.length ? yesterdayMeals[yesterdayMeals.length-1] : null;
-      var firstMealToday = todayMeals.length ? todayMeals[0] : null;
-      var fastHours = null, fastStart = null, fastEnd = null;
-      if (lastMealYest && firstMealToday) {
-        fastStart = new Date(lastMealYest.loggedAt);
-        fastEnd = new Date(firstMealToday.loggedAt);
-        fastHours = ((fastEnd - fastStart) / 3600000).toFixed(1);
-      } else if (lastMealYest) {
-        // Still fasting - show ongoing
-        fastStart = new Date(lastMealYest.loggedAt);
-        fastHours = ((Date.now() - fastStart) / 3600000).toFixed(1);
-        fastEnd = null;
-      }
-      if (!fastHours) return null;
-      var hrs = parseFloat(fastHours);
-      var col = hrs >= 16 ? "text-emerald-700" : hrs >= 14 ? "text-teal-600" : "text-amber-600";
-      var bg = hrs >= 16 ? "bg-emerald-50 border-emerald-200" : hrs >= 14 ? "bg-teal-50 border-teal-200" : "bg-amber-50 border-amber-200";
-      return (<div className={"rounded-xl p-2.5 mb-2 border " + bg}>
-        <span className="font-medium text-sm">⏱️ {fastEnd ? "Fasted" : "Fasting"}</span>
-        <span className={"text-sm font-bold ml-2 " + col}>{fastHours}h</span>
-        <span className="text-xs text-gray-500 ml-2">{fastEnd ? "completed" : "ongoing · break fast to log"}</span>
-      </div>);
-    })()}
     <div className="grid grid-cols-2 gap-2 mb-4">
       {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">💊 {m.name}</button>; })}
       <button onClick={function() { setM({ type: "meal" }); }} className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🍽️ Meal</button>
@@ -1361,75 +1388,82 @@ function App() {
   var [weight, sWeight] = useState([]);
   var [mood, sMood] = useState([]);
   var [bowel, sBowel] = useState([]);
-  var [weightGoal, sWeightGoal] = useState(null);
-  var [weightGoalAchieved, sWeightGoalAchieved] = useState(false);
   var [activity, sActivity] = useState([]);
   var [waterTarget, sWaterTarget] = useState(2000);
   var [calTarget, sCalTarget] = useState(2000);
   var [protTarget, sProtTarget] = useState(50);
   var [medTarget, sMedTarget] = useState(4);
   var [dark, sDark] = useState(false);
+  var [weightGoal, setWeightGoal] = useState(null);
+  var [showGoalPop, setShowGoalPop] = useState(false);
   var [modal, sModal] = useState(null);
   var [ready, setReady] = useState(false);
   var DEF_MEDS = [{ id: "sinemet_default", name: "Sinemet", dose: "", times: [] }];
 
-  useEffect(function() {
-    (async function() {
-      try {
-        var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.weightGoal, null)]);
-        var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17];
-        var fm = m.length > 0 ? m : DEF_MEDS;
-        fm = fm.filter(function(x) { return x && x.name; });
-        var seen = {}; fm = fm.filter(function(x) { var k = (x.name || "").toLowerCase().trim(); if (!k || seen[k]) return false; seen[k] = true; return true; });
-        if (m.length === 0 || fm.length !== m.length) sv(K.meds, fm);
-        var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
-        if (cs.length !== sy.length) sv(K.sym, cs);
-        sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt);
-      } catch (err) {}
-      setReady(true);
-    })();
+  var loadData = useCallback(async function(isInitial) {
+    try {
+      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4)]);
+      var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17];
+      var fm = m.length > 0 ? m : DEF_MEDS;
+      fm = fm.filter(function(x) { return x && x.name; });
+      var seen = {}; fm = fm.filter(function(x) { var k = (x.name || "").toLowerCase().trim(); if (!k || seen[k]) return false; seen[k] = true; return true; });
+      if (isInitial && (m.length === 0 || fm.length !== m.length)) sv(K.meds, fm);
+      var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
+      if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
+      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt);
+      var sg = localStorage.getItem("pd_weightGoal"); if (sg) { try { setWeightGoal(JSON.parse(sg)); } catch(e) {} }
+    } catch (err) {}
+    if (isInitial) setReady(true);
   }, []);
 
-  // Medication alarm system — fixed: re-reads localStorage on every tick, checks every 10s
+  useEffect(function() { loadData(true); }, []);
+
+  // Auto-refresh every 30 seconds for cross-device sync
+  useEffect(function() {
+    var interval = setInterval(function() { loadData(false); }, 30000);
+    // Also refresh when app comes back to foreground (phone tab switch, screen wake)
+    var onVisible = function() { if (document.visibilityState === "visible") loadData(false); };
+    document.addEventListener("visibilitychange", onVisible);
+    return function() { clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [loadData]);
+
+  // Refresh on tab switch
+  var switchTab = function(id) { sTab(id); loadData(false); };
+
+  // Medication alarm system
   useEffect(function() {
     if (typeof window === "undefined") return;
-    var interval = setInterval(function() {
-      try {
-        var alarmsOn = localStorage.getItem("pd_alarms") === "true";
-        if (!alarmsOn) return;
-        if (!("Notification" in window)) return;
-        if (Notification.permission !== "granted") return;
-        var alarmTimes = [];
-        try { alarmTimes = JSON.parse(localStorage.getItem("pd_alarm_times") || '["08:00","12:00","17:00","22:00"]'); } catch(e) { alarmTimes = ["08:00","12:00","17:00","22:00"]; }
-        var firedKey = "pd_alarm_fired_" + td();
-        var fired = {};
-        try { fired = JSON.parse(localStorage.getItem(firedKey) || "{}"); } catch(e) { fired = {}; }
-        var now = new Date();
-        var nowTime = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
-        for (var i = 0; i < alarmTimes.length; i++) {
-          if (alarmTimes[i] === nowTime && !fired[nowTime]) {
-            fired[nowTime] = true;
-            localStorage.setItem(firedKey, JSON.stringify(fired));
-            try {
-              var n = new Notification("💊 Medication Time", {
-                body: "Time to take your medication! (" + nowTime + ")",
-                icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💊%3C/text%3E%3C/svg%3E",
-                tag: "pd-med-" + nowTime,
-                requireInteraction: true,
-                silent: false
-              });
-              n.onclick = function() { window.focus(); n.close(); };
-            } catch(err) { console.warn("Notification failed:", err); }
-          }
+    var alarmsOn = localStorage.getItem("pd_alarms") === "true";
+    if (!alarmsOn) return;
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    var alarmTimes = [];
+    try { alarmTimes = JSON.parse(localStorage.getItem("pd_alarm_times") || '["08:00","12:00","17:00","22:00"]'); } catch(e) { alarmTimes = ["08:00","12:00","17:00","22:00"]; }
+    var firedKey = "pd_alarm_fired_" + td();
+    var fired = {};
+    try { fired = JSON.parse(localStorage.getItem(firedKey) || "{}"); } catch(e) { fired = {}; }
+    var check = function() {
+      var now = new Date();
+      var hh = String(now.getHours()).padStart(2, "0");
+      var mm = String(now.getMinutes()).padStart(2, "0");
+      var nowTime = hh + ":" + mm;
+      for (var i = 0; i < alarmTimes.length; i++) {
+        if (alarmTimes[i] === nowTime && !fired[nowTime]) {
+          fired[nowTime] = true;
+          localStorage.setItem(firedKey, JSON.stringify(fired));
+          try {
+            new Notification("💊 Medication Reminder", { body: "Time to take your medication! (" + nowTime + ")", icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>", tag: "med-" + nowTime, requireInteraction: true });
+          } catch(e) {}
         }
-      } catch(outerErr) { console.warn("Alarm check error:", outerErr); }
-    }, 10000);
+      }
+    };
+    check();
+    var interval = setInterval(check, 30000);
     return function() { clearInterval(interval); };
   }, []);
 
-  function add(setter, key) { return function(item) { setter(function(prev) { var u = prev.concat(Array.isArray(item) ? item : [item]); sv(key, u); return u; }); }; }
-  function upd(setter, key) { return function(item) { setter(function(prev) { var u = prev.map(function(x) { return x.id === item.id ? item : x; }); sv(key, u); return u; }); }; }
-  function del(setter, key) { return function(id) { setter(function(prev) { var u = prev.filter(function(x) { return x.id !== id; }); sv(key, u); return u; }); }; }
+  function add(setter, key) { return function(item) { setter(function(prev) { var items = Array.isArray(item) ? item : [item]; var u = prev.concat(items); items.forEach(function(it) { dbSave(key, it); }); return u; }); }; }
+  function upd(setter, key) { return function(item) { setter(function(prev) { var u = prev.map(function(x) { return x.id === item.id ? item : x; }); dbSave(key, item); return u; }); }; }
+  function del(setter, key) { return function(id) { setter(function(prev) { var u = prev.filter(function(x) { return x.id !== id; }); dbDel(key, id); return u; }); }; }
 
   var aLog = add(sLogs, K.logs), uLog = upd(sLogs, K.logs), dLog = del(sLogs, K.logs);
   var aEx = add(sEx, K.ex), uEx = upd(sEx, K.ex), dEx = del(sEx, K.ex);
@@ -1447,7 +1481,7 @@ function App() {
   var setPT = function(v) { sProtTarget(v); sv(K.protTarget, v); };
   var setMT = function(v) { sMedTarget(v); sv(K.medTarget, v); };
   var aMeal = add(sMeals, K.meals), uMeal = upd(sMeals, K.meals), dMeal = del(sMeals, K.meals);
-  var aSlp = function(s) { sSlp(function(prev) { var u = prev.filter(function(x) { return x.id !== s.id; }).concat([s]); sv(K.sleep, u); return u; }); };
+  var aSlp = function(s) { sSlp(function(prev) { var u = prev.filter(function(x) { return x.id !== s.id; }).concat([s]); dbSave(K.sleep, s); return u; }); };
   var uSlp = upd(sSlp, K.sleep), dSlp = del(sSlp, K.sleep);
   var hMs = function(meal, delId) { if (delId) { dMeal(delId); return; } if (!meal) return; meals.find(function(m) { return m.id === meal.id; }) ? uMeal(meal) : aMeal(meal); };
 
@@ -1477,13 +1511,13 @@ function App() {
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center" style={{ fontFamily: "system-ui, sans-serif" }}><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")} style={{ fontFamily: "system-ui, sans-serif" }}>
-    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><h1 className="text-lg font-bold tracking-tight">PD Tracker</h1></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><div className="flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div></div>
+    {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} weightGoal={weightGoal} setWeightGoal={function(v){ sWeightGoal(v); sv(K.weightGoal, v); }} />}
+    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} weightGoal={weightGoal} setWeightGoal={function(g) { setWeightGoal(g); localStorage.setItem("pd_weightGoal", g ? JSON.stringify(g) : ""); }} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
-      {tabs.map(function(t) { return <button key={t.id} onClick={function() { sTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
+      {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
 
     {modal && modal.type === "dose" && <DoseMod med={modal.med} onSave={function(l) { aLog(l); close(); }} onClose={close} />}
@@ -1509,8 +1543,103 @@ function App() {
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
     {modal && modal.type === "activity" && <ActivityMod onSave={function(a) { aAct(a); close(); }} onClose={close} />}
     {modal && modal.type === "eActivity" && <ActivityMod existing={modal.data} onSave={function(a) { uAct(a); close(); }} onDelete={function(id) { dAct(id); close(); }} onClose={close} />}
+    {goalPopup}
   </div>);
 }
 
-ReactDOM.render(<App />, document.getElementById("root"));
+// ══════════════════════════════════════════════════════
+// AUTH SCREEN
+// ══════════════════════════════════════════════════════
+function AuthScreen() {
+  var [mode, setMode] = useState("login");
+  var [email, setEmail] = useState("");
+  var [password, setPassword] = useState("");
+  var [name, setName] = useState("");
+  var [loading, setLoading] = useState(false);
+  var [error, setError] = useState("");
+  var [success, setSuccess] = useState("");
+
+  var handleSubmit = async function() {
+    setLoading(true); setError(""); setSuccess("");
+    try {
+      if (mode === "login") {
+        var { error: err } = await sb.auth.signInWithPassword({ email: email, password: password });
+        if (err) setError(err.message);
+      } else if (mode === "signup") {
+        if (password.length < 6) { setError("Password must be at least 6 characters"); setLoading(false); return; }
+        var { error: err } = await sb.auth.signUp({ email: email, password: password, options: { data: { display_name: name } } });
+        if (err) setError(err.message);
+        else setSuccess("Check your email for a confirmation link! Once confirmed, come back and log in.");
+      } else if (mode === "reset") {
+        var { error: err } = await sb.auth.resetPasswordForEmail(email);
+        if (err) setError(err.message);
+        else setSuccess("Password reset email sent! Check your inbox.");
+      }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col" style={{ fontFamily: "system-ui, sans-serif" }}>
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-6 pt-12 pb-8 text-center">
+      <div className="text-4xl mb-2">💊</div>
+      <h1 className="text-2xl font-bold tracking-tight">PD Tracker</h1>
+      <p className="text-indigo-300 text-sm mt-1">Parkinson's Disease Daily Tracker</p>
+    </div>
+    <div className="p-6 flex-1">
+      <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <div className="flex gap-2 mb-6">
+          <button onClick={function() { setMode("login"); setError(""); setSuccess(""); }} className={"flex-1 py-2.5 rounded-xl text-sm font-bold " + (mode === "login" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-500")}>Log In</button>
+          <button onClick={function() { setMode("signup"); setError(""); setSuccess(""); }} className={"flex-1 py-2.5 rounded-xl text-sm font-bold " + (mode === "signup" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-500")}>Sign Up</button>
+        </div>
+        {mode === "signup" && <label className="block mb-3"><span className="text-sm font-medium text-gray-700">Your Name</span><input type="text" value={name} onChange={function(e) { setName(e.target.value); }} placeholder="e.g. Mark" className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm" /></label>}
+        <label className="block mb-3"><span className="text-sm font-medium text-gray-700">Email</span><input type="email" value={email} onChange={function(e) { setEmail(e.target.value); }} placeholder="you@example.com" className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm" autoComplete="email" /></label>
+        {mode !== "reset" && <label className="block mb-4"><span className="text-sm font-medium text-gray-700">Password</span><input type="password" value={password} onChange={function(e) { setPassword(e.target.value); }} placeholder={mode === "signup" ? "Min 6 characters" : "Your password"} className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm" autoComplete={mode === "signup" ? "new-password" : "current-password"} /></label>}
+        {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl mb-3">{error}</div>}
+        {success && <div className="text-sm text-green-600 bg-green-50 p-3 rounded-xl mb-3">{success}</div>}
+        <button onClick={handleSubmit} disabled={loading || !email} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+          {loading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />Please wait...</> : mode === "login" ? "Log In" : mode === "signup" ? "Create Account" : "Send Reset Email"}
+        </button>
+        {mode === "login" && <button onClick={function() { setMode("reset"); setError(""); setSuccess(""); }} className="w-full text-center text-sm text-indigo-600 mt-3">Forgot password?</button>}
+        {mode === "reset" && <button onClick={function() { setMode("login"); setError(""); setSuccess(""); }} className="w-full text-center text-sm text-indigo-600 mt-3">← Back to login</button>}
+      </div>
+      <div className="text-center mt-6 text-xs text-gray-400 px-4">
+        <p className="mb-2">Free to use — track medications, symptoms, nutrition, exercise, sleep and more.</p>
+        <p>Your data is private and secure. Only you can see your records.</p>
+      </div>
+    </div>
+  </div>);
+}
+
+// ══════════════════════════════════════════════════════
+// AUTH GATE — wraps entire app
+// ══════════════════════════════════════════════════════
+function AuthGate() {
+  var [session, setSession] = useState(null);
+  var [checking, setChecking] = useState(true);
+
+  useEffect(function() {
+    // Check current session
+    sb.auth.getSession().then(function(result) {
+      var s = result.data.session;
+      if (s) { CURRENT_UID = s.user.id; ANTHROPIC_API_KEY = localStorage.getItem("pd_api_key") || ""; }
+      setSession(s);
+      setChecking(false);
+    });
+    // Listen for auth changes
+    var { data: { subscription } } = sb.auth.onAuthStateChange(function(event, s) {
+      if (s) { CURRENT_UID = s.user.id; ANTHROPIC_API_KEY = localStorage.getItem("pd_api_key") || ""; }
+      else { CURRENT_UID = null; }
+      setSession(s);
+    });
+    return function() { subscription.unsubscribe(); };
+  }, []);
+
+  if (checking) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center" style={{ fontFamily: "system-ui, sans-serif" }}><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
+
+  if (!session) return <AuthScreen />;
+
+  return <App />;
+}
+
+ReactDOM.render(<AuthGate />, document.getElementById("root"));
 </script></body></html>
