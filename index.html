@@ -310,8 +310,8 @@ function DoseMod(p) {
   var med = p.med, ex = p.existing, isEdit = !!ex;
   var [time, sTime] = useState(isEdit ? ft(ex.takenAt) : nw());
   var [date, sDate] = useState(isEdit ? dateOf(ex.takenAt) : td());
-  var [eff, sEff] = useState(isEdit ? (ex.effectiveness || 0) : 0);
-  var [dose, setDose] = useState(isEdit ? (ex.dose || "") : (med.dose || ""));
+  var defDoses = (function() { try { return JSON.parse(localStorage.getItem("pd_defDose") || "{}"); } catch(e) { return {}; } })();
+  var [dose, setDose] = useState(isEdit ? (ex.dose || "") : (defDoses[med.id] || med.dose || ""));
   return (<Mod onClose={p.onClose}>
     <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 {med.name}</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
     <div className="flex gap-3 mb-3">
@@ -319,11 +319,8 @@ function DoseMod(p) {
       <label className="flex-1"><span className="text-sm font-medium">Time taken</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
     </div>
     <label className="block mb-3"><span className="text-sm font-medium">Dose / amount</span><input type="text" value={dose} onChange={function(e) { setDose(e.target.value); }} placeholder="e.g. 25/100, 1 tablet" className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
-    <div className="block mb-4"><span className="text-sm font-medium">Effectiveness: {eff ? eff + "/5" : "Rate later"}</span>
-      <div className="flex gap-2 mt-2">{[1, 2, 3, 4, 5].map(function(n) { return <button key={n} onClick={function() { sEff(n === eff ? 0 : n); }} className={"flex-1 py-2.5 rounded-lg text-sm font-medium " + (n <= eff ? "bg-blue-600 text-white" : "bg-gray-100")}>{n}</button>; })}</div>
-    </div>
     <SaveDel canDel={isEdit} label={isEdit ? "Update" : "Log Dose"} onDel={function() { p.onDelete(ex.id); }} onSave={function() {
-      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), medId: med.id, medName: med.name, dose: dose, takenAt: date + "T" + time + ":00", effectiveness: eff });
+      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), medId: med.id, medName: med.name, dose: dose, takenAt: date + "T" + time + ":00"});
     }} />
   </Mod>);
 }
@@ -463,8 +460,10 @@ var DRINKS = [
 
 function DrinkMod(p) {
   var ex = p.existing, isEdit = !!ex;
-  var [sel, sSel] = useState(isEdit ? ex.drinkId : "");
-  var [vol, sVol] = useState(isEdit ? ex.volume : 250);
+  var defDrinkId = (function(){ try{ return localStorage.getItem("pd_defDrink") || "water"; }catch(e){ return "water"; }})();
+  var defDrinkSz = (function(){ try{ return parseInt(localStorage.getItem("pd_defDrinkSize") || "250"); }catch(e){ return 250; }})();
+  var [sel, sSel] = useState(isEdit ? ex.drinkId : defDrinkId);
+  var [vol, sVol] = useState(isEdit ? ex.volume : defDrinkSz);
   var [custom, setCust] = useState(isEdit && !DRINKS.find(function(d) { return d.id === ex.drinkId; }) ? ex.name : "");
   var [time, sTime] = useState(isEdit ? ft(ex.loggedAt) : nw());
   var [date, sDate] = useState(isEdit ? dateOf(ex.loggedAt) : td());
@@ -772,6 +771,28 @@ function Setup(p) {
     </div>
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <div className="flex justify-between items-center">
+        <div><h3 className="font-bold text-gray-700">🚽 Bowel Tracking</h3><p className="text-xs text-gray-500">Show/hide bowel button</p></div>
+        <button onClick={function() { var cur=localStorage.getItem("pd_showBowel"); localStorage.setItem("pd_showBowel", cur==="false"?"true":"false"); window.location.reload(); }} className={"w-14 h-8 rounded-full relative transition-colors " + (localStorage.getItem("pd_showBowel")!=="false" ? "bg-blue-600" : "bg-gray-300")}>
+          <div className={"w-6 h-6 bg-white rounded-full absolute top-1 transition-transform " + (localStorage.getItem("pd_showBowel")!=="false" ? "translate-x-7" : "translate-x-1")} />
+        </button>
+      </div>
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">🎯 Weight Goal</h3>
+      <p className="text-xs text-gray-500 mb-3">Set a target weight — celebrate when you hit it!</p>
+      <div className="flex items-center gap-3">
+        <input type="number" step="0.1" min="30" max="200" defaultValue={p.weightGoal ? p.weightGoal.target : ""} placeholder="e.g. 72.0"
+          onBlur={function(e) { var val=parseFloat(e.target.value); if(!isNaN(val)&&val>0){ p.setWeightGoal({target:val,unit:"kg"}); } }}
+          className="flex-1 border rounded-xl p-3 text-sm" />
+        <span className="text-sm font-medium text-gray-600">kg</span>
+        {p.weightGoal && <button onClick={function(){ p.setWeightGoal(null); }} className="text-red-400 text-xl">✕</button>}
+      </div>
+      {p.weightGoal && <p className="text-xs text-green-600 mt-2 font-medium">🎯 Target: {p.weightGoal.target}kg</p>}
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <h3 className="font-bold text-gray-700 mb-3">💧 Daily Water Target</h3>
       <div className="flex items-center gap-3">
         <input type="range" min={1000} max={4000} step={250} value={wt} onChange={function(e) { p.setWaterTarget(parseInt(e.target.value)); }} className="flex-1" style={{ accentColor: "#06b6d4" }} />
@@ -779,6 +800,29 @@ function Setup(p) {
       </div>
       <div className="flex justify-between mt-1 text-[10px] text-gray-400"><span>1L</span><span>2L</span><span>3L</span><span>4L</span></div>
       <p className="text-xs text-gray-500 mt-2">💡 2L minimum recommended for PD — helps with constipation, blood pressure & medication absorption. Increase in hot weather or if exercising.</p>
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">🥤 Default Drink</h3>
+      <p className="text-xs text-gray-500 mb-3">Pre-selects when you tap Drink.</p>
+      {(function(){
+        var DRINKS=[{id:"water",e:"💧",n:"Water"},{id:"coffee",e:"☕",n:"Coffee"},{id:"tea",e:"🍵",n:"Tea"},{id:"herbal",e:"🌿",n:"Herbal"},{id:"green_tea",e:"🍃",n:"Green Tea"},{id:"decaf",e:"☕",n:"Decaf"},{id:"juice",e:"🧃",n:"Juice"},{id:"smoothie",e:"🥤",n:"Smoothie"},{id:"milk",e:"🥛",n:"Milk"},{id:"other",e:"🥤",n:"Other"}];
+        var SIZES=[100,150,200,250,330,400,500,568,750];
+        var curD=localStorage.getItem("pd_defDrink")||"water";
+        var curS=parseInt(localStorage.getItem("pd_defDrinkSize")||"250");
+        return (<div>
+          <div className="mb-3"><span className="text-xs font-medium text-gray-600 block mb-1.5">Type</span>
+            <div className="grid grid-cols-3 gap-1.5">
+              {DRINKS.map(function(d){return(<button key={d.id} onClick={function(){localStorage.setItem("pd_defDrink",d.id);window.location.reload();}} className={"p-2 rounded-xl text-xs font-medium border "+(curD===d.id?"bg-cyan-600 text-white border-cyan-600":"bg-gray-50 border-gray-200 text-gray-700")}>{d.e+" "+d.n}</button>);})}
+            </div>
+          </div>
+          <div><span className="text-xs font-medium text-gray-600 block mb-1.5">Size</span>
+            <div className="flex flex-wrap gap-1.5">
+              {SIZES.map(function(s){return(<button key={s} onClick={function(){localStorage.setItem("pd_defDrinkSize",s.toString());window.location.reload();}} className={"px-3 py-1.5 rounded-lg text-xs font-medium border "+(curS===s?"bg-cyan-600 text-white border-cyan-600":"bg-gray-50 border-gray-200 text-gray-700")}>{s>=1000?(s/1000)+"L":s+"ml"}</button>);})}
+            </div>
+          </div>
+        </div>);
+      })()}
     </div>
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
@@ -878,6 +922,25 @@ function Setup(p) {
       <button onClick={function() { if (!n.trim()) return; var nm = { id: Date.now().toString(), name: n, dose: d, times: ts }; setMeds(function(prev) { var u = prev.concat([nm]); dbSave("meds", nm); return u; }); sN(""); sD(""); sTs(["08:00"]); }} className="w-full mt-3 py-3 bg-blue-600 text-white rounded-xl font-bold">Add</button>
     </div>
     {meds.map(function(m) { return (<div key={m.id} className="bg-white rounded-2xl p-4 shadow-sm mb-2 flex justify-between items-center"><div><div className="font-bold">{m.name} <span className="text-gray-500 font-normal">{m.dose}</span></div><div className="text-sm text-gray-400">{(m.times || []).join(", ")}</div></div><button onClick={function() { setMeds(function(prev) { var u = prev.filter(function(x) { return x.id !== m.id; }); dbDel("meds", m.id); return u; }); }} className="text-red-400">🗑️</button></div>); })}
+
+    {meds.length > 0 && <div className="bg-white rounded-2xl p-4 shadow-sm mt-4 mb-4">
+      <h3 className="font-bold text-gray-700 mb-1">💊 Default Dose Per Medication</h3>
+      <p className="text-xs text-gray-500 mb-3">Pre-fills dose when logging.</p>
+      {meds.map(function(m){
+        var doses=(function(){try{return JSON.parse(localStorage.getItem("pd_defDose")||"{}");}catch(e){return{};}})();
+        return(<div key={m.id} className="flex items-center gap-3 mb-2">
+          <span className="flex-1 text-sm font-medium">{m.name}</span>
+          <input type="text" defaultValue={doses[m.id]||m.dose||""} placeholder={m.dose||"e.g. 25/100"}
+            onBlur={function(e){
+              var val=e.target.value.trim();
+              var d=(function(){try{return JSON.parse(localStorage.getItem("pd_defDose")||"{}");}catch(e){return{};}})();
+              if(val){d[m.id]=val;}else{delete d[m.id];}
+              localStorage.setItem("pd_defDose",JSON.stringify(d));
+            }}
+            className="w-28 border rounded-xl p-2 text-sm text-center" />
+        </div>);
+      })}
+    </div>}
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mt-6">
       <h3 className="font-bold text-gray-700 mb-3">🤖 AI Features</h3>
@@ -979,8 +1042,20 @@ function TodayPage(p) {
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
   var waterRemain = Math.max(0, waterTarget - waterMl);
 
+  var autoFastHrs = (function() {
+    var yd = (function() { var d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
+    var todayMeals = tMl.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+    var yMeals = (p.meals||[]).filter(function(m){ return m.loggedAt && m.loggedAt.slice(0,10)===yd; }).sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+    var lastMeal = yMeals.length ? yMeals[yMeals.length-1] : null;
+    if (!lastMeal) return null;
+    var endTime = todayMeals.length ? new Date(todayMeals[0].loggedAt) : new Date();
+    var hrs = (endTime - new Date(lastMeal.loggedAt)) / 3600000;
+    return hrs > 0 ? Math.round(hrs*10)/10 : null;
+  })();
+
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-3">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</h2>
+    {autoFastHrs !== null && <div className={"inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium mb-3 " + (autoFastHrs >= 16 ? "bg-emerald-100 text-emerald-700" : autoFastHrs >= 14 ? "bg-teal-100 text-teal-700" : "bg-amber-100 text-amber-700")}>{"⏱️ Fast: " + autoFastHrs + "h" + (autoFastHrs >= 16 ? " 🎉" : autoFastHrs >= 14 ? " ✅" : "")}</div>}
     <div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
@@ -1042,17 +1117,16 @@ function TodayPage(p) {
     })()}
     {lO && <div className={"rounded-xl p-2.5 mb-2 " + (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200")}><span className="font-medium text-sm">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-xs text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
     <div className="grid grid-cols-2 gap-2 mb-4">
-      {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">💊 {m.name}</button>; })}
-      <button onClick={function() { setM({ type: "meal" }); }} className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🍽️ Meal</button>
-      <button onClick={function() { setM({ type: "drink" }); }} className="bg-gradient-to-r from-cyan-600 to-sky-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🥤 Drink</button>
-      <button onClick={function() { setM({ type: "ex" }); }} className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🏃 Exercise</button>
-      <button onClick={function() { setM({ type: "symstate" }); }} className="bg-gradient-to-r from-rose-600 to-pink-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🩺 Symptom / State</button>
-      <button onClick={function() { setM({ type: "fast" }); }} className="bg-gradient-to-r from-teal-600 to-emerald-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">⏱️ Fasting</button>
-      <button onClick={function() { setM({ type: "weight" }); }} className="bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">⚖️ Weight</button>
-      <button onClick={function() { setM({ type: "mood" }); }} className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">😊 Mood</button>
-      <button onClick={function() { setM({ type: "bowel" }); }} className="bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🚽 Bowel</button>
-      <button onClick={function() { setM({ type: "activity" }); }} className="bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🧘 Activity</button>
-      <button onClick={function() { setM({ type: "slp" }); }} className="bg-gradient-to-r from-indigo-700 to-slate-600 text-white rounded-xl py-3 text-sm font-bold shadow-sm">😴 Sleep</button>
+      {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">💊 {m.name}</button>; })}
+      <button onClick={function() { setM({ type: "meal" }); }} className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🍽️ Meal</button>
+      <button onClick={function() { setM({ type: "drink" }); }} className="bg-gradient-to-r from-cyan-600 to-sky-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🥤 Drink</button>
+      <button onClick={function() { setM({ type: "ex" }); }} className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🏃 Exercise</button>
+      <button onClick={function() { setM({ type: "symstate" }); }} className="bg-gradient-to-r from-rose-600 to-pink-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🩺 Symptom / State</button>
+      <button onClick={function() { setM({ type: "weight" }); }} className="bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">⚖️ Weight</button>
+      <button onClick={function() { setM({ type: "mood" }); }} className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">😊 Mood</button>
+      {(localStorage.getItem("pd_showBowel") !== "false") && <button onClick={function() { setM({ type: "bowel" }); }} className="bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🚽 Bowel</button>}
+      <button onClick={function() { setM({ type: "activity" }); }} className="bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🧘 Activity</button>
+      <button onClick={function() { setM({ type: "slp" }); }} className="bg-gradient-to-r from-indigo-700 to-slate-600 text-white rounded-xl py-4 text-sm font-bold shadow-sm">😴 Sleep</button>
     </div>
     {/* Streaks */}
     {(function() {
@@ -1145,11 +1219,11 @@ function HistoryPage(p) {
     activity.map(function(a) { return Object.assign({}, a, { _t: "activity", _d: a.loggedAt || "" }); })
   ).filter(function(i) { return i._d; }).sort(function(a, b) { return (b._d).localeCompare(a._d); });
   var groups = {}; all.forEach(function(i) { var d = i._d.slice(0, 10); if (!groups[d]) groups[d] = []; groups[d].push(i); });
-  var sortedDays = Object.entries(groups).sort(function(a, b) { return b[0].localeCompare(a[0]); }).filter(function(e) { return e[0] !== td(); });
+  var sortedDays = Object.entries(groups).sort(function(a, b) { return b[0].localeCompare(a[0]); });
 
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-4">📋 History</h2>
-    {sortedDays.slice(0, 4).map(function(entry) {
+    {sortedDays.slice(0, 14).map(function(entry) {
       var date = entry[0], items = entry[1];
       return (<div key={date} className="mb-4">
         <h3 className="font-bold text-gray-500 text-sm mb-2">{new Date(date + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</h3>
@@ -1305,6 +1379,9 @@ function App() {
   var [protTarget, sProtTarget] = useState(50);
   var [medTarget, sMedTarget] = useState(4);
   var [dark, sDark] = useState(false);
+  var [weightGoal, setWeightGoalState] = useState(null);
+  var [showGoalPop, setShowGoalPop] = useState(false);
+  var setWeightGoal = function(g) { setWeightGoalState(g); localStorage.setItem("pd_weightGoal", g ? JSON.stringify(g) : ""); };
   var [modal, sModal] = useState(null);
   var [ready, setReady] = useState(false);
   var DEF_MEDS = [{ id: "sinemet_default", name: "Sinemet", dose: "", times: [] }];
@@ -1320,6 +1397,7 @@ function App() {
       var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
       if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
       sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt);
+      try { var sg=localStorage.getItem("pd_weightGoal"); if(sg) setWeightGoalState(JSON.parse(sg)); } catch(e) {}
     } catch (err) {}
     if (isInitial) setReady(true);
   }, []);
@@ -1420,10 +1498,10 @@ function App() {
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")} style={{ fontFamily: "system-ui, sans-serif" }}>
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><div className="flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
+    {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} />}
+    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} weightGoal={weightGoal} setWeightGoal={setWeightGoal} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
@@ -1451,6 +1529,7 @@ function App() {
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
     {modal && modal.type === "activity" && <ActivityMod onSave={function(a) { aAct(a); close(); }} onClose={close} />}
     {modal && modal.type === "eActivity" && <ActivityMod existing={modal.data} onSave={function(a) { uAct(a); close(); }} onDelete={function(id) { dAct(id); close(); }} onClose={close} />}
+    {showGoalPop && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={function(){ setShowGoalPop(false); }}><div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm w-full"><div className="text-6xl mb-4">🏆</div><h2 className="text-2xl font-bold text-emerald-600 mb-2">Goal Reached!</h2><p className="text-gray-600 mb-4">You hit your weight target of {weightGoal ? weightGoal.target + "kg" : ""}!</p><button onClick={function(){ setShowGoalPop(false); }} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold w-full">Celebrate! 🎉</button></div></div>}
   </div>);
 }
 
