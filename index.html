@@ -1930,6 +1930,13 @@ function App() {
   };
   var dayNum = new Date().getDate().toString();
   var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "report", i: "📊", n: "Report" }, { id: "insights", i: "📈", n: "Insights" }, { id: "setup", i: "⚙️", n: "Setup" }];
+  var missedDoseBadge = (function() {
+    var now = new Date(); var nowMins = now.getHours()*60 + now.getMinutes();
+    var todayLogTimes = logs.filter(function(l){ return l.takenAt && l.takenAt.startsWith(td()); }).map(function(l){ return l.takenAt.slice(11,16); });
+    var missed = 0;
+    meds.forEach(function(m){ (m.times||[]).forEach(function(t){ var tp=t.split(":"); var tMins=parseInt(tp[0])*60+parseInt(tp[1]); if(tMins < nowMins - 45){ var taken=todayLogTimes.some(function(lt){ var lp=lt.split(":"); return Math.abs(parseInt(lp[0])*60+parseInt(lp[1]) - tMins) <= 45; }); if(!taken) missed++; } }); });
+    return missed;
+  })();
 
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center" style={{ fontFamily: "system-ui, sans-serif" }}><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
@@ -2067,4 +2074,4 @@ function AuthGate() {
 }
 
 ReactDOM.render(<AuthGate />, document.getElementById("root"));
-</script></body></html><!-- rebuild Sat Mar  7 18:29:11 UTC 2026 -->
+</script></body></html>
