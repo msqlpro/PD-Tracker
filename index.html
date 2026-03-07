@@ -110,6 +110,35 @@ async function generateReport(period, data) {
       summary += "\nINTERMITTENT FASTING (" + data.fast.length + " entries, target: 14h):\n";
       data.fast.forEach(function(f) { summary += "- " + f.date + " " + f.hours + "h (last ate " + f.startTime + ", broke fast " + f.endTime + ")" + (f.hours >= 14 ? " ✅" : " ⚠️ below target") + "\n"; });
     }
+    // Auto-calculate fasting from meals for days without manual fasting entries
+    if (data.meals && data.meals.length) {
+      var allMealsSorted = data.meals.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+      var fastByDay = {};
+      allMealsSorted.forEach(function(m) {
+        var day = (m.loggedAt||"").slice(0,10);
+        if (!fastByDay[day]) fastByDay[day] = { first: m.loggedAt, last: m.loggedAt };
+        if (m.loggedAt < fastByDay[day].first) fastByDay[day].first = m.loggedAt;
+        if (m.loggedAt > fastByDay[day].last) fastByDay[day].last = m.loggedAt;
+      });
+      var autoFastLines = [];
+      var days = Object.keys(fastByDay).sort();
+      for (var i = 1; i < days.length; i++) {
+        var prevDay = days[i-1], thisDay = days[i];
+        var lastMealPrev = fastByDay[prevDay].last;
+        var firstMealThis = fastByDay[thisDay].first;
+        var hrs = Math.round(((new Date(firstMealThis) - new Date(lastMealPrev)) / 3600000) * 10) / 10;
+        if (hrs > 0 && hrs < 30) {
+          autoFastLines.push("- " + thisDay + " " + hrs + "h fast (ate until " + lastMealPrev.slice(11,16) + " prev day, broke fast " + firstMealThis.slice(11,16) + ")" + (hrs >= 16 ? " 🎉" : hrs >= 14 ? " ✅" : " ⚠️ below 14h target"));
+        }
+      }
+      if (autoFastLines.length && !data.fast.length) {
+        summary += "\nINTERMITTENT FASTING (auto-calculated from meals, target: 14h):\n";
+        autoFastLines.forEach(function(l){ summary += l + "\n"; });
+      } else if (autoFastLines.length) {
+        summary += "\nADDITIONAL FASTING (auto-calculated):\n";
+        autoFastLines.forEach(function(l){ summary += l + "\n"; });
+      }
+    }
     if (data.drinks && data.drinks.length) {
       summary += "\nDRINKS (" + data.drinks.length + "):\n";
       data.drinks.forEach(function(d) { summary += "- " + (d.loggedAt || "").slice(0, 16) + " " + d.name + " " + d.volume + "ml" + (d.caffeine ? " caff:" + d.caffeine + "mg" : "") + (d.calories ? " " + d.calories + "kcal" : "") + "\n"; });
