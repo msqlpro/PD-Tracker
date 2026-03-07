@@ -1904,9 +1904,27 @@ function App() {
   var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "report", i: "📊", n: "Report" }, { id: "insights", i: "📈", n: "Insights" }, { id: "setup", i: "⚙️", n: "Setup" }];
   var missedDoseBadge = (function() {
     var nowD = new Date(); var nowMins = nowD.getHours()*60 + nowD.getMinutes();
-    var todayTimes = logs.filter(function(l){ return l.takenAt && l.takenAt.startsWith(td()); }).map(function(l){ return l.takenAt.slice(11,16); });
+    var todayLogs = logs.filter(function(l){ return l.takenAt && l.takenAt.startsWith(td()); });
+    var todayTimes = todayLogs.map(function(l){ return l.takenAt.slice(11,16); });
+    // Use alarm times from localStorage as the scheduled dose times
+    var scheduledTimes = [];
+    try { scheduledTimes = JSON.parse(localStorage.getItem("pd_alarm_times") || "[]"); } catch(e) { scheduledTimes = []; }
+    // Fall back to med target count if no alarm times set
+    if (!scheduledTimes.length) {
+      var target = parseInt(localStorage.getItem("pd_medTarget") || "3");
+      var taken = todayLogs.length;
+      var hoursIn = nowD.getHours() + nowD.getMinutes()/60;
+      var expected = Math.floor((hoursIn / 24) * target);
+      return Math.max(0, expected - taken);
+    }
     var missed = 0;
-    meds.forEach(function(med){ (med.times||[]).forEach(function(t){ var tp=t.split(":"); var tMins=parseInt(tp[0])*60+parseInt(tp[1]); if(tMins < nowMins - 45){ var taken=todayTimes.some(function(lt){ var lp=lt.split(":"); return Math.abs(parseInt(lp[0])*60+parseInt(lp[1])-tMins)<=45; }); if(!taken) missed++; } }); });
+    scheduledTimes.forEach(function(t) {
+      var tp = t.split(":"); var tMins = parseInt(tp[0])*60 + parseInt(tp[1]);
+      if (tMins < nowMins - 30) {
+        var taken = todayTimes.some(function(lt){ var lp=lt.split(":"); return Math.abs(parseInt(lp[0])*60+parseInt(lp[1])-tMins) <= 60; });
+        if (!taken) missed++;
+      }
+    });
     return missed;
   })();
 
