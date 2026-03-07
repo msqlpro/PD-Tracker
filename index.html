@@ -27,6 +27,14 @@ input, select, textarea, button { font-family: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .animate-spin { animation: spin 1s linear infinite; }
 </style>
+<style>
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .pb-28 { padding-bottom: 1rem !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -346,6 +354,22 @@ function renderBold(text) {
 }
 
 // ── Modals ──
+function NotesMod(p) {
+  var saved = localStorage.getItem("pd_note_" + td()) || "";
+  var [text, setText] = useState(saved);
+  function save() { localStorage.setItem("pd_note_" + td(), text); p.onClose(); }
+  return (<div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl p-5 w-full max-w-md shadow-xl">
+      <h3 className="font-bold text-lg mb-3">📝 Today's Notes</h3>
+      <textarea value={text} onChange={function(e){ setText(e.target.value); }} placeholder="How are you feeling? Any observations about symptoms, medication, diet..." className="w-full border rounded-xl p-3 text-sm h-40 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" autoFocus />
+      <div className="flex gap-2 mt-3">
+        <button onClick={p.onClose} className="flex-1 py-3 rounded-xl border text-gray-600">Cancel</button>
+        <button onClick={save} className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold">Save</button>
+      </div>
+    </div>
+  </div>);
+}
+
 function DoseMod(p) {
   var med = p.med, ex = p.existing, isEdit = !!ex;
   var [time, sTime] = useState(isEdit ? ft(ex.takenAt) : nw());
@@ -426,11 +450,11 @@ function MealMod(p) {
 }
 
 function ExMod(p) {
-  var ex = p.existing, isEdit = !!ex;
+  var ex = p.existing, isEdit = !!ex, pre = p.prefill;
   var [cex, setCex] = useState([]);
-  var [type, setType] = useState(isEdit ? ex.type : "");
+  var [type, setType] = useState(isEdit ? ex.type : (pre ? pre.type : ""));
   var [custom, setCust] = useState("");
-  var [dur, setDur] = useState(isEdit ? ex.duration : 30);
+  var [dur, setDur] = useState(isEdit ? ex.duration : (pre ? pre.duration : 30));
   var [int_, setInt] = useState(isEdit ? ex.intensity : "moderate");
   var [time, setTime] = useState(isEdit ? ft(ex.loggedAt) : nw());
   var [date, setDate] = useState(isEdit ? dateOf(ex.loggedAt) : td());
@@ -1216,6 +1240,54 @@ function TodayPage(p) {
       </div>);
     })()}
     {lO && <div className={"rounded-xl p-2.5 mb-2 " + (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200")}><span className="font-medium text-sm">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-xs text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
+    {(function() {
+      if (tO.length < 2) return null;
+      var sorted = tO.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+      var segments = [];
+      for (var i = 0; i < sorted.length - 1; i++) {
+        var start = new Date(sorted[i].loggedAt);
+        var end = new Date(sorted[i+1].loggedAt);
+        var dayStart = new Date(td()+"T00:00:00");
+        var pct = function(t) { return Math.min(100, Math.max(0, ((t - dayStart) / 86400000) * 100)); };
+        segments.push({ state: sorted[i].state, left: pct(start), width: pct(end) - pct(start) });
+      }
+      var last = sorted[sorted.length-1];
+      var now = new Date();
+      var dayStart2 = new Date(td()+"T00:00:00");
+      var lastLeft = Math.min(100, Math.max(0, ((new Date(last.loggedAt) - dayStart2) / 86400000) * 100));
+      segments.push({ state: last.state, left: lastLeft, width: 100 - lastLeft });
+      return (<div className="bg-white rounded-xl p-3 shadow-sm mb-2">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold text-gray-600">⚡ ON/OFF Timeline</span>
+          <div className="flex gap-2 text-[10px]"><span className="text-emerald-600 font-medium">● ON</span><span className="text-rose-500 font-medium">● OFF</span></div>
+        </div>
+        <div className="relative w-full h-6 bg-gray-100 rounded-full overflow-hidden">
+          {segments.map(function(s,i){ return <div key={i} className={"absolute h-full rounded-sm " + (s.state==="on" ? "bg-emerald-400" : "bg-rose-400")} style={{left:s.left+"%", width:Math.max(1,s.width)+"%"}} />; })}
+        </div>
+        <div className="flex justify-between text-[9px] text-gray-300 mt-1"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
+      </div>);
+    })()}
+    {(function(){
+      var yd = (function(){ var dt=new Date(); dt.setDate(dt.getDate()-1); return dt.toISOString().slice(0,10); })();
+      var ydMeals = meals.filter(function(m){ return m.loggedAt && m.loggedAt.startsWith(yd); });
+      var ydEx = ex.filter(function(e){ return e.loggedAt && e.loggedAt.startsWith(yd); });
+      if (!ydMeals.length && !ydEx.length) return null;
+      return (<div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-2">
+        <div className="text-xs font-bold text-indigo-700 mb-2">⚡ Quick Log from Yesterday</div>
+        <div className="flex flex-wrap gap-1.5">
+          {ydMeals.slice(0,3).map(function(m,i){
+            return <button key={i} onClick={function(){ setM({ type: "meal", prefill: m }); }} className="bg-white border border-indigo-200 rounded-lg px-2 py-1 text-xs text-indigo-700 active:scale-95">
+              🍽️ {(m.description||"Meal").slice(0,18)}{m.calories ? " ("+m.calories+"kcal)" : ""}
+            </button>;
+          })}
+          {ydEx.slice(0,2).map(function(e,i){
+            return <button key={"e"+i} onClick={function(){ setM({ type: "ex", prefill: e }); }} className="bg-white border border-orange-200 rounded-lg px-2 py-1 text-xs text-orange-700 active:scale-95">
+              🏃 {(e.type||"Exercise").slice(0,15)}{e.duration ? " ("+e.duration+"min)" : ""}
+            </button>;
+          })}
+        </div>
+      </div>);
+    })()}
     <div className="grid grid-cols-2 gap-2 mb-4">
       {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">💊 {m.name}</button>; })}
       <button onClick={function() { setM({ type: "meal" }); }} className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🍽️ Meal</button>
@@ -1227,7 +1299,35 @@ function TodayPage(p) {
       {(localStorage.getItem("pd_showBowel") !== "false") && <button onClick={function() { setM({ type: "bowel" }); }} className="bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🚽 Bowel</button>}
       <button onClick={function() { setM({ type: "activity" }); }} className="bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🧘 Activity</button>
       <button onClick={function() { setM({ type: "slp" }); }} className="bg-gradient-to-r from-indigo-700 to-slate-600 text-white rounded-xl py-4 text-sm font-bold shadow-sm">😴 Sleep</button>
+      <button onClick={function() { setM({ type: "notes" }); }} className="bg-gradient-to-r from-sky-600 to-blue-500 text-white rounded-xl py-4 text-sm font-semibold shadow-sm active:scale-95 transition-transform">📝 Notes</button>
     </div>
+    {(function() {
+      var warnings = [];
+      var now = new Date();
+      var nowMins = now.getHours()*60 + now.getMinutes();
+      // Check each med's scheduled times
+      meds.forEach(function(m) {
+        (m.times || []).forEach(function(t) {
+          var tp = t.split(":"); var tMins = parseInt(tp[0])*60 + parseInt(tp[1]);
+          var diff = tMins - nowMins;
+          if (diff >= 0 && diff <= 60) {
+            // Upcoming dose within 60 mins - check for high protein meal in last 2hrs
+            var twoHrsAgo = new Date(now.getTime() - 2*3600000).toISOString();
+            var recentHighProt = tMl.find(function(ml) {
+              return ml.loggedAt > twoHrsAgo && (ml.protein || 0) >= 20;
+            });
+            if (recentHighProt) {
+              warnings.push(m.name + " due at " + t + " — high protein meal logged " + Math.round((now - new Date(recentHighProt.loggedAt))/60000) + "min ago (" + recentHighProt.protein + "g protein). Consider waiting longer for better absorption.");
+            }
+          }
+        });
+      });
+      if (!warnings.length) return null;
+      return (<div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2">
+        <div className="text-xs font-bold text-amber-700 mb-1">⚠️ Protein-Medication Warning</div>
+        {warnings.map(function(w,i){ return <div key={i} className="text-xs text-amber-600">{w}</div>; })}
+      </div>);
+    })()}
     {/* Streaks */}
     {(function() {
       var calcStreak = function(dates) {
@@ -1262,6 +1362,57 @@ function TodayPage(p) {
           {waterStreak > 0 && <div className="flex items-center gap-1"><span className="text-cyan-500 text-lg">💧</span><span className="text-sm font-bold text-cyan-600">{waterStreak}d</span></div>}
           {moodStreak > 0 && <div className="flex items-center gap-1"><span className="text-yellow-500 text-lg">😊</span><span className="text-sm font-bold text-yellow-600">{moodStreak}d</span></div>}
         </div>
+      </div>);
+    })()}
+    {(function() {
+      var bests = [];
+      // Longest fast
+      var maxFast = fast.reduce(function(m,f){ return (f.hours||0) > m ? (f.hours||0) : m; }, 0);
+      if (maxFast > 0) bests.push({ icon: "⏱️", label: "Longest fast", val: maxFast + "h" });
+      // Most exercise in a day
+      var exByDay = {}; ex.forEach(function(e){ var d=dateOf(e.loggedAt); exByDay[d]=(exByDay[d]||0)+(e.duration||0); });
+      var maxEx = Object.values(exByDay).reduce(function(m,v){ return v>m?v:m; }, 0);
+      if (maxEx > 0) bests.push({ icon: "🏃", label: "Most exercise/day", val: maxEx + "min" });
+      // Lowest weight
+      var weights = weight.map(function(w){ return parseFloat(w.weight)||0; }).filter(Boolean);
+      if (weights.length > 1) {
+        var minW = Math.min.apply(null, weights);
+        bests.push({ icon: "⚖️", label: "Lowest weight", val: minW + "kg" });
+      }
+      // Longest logging streak (total entries)
+      var entryDates = {}; 
+      logs.forEach(function(l){ if(l.takenAt) entryDates[dateOf(l.takenAt)]=1; });
+      meals.forEach(function(m){ if(m.loggedAt) entryDates[dateOf(m.loggedAt)]=1; });
+      var allDays = Object.keys(entryDates).sort();
+      var longestStreak=0, curStreak=0;
+      for(var i=0;i<allDays.length;i++){
+        if(i===0) curStreak=1;
+        else {
+          var prev=new Date(allDays[i-1]); var cur=new Date(allDays[i]);
+          var diff=(cur-prev)/86400000;
+          if(diff===1) curStreak++; else curStreak=1;
+        }
+        if(curStreak>longestStreak) longestStreak=curStreak;
+      }
+      if (longestStreak > 1) bests.push({ icon: "🔥", label: "Longest logging streak", val: longestStreak + " days" });
+      if (!bests.length) return null;
+      return (<div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-100 rounded-xl p-3 mb-4">
+        <div className="text-xs font-bold text-amber-700 mb-2">🏆 Personal Bests</div>
+        <div className="grid grid-cols-2 gap-2">
+          {bests.map(function(b,i){ return (<div key={i} className="bg-white rounded-lg p-2 text-center shadow-sm">
+            <div className="text-lg">{b.icon}</div>
+            <div className="text-sm font-bold text-gray-800">{b.val}</div>
+            <div className="text-[10px] text-gray-500">{b.label}</div>
+          </div>); })}
+        </div>
+      </div>);
+    })()}
+    {(function(){
+      var note = localStorage.getItem("pd_note_" + td());
+      if (!note) return null;
+      return (<div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-2 cursor-pointer" onClick={function(){ setM({ type: "notes" }); }}>
+        <div className="text-[10px] font-bold text-blue-600 mb-1">📝 Today's Note</div>
+        <div className="text-xs text-gray-700 line-clamp-2">{note}</div>
       </div>);
     })()}
     <h3 className="font-bold text-gray-600 mb-2 mt-2">Today's Log</h3>
@@ -1323,6 +1474,45 @@ function HistoryPage(p) {
 
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-4">📋 History</h2>
+    {(function() {
+      // Build 28-day symptom heatmap
+      var days = 28;
+      var cells = [];
+      for (var i = days-1; i >= 0; i--) {
+        var dt = new Date(); dt.setDate(dt.getDate() - i);
+        var d = dt.toISOString().slice(0,10);
+        var daySym = sym.filter(function(s){ return s.loggedAt && s.loggedAt.startsWith(d); });
+        var avgSev = daySym.length ? daySym.reduce(function(s,x){ return s+(x.severity||0); }, 0) / daySym.length : 0;
+        cells.push({ d: d, sev: avgSev, count: daySym.length });
+      }
+      var cols = ["bg-gray-100","bg-yellow-100","bg-orange-200","bg-orange-400","bg-red-500"];
+      var getCol = function(sev) {
+        if (sev === 0) return cols[0];
+        if (sev < 2) return cols[1];
+        if (sev < 4) return cols[2];
+        if (sev < 7) return cols[3];
+        return cols[4];
+      };
+      return (<div className="bg-white rounded-xl p-3 shadow-sm mb-4">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold text-gray-600">🌡️ Symptom Severity — 28 Days</span>
+          <div className="flex items-center gap-1 text-[9px] text-gray-400">
+            <span className="w-3 h-3 rounded-sm bg-gray-100 inline-block"></span>none
+            <span className="w-3 h-3 rounded-sm bg-yellow-100 inline-block ml-1"></span>mild
+            <span className="w-3 h-3 rounded-sm bg-orange-400 inline-block ml-1"></span>mod
+            <span className="w-3 h-3 rounded-sm bg-red-500 inline-block ml-1"></span>severe
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {cells.map(function(cell,i){
+            return <div key={i} title={cell.d + (cell.count ? " avg:"+cell.sev.toFixed(1) : " no data")} className={"w-7 h-7 rounded-sm " + getCol(cell.sev) + " flex items-center justify-center"}>
+              <span className="text-[8px] text-gray-500">{new Date(cell.d+"T12:00").getDate()}</span>
+            </div>;
+          })}
+        </div>
+      </div>);
+    })()}
+
     {sortedDays.slice(0, 14).map(function(entry) {
       var date = entry[0], items = entry[1];
       return (<div key={date} className="mb-4">
@@ -1361,6 +1551,139 @@ function HistoryPage(p) {
 }
 
 // ── Report Page ──
+
+function InsightsPage(p) {
+  var logs=p.logs, meals=p.meals, ex=p.ex, slp=p.slp, sym=p.sym, oo=p.oo, weight=p.weight||[], mood=p.mood||[];
+
+  // Build daily summaries for last 30 days
+  var days = 30;
+  var dailies = [];
+  for (var i = days-1; i >= 0; i--) {
+    var dt = new Date(); dt.setDate(dt.getDate()-i);
+    var d = dt.toISOString().slice(0,10);
+    var dSym = sym.filter(function(s){ return s.loggedAt&&s.loggedAt.startsWith(d); });
+    var dSlp = slp.find(function(s){ return s.date===d; });
+    var dEx = ex.filter(function(e){ return e.loggedAt&&e.loggedAt.startsWith(d); });
+    var dOo = oo.filter(function(o){ return o.loggedAt&&o.loggedAt.startsWith(d); });
+    var dMood = mood.find(function(m){ return m.date===d; });
+    var dMeals = meals.filter(function(m){ return m.loggedAt&&m.loggedAt.startsWith(d); });
+    var avgSev = dSym.length ? dSym.reduce(function(s,x){ return s+(x.severity||0);},0)/dSym.length : null;
+    var onMins = 0, offMins = 0;
+    for(var j=0;j<dOo.length-1;j++){
+      var dur=(new Date(dOo[j+1].loggedAt)-new Date(dOo[j].loggedAt))/60000;
+      if(dOo[j].state==="on") onMins+=dur; else offMins+=dur;
+    }
+    var totProt = dMeals.reduce(function(s,m){ return s+(m.protein||0); }, 0);
+    dailies.push({
+      d: d, label: dt.toLocaleDateString("en-GB",{day:"numeric",month:"short"}),
+      sym: avgSev, sleep: dSlp ? (dSlp.quality||0) : null,
+      ex: dEx.reduce(function(s,e){ return s+(e.duration||0); },0),
+      on: onMins, off: offMins,
+      mood: dMood ? (dMood.level||0) : null,
+      prot: totProt
+    });
+  }
+
+  // Mini sparkline component
+  function Spark(sp) {
+    var data=sp.data, color=sp.color||"#6366f1";
+    var vals=data.filter(function(v){ return v!==null&&v!==0; });
+    if (!vals.length) return <span className="text-xs text-gray-300">no data</span>;
+    var max=Math.max.apply(null,vals)||1;
+    var w=200, h=40;
+    var pts = data.map(function(v,i){
+      var x=(i/(data.length-1))*w;
+      var y=v===null ? null : h - (v/max)*h*0.9 - 2;
+      return {x:x, y:y};
+    });
+    var path = pts.reduce(function(acc,p,i){
+      if(p.y===null) return acc;
+      var prev = pts.slice(0,i).reverse().find(function(pp){ return pp.y!==null; });
+      return acc + (prev ? " L"+p.x.toFixed(1)+","+p.y.toFixed(1) : " M"+p.x.toFixed(1)+","+p.y.toFixed(1));
+    },"");
+    return <svg width={w} height={h} className="w-full" viewBox={"0 0 "+w+" "+h}>
+      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>;
+  }
+
+  // Correlation: sleep quality vs next day symptoms
+  var sleepSymCorr = [];
+  for(var i=0;i<dailies.length-1;i++){
+    if(dailies[i].sleep!==null && dailies[i+1].sym!==null)
+      sleepSymCorr.push({x:dailies[i].sleep, y:dailies[i+1].sym});
+  }
+  var sleepSymMsg = ""; 
+  if(sleepSymCorr.length >= 5){
+    var goodSleep=sleepSymCorr.filter(function(p){ return p.x>=4; });
+    var badSleep=sleepSymCorr.filter(function(p){ return p.x<=2; });
+    var avgGood=goodSleep.length ? goodSleep.reduce(function(s,p){ return s+p.y; },0)/goodSleep.length : null;
+    var avgBad=badSleep.length ? badSleep.reduce(function(s,p){ return s+p.y; },0)/badSleep.length : null;
+    if(avgGood!==null && avgBad!==null) sleepSymMsg="Good sleep → avg "+avgGood.toFixed(1)+"/10 symptoms next day. Poor sleep → "+avgBad.toFixed(1)+"/10.";
+  }
+
+  // Exercise vs symptom severity same day
+  var exSymDays = dailies.filter(function(d){ return d.ex>0 && d.sym!==null; });
+  var noExSymDays = dailies.filter(function(d){ return d.ex===0 && d.sym!==null; });
+  var avgSymEx = exSymDays.length ? exSymDays.reduce(function(s,d){ return s+d.sym; },0)/exSymDays.length : null;
+  var avgSymNoEx = noExSymDays.length ? noExSymDays.reduce(function(s,d){ return s+d.sym; },0)/noExSymDays.length : null;
+  var exMsg = (avgSymEx!==null && avgSymNoEx!==null) ? "Exercise days: "+avgSymEx.toFixed(1)+"/10 avg symptoms. Rest days: "+avgSymNoEx.toFixed(1)+"/10." : "";
+
+  return (<div className="p-4 pb-28">
+    <h2 className="text-xl font-bold mb-4">📈 Insights</h2>
+
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
+      <div className="text-xs font-bold text-gray-600 mb-1">🌡️ Symptom Severity (30 days)</div>
+      <Spark data={dailies.map(function(d){ return d.sym; })} color="#ef4444" />
+      {sleepSymMsg && <div className="text-xs text-gray-500 mt-1 bg-blue-50 rounded-lg p-2">💤 {sleepSymMsg}</div>}
+    </div>
+
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
+      <div className="text-xs font-bold text-gray-600 mb-1">💤 Sleep Quality (30 days)</div>
+      <Spark data={dailies.map(function(d){ return d.sleep; })} color="#6366f1" />
+    </div>
+
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
+      <div className="text-xs font-bold text-gray-600 mb-1">🏃 Exercise Minutes (30 days)</div>
+      <Spark data={dailies.map(function(d){ return d.ex; })} color="#f97316" />
+      {exMsg && <div className="text-xs text-gray-500 mt-1 bg-orange-50 rounded-lg p-2">🏃 {exMsg}</div>}
+    </div>
+
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
+      <div className="text-xs font-bold text-gray-600 mb-1">😊 Mood (30 days)</div>
+      <Spark data={dailies.map(function(d){ return d.mood; })} color="#f59e0b" />
+    </div>
+
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
+      <div className="text-xs font-bold text-gray-600 mb-1">⚡ ON Time (minutes/day, 30 days)</div>
+      <Spark data={dailies.map(function(d){ return d.on||null; })} color="#10b981" />
+    </div>
+
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-4">
+      <div className="text-xs font-bold text-gray-600 mb-1">⚖️ Weight (30 days)</div>
+      <Spark data={(function(){
+        var wByDay={};
+        weight.forEach(function(w){ wByDay[w.date]=parseFloat(w.weight)||0; });
+        return dailies.map(function(d){ return wByDay[d.d]||null; });
+      })()} color="#8b5cf6" />
+    </div>
+
+    <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
+      <div className="font-bold mb-1">📊 30-Day Averages</div>
+      {(function(){
+        var hasData = dailies.filter(function(d){ return d.sym!==null; });
+        var hasSleep = dailies.filter(function(d){ return d.sleep!==null; });
+        var hasMood = dailies.filter(function(d){ return d.mood!==null; });
+        return (<div className="grid grid-cols-2 gap-2">
+          {hasData.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-red-500">{(hasData.reduce(function(s,d){return s+d.sym;},0)/hasData.length).toFixed(1)}</div><div>Avg Symptoms</div></div>}
+          {hasSleep.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-indigo-500">{(hasSleep.reduce(function(s,d){return s+d.sleep;},0)/hasSleep.length).toFixed(1)}</div><div>Avg Sleep</div></div>}
+          {hasMood.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-amber-500">{(hasMood.reduce(function(s,d){return s+d.mood;},0)/hasMood.length).toFixed(1)}</div><div>Avg Mood</div></div>}
+          <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-orange-500">{Math.round(dailies.reduce(function(s,d){return s+d.ex;},0)/days)}</div><div>Avg Exercise</div></div>
+        </div>);
+      })()}
+    </div>
+  </div>);
+}
+
 function ReportPage(p) {
   var [period, sPeriod] = useState("weekly");
   var [report, sReport] = useState(null);
@@ -1467,6 +1790,16 @@ function ReportPage(p) {
           else if (navigator.clipboard) { navigator.clipboard.writeText(report); }
         }} className="flex-1 py-2.5 bg-green-100 text-green-700 rounded-xl text-sm font-bold">📤 Share</button>
       </div>
+      <button onClick={function() {
+        var win = window.open("","_blank");
+        win.document.write("<html><head><title>PD Tracker Report</title><style>body{font-family:system-ui,sans-serif;max-width:700px;margin:40px auto;padding:20px;line-height:1.6}h1,h2,h3{color:#1e293b}strong{color:#334155}</style></head><body>");
+        win.document.write("<h1>PD Tracker — " + period.charAt(0).toUpperCase()+period.slice(1) + " Report</h1>");
+        win.document.write("<p style=\"color:#64748b\">" + new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"}) + "</p><hr/>");
+        win.document.write("<pre style=\"white-space:pre-wrap;font-family:system-ui\">" + report.replace(/</g,"&lt;").replace(/>/g,"&gt;") + "</pre>");
+        win.document.write("</body></html>");
+        win.document.close();
+        setTimeout(function(){ win.print(); }, 500);
+      }} className="w-full mt-2 py-2.5 bg-purple-100 text-purple-700 rounded-xl text-sm font-bold">🖨️ Print / Save as PDF</button>
     </div>}
   </div>);
 }
@@ -1605,7 +1938,7 @@ function App() {
     setReanalyzing(false);
   };
   var dayNum = new Date().getDate().toString();
-  var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "report", i: "📊", n: "Report" }, { id: "setup", i: "⚙️", n: "Setup" }];
+  var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "report", i: "📊", n: "Report" }, { id: "insights", i: "📈", n: "Insights" }, { id: "setup", i: "⚙️", n: "Setup" }];
 
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center" style={{ fontFamily: "system-ui, sans-serif" }}><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
@@ -1613,17 +1946,18 @@ function App() {
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><div className="flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div></div>
     {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
+    {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
     {tab === "setup" && <Setup meds={meds} setMeds={sMeds} weightGoal={weightGoal} setWeightGoal={setWeightGoal} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
-      {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
+      {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}><div className="relative">{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}{t.id === "today" && missedDoseBadge > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{missedDoseBadge}</span>}</div><span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
 
     {modal && modal.type === "dose" && <DoseMod med={modal.med} onSave={function(l) { aLog(l); close(); }} onClose={close} />}
     {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} onSave={function(l) { uLog(l); close(); }} onDelete={function(id) { dLog(id); close(); }} onClose={close} />}
-    {modal && modal.type === "meal" && <MealMod onSave={hMs} onClose={close} prev={meals} />}
+    {modal && modal.type === "meal" && <MealMod onSave={hMs} onClose={close} prev={meals} prefill={modal.prefill} />}
     {modal && modal.type === "eMeal" && <MealMod onSave={hMs} onClose={close} edit={modal.meal} prev={meals} />}
-    {modal && modal.type === "ex" && <ExMod onSave={function(e) { aEx(e); close(); }} onClose={close} />}
+    {modal && modal.type === "ex" && <ExMod onSave={function(e) { aEx(e); close(); }} onClose={close} prefill={modal.prefill} />}
     {modal && modal.type === "eEx" && <ExMod existing={modal.data} onSave={function(e) { uEx(e); close(); }} onDelete={function(id) { dEx(id); close(); }} onClose={close} />}
     {modal && modal.type === "slp" && <SlpMod onSave={function(s) { aSlp(s); close(); }} onClose={close} />}
     {modal && modal.type === "eSlp" && <SlpMod existing={modal.data} onSave={function(s) { uSlp(s); close(); }} onDelete={function(id) { dSlp(id); close(); }} onClose={close} />}
@@ -1639,6 +1973,7 @@ function App() {
     {modal && modal.type === "mood" && <MoodMod onSave={function(m) { aMood(m); close(); }} onClose={close} />}
     {modal && modal.type === "eMood" && <MoodMod existing={modal.data} onSave={function(m) { uMood(m); close(); }} onDelete={function(id) { dMood(id); close(); }} onClose={close} />}
     {modal && modal.type === "bowel" && <BowelMod onSave={function(b) { aBowel(b); close(); }} onClose={close} />}
+    {modal && modal.type === "notes" && <NotesMod onClose={close} />}
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
     {modal && modal.type === "activity" && <ActivityMod onSave={function(a) { aAct(a); close(); }} onClose={close} />}
     {modal && modal.type === "eActivity" && <ActivityMod existing={modal.data} onSave={function(a) { uAct(a); close(); }} onDelete={function(id) { dAct(id); close(); }} onClose={close} />}
