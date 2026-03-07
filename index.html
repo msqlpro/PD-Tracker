@@ -1510,6 +1510,17 @@ function App() {
 
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center" style={{ fontFamily: "system-ui, sans-serif" }}><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
+
+  // Weight goal celebration popup
+  var goalPopup = showGoalPop ? (<div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={function(){ setShowGoalPop(false); }}>
+    <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm w-full">
+      <div className="text-6xl mb-4">🏆</div>
+      <h2 className="text-2xl font-bold text-emerald-600 mb-2">Goal Reached!</h2>
+      <p className="text-gray-600 mb-4">You hit your weight target of <strong>{weightGoal ? weightGoal.target + "kg" : ""}</strong> — amazing work!</p>
+      <button onClick={function(){ setShowGoalPop(false); }} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold w-full">🎉 Celebrate!</button>
+    </div>
+  </div>) : null;
+
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")} style={{ fontFamily: "system-ui, sans-serif" }}>
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><div className="flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div></div>
     {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
