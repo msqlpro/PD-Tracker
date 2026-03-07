@@ -1552,137 +1552,128 @@ function HistoryPage(p) {
 
 // ── Report Page ──
 
+// Sparkline component for InsightsPage
+function Spark(sp) {
+  var data=sp.data, color=sp.color||"#6366f1";
+  var vals=data.filter(function(v){ return v!==null&&v!==0; });
+  if (!vals.length) return React.createElement("span",{className:"text-xs text-gray-300"},"no data");
+  var max=Math.max.apply(null,vals)||1;
+  var W=200, H=40;
+  var path="";
+  var prevSet=false;
+  for(var si=0;si<data.length;si++){
+    if(data[si]===null) continue;
+    var sx=(si/(data.length-1))*W;
+    var sy=H - (data[si]/max)*H*0.85 - 2;
+    if(!prevSet){ path+="M"+sx.toFixed(1)+","+sy.toFixed(1); prevSet=true; }
+    else { path+=" L"+sx.toFixed(1)+","+sy.toFixed(1); }
+  }
+  return (<svg width={W} height={H} className="w-full" viewBox={"0 0 "+W+" "+H}>
+    <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>);
+}
+
 function InsightsPage(p) {
-  var logs=p.logs, meals=p.meals, ex=p.ex, slp=p.slp, sym=p.sym, oo=p.oo, weight=p.weight||[], mood=p.mood||[];
-
-  // Build daily summaries for last 30 days
-  var days = 30;
-  var dailies = [];
-  for (var i = days-1; i >= 0; i--) {
-    var dt = new Date(); dt.setDate(dt.getDate()-i);
-    var d = dt.toISOString().slice(0,10);
-    var dSym = sym.filter(function(s){ return s.loggedAt&&s.loggedAt.startsWith(d); });
-    var dSlp = slp.find(function(s){ return s.date===d; });
-    var dEx = ex.filter(function(e){ return e.loggedAt&&e.loggedAt.startsWith(d); });
-    var dOo = oo.filter(function(o){ return o.loggedAt&&o.loggedAt.startsWith(d); });
-    var dMood = mood.find(function(m){ return m.date===d; });
-    var dMeals = meals.filter(function(m){ return m.loggedAt&&m.loggedAt.startsWith(d); });
-    var avgSev = dSym.length ? dSym.reduce(function(s,x){ return s+(x.severity||0);},0)/dSym.length : null;
-    var onMins = 0, offMins = 0;
-    for(var j=0;j<dOo.length-1;j++){
-      var dur=(new Date(dOo[j+1].loggedAt)-new Date(dOo[j].loggedAt))/60000;
-      if(dOo[j].state==="on") onMins+=dur; else offMins+=dur;
+  var logs=p.logs||[], meals=p.meals||[], ex=p.ex||[], slp=p.slp||[], sym=p.sym||[], oo=p.oo||[], weight=p.weight||[], mood=p.mood||[];
+  var DAYS=30;
+  var dailies=[];
+  for(var di=DAYS-1;di>=0;di--){
+    var dt=new Date(); dt.setDate(dt.getDate()-di);
+    var d=dt.toISOString().slice(0,10);
+    var dSym=sym.filter(function(s){ return s.loggedAt&&s.loggedAt.startsWith(d); });
+    var dSlp=slp.find(function(s){ return s.date===d; });
+    var dEx=ex.filter(function(e){ return e.loggedAt&&e.loggedAt.startsWith(d); });
+    var dOo=oo.filter(function(o){ return o.loggedAt&&o.loggedAt.startsWith(d); }).sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+    var dMood=mood.find(function(m){ return m.date===d; });
+    var dMeals=meals.filter(function(m){ return m.loggedAt&&m.loggedAt.startsWith(d); });
+    var avgSev=dSym.length ? dSym.reduce(function(s,x){ return s+(x.severity||0); },0)/dSym.length : null;
+    var onMins=0;
+    for(var oi=0;oi<dOo.length-1;oi++){
+      var dur=(new Date(dOo[oi+1].loggedAt)-new Date(dOo[oi].loggedAt))/60000;
+      if(dOo[oi].state==="on") onMins+=dur;
     }
-    var totProt = dMeals.reduce(function(s,m){ return s+(m.protein||0); }, 0);
     dailies.push({
-      d: d, label: dt.toLocaleDateString("en-GB",{day:"numeric",month:"short"}),
-      sym: avgSev, sleep: dSlp ? (dSlp.quality||0) : null,
-      ex: dEx.reduce(function(s,e){ return s+(e.duration||0); },0),
-      on: onMins, off: offMins,
-      mood: dMood ? (dMood.level||0) : null,
-      prot: totProt
+      d:d, sym:avgSev,
+      sleep:dSlp?(dSlp.quality||null):null,
+      ex:dEx.reduce(function(s,e){ return s+(e.duration||0); },0),
+      on:onMins||null,
+      mood:dMood?(dMood.level||null):null
     });
   }
 
-  // Mini sparkline component
-  function Spark(sp) {
-    var data=sp.data, color=sp.color||"#6366f1";
-    var vals=data.filter(function(v){ return v!==null&&v!==0; });
-    if (!vals.length) return <span className="text-xs text-gray-300">no data</span>;
-    var max=Math.max.apply(null,vals)||1;
-    var w=200, h=40;
-    var pts = data.map(function(v,i){
-      var x=(i/(data.length-1))*w;
-      var y=v===null ? null : h - (v/max)*h*0.9 - 2;
-      return {x:x, y:y};
-    });
-    var path = pts.reduce(function(acc,p,i){
-      if(p.y===null) return acc;
-      var prev = pts.slice(0,i).reverse().find(function(pp){ return pp.y!==null; });
-      return acc + (prev ? " L"+p.x.toFixed(1)+","+p.y.toFixed(1) : " M"+p.x.toFixed(1)+","+p.y.toFixed(1));
-    },"");
-    return <svg width={w} height={h} className="w-full" viewBox={"0 0 "+w+" "+h}>
-      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>;
+  var wByDay={};
+  weight.forEach(function(w){ wByDay[w.date]=parseFloat(w.weight)||0; });
+
+  // Sleep → next day symptoms correlation
+  var sleepSymMsg="";
+  var goodSleepDays=[], badSleepDays=[];
+  for(var ci=0;ci<dailies.length-1;ci++){
+    if(dailies[ci].sleep!==null && dailies[ci+1].sym!==null){
+      if(dailies[ci].sleep>=4) goodSleepDays.push(dailies[ci+1].sym);
+      if(dailies[ci].sleep<=2) badSleepDays.push(dailies[ci+1].sym);
+    }
+  }
+  if(goodSleepDays.length>=3 && badSleepDays.length>=3){
+    var avgGood=(goodSleepDays.reduce(function(s,v){return s+v;},0)/goodSleepDays.length).toFixed(1);
+    var avgBad=(badSleepDays.reduce(function(s,v){return s+v;},0)/badSleepDays.length).toFixed(1);
+    sleepSymMsg="Good sleep nights → avg "+avgGood+"/10 symptoms next day. Poor sleep → "+avgBad+"/10.";
   }
 
-  // Correlation: sleep quality vs next day symptoms
-  var sleepSymCorr = [];
-  for(var i=0;i<dailies.length-1;i++){
-    if(dailies[i].sleep!==null && dailies[i+1].sym!==null)
-      sleepSymCorr.push({x:dailies[i].sleep, y:dailies[i+1].sym});
-  }
-  var sleepSymMsg = ""; 
-  if(sleepSymCorr.length >= 5){
-    var goodSleep=sleepSymCorr.filter(function(p){ return p.x>=4; });
-    var badSleep=sleepSymCorr.filter(function(p){ return p.x<=2; });
-    var avgGood=goodSleep.length ? goodSleep.reduce(function(s,p){ return s+p.y; },0)/goodSleep.length : null;
-    var avgBad=badSleep.length ? badSleep.reduce(function(s,p){ return s+p.y; },0)/badSleep.length : null;
-    if(avgGood!==null && avgBad!==null) sleepSymMsg="Good sleep → avg "+avgGood.toFixed(1)+"/10 symptoms next day. Poor sleep → "+avgBad.toFixed(1)+"/10.";
+  // Exercise vs symptoms
+  var exMsg="";
+  var exDaysSym=dailies.filter(function(d){ return d.ex>0&&d.sym!==null; });
+  var noExDaysSym=dailies.filter(function(d){ return d.ex===0&&d.sym!==null; });
+  if(exDaysSym.length>=3&&noExDaysSym.length>=3){
+    var aEx=(exDaysSym.reduce(function(s,d){return s+d.sym;},0)/exDaysSym.length).toFixed(1);
+    var aNoEx=(noExDaysSym.reduce(function(s,d){return s+d.sym;},0)/noExDaysSym.length).toFixed(1);
+    exMsg="Exercise days: avg "+aEx+"/10 symptoms. Rest days: avg "+aNoEx+"/10.";
   }
 
-  // Exercise vs symptom severity same day
-  var exSymDays = dailies.filter(function(d){ return d.ex>0 && d.sym!==null; });
-  var noExSymDays = dailies.filter(function(d){ return d.ex===0 && d.sym!==null; });
-  var avgSymEx = exSymDays.length ? exSymDays.reduce(function(s,d){ return s+d.sym; },0)/exSymDays.length : null;
-  var avgSymNoEx = noExSymDays.length ? noExSymDays.reduce(function(s,d){ return s+d.sym; },0)/noExSymDays.length : null;
-  var exMsg = (avgSymEx!==null && avgSymNoEx!==null) ? "Exercise days: "+avgSymEx.toFixed(1)+"/10 avg symptoms. Rest days: "+avgSymNoEx.toFixed(1)+"/10." : "";
+  var hasSym=dailies.filter(function(d){return d.sym!==null;});
+  var hasSleep=dailies.filter(function(d){return d.sleep!==null;});
+  var hasMood=dailies.filter(function(d){return d.mood!==null;});
+  var totalEx=dailies.reduce(function(s,d){return s+d.ex;},0);
 
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-4">📈 Insights</h2>
-
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
       <div className="text-xs font-bold text-gray-600 mb-1">🌡️ Symptom Severity (30 days)</div>
-      <Spark data={dailies.map(function(d){ return d.sym; })} color="#ef4444" />
+      <Spark data={dailies.map(function(d){return d.sym;})} color="#ef4444" />
       {sleepSymMsg && <div className="text-xs text-gray-500 mt-1 bg-blue-50 rounded-lg p-2">💤 {sleepSymMsg}</div>}
     </div>
-
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
       <div className="text-xs font-bold text-gray-600 mb-1">💤 Sleep Quality (30 days)</div>
-      <Spark data={dailies.map(function(d){ return d.sleep; })} color="#6366f1" />
+      <Spark data={dailies.map(function(d){return d.sleep;})} color="#6366f1" />
     </div>
-
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
       <div className="text-xs font-bold text-gray-600 mb-1">🏃 Exercise Minutes (30 days)</div>
-      <Spark data={dailies.map(function(d){ return d.ex; })} color="#f97316" />
+      <Spark data={dailies.map(function(d){return d.ex||null;})} color="#f97316" />
       {exMsg && <div className="text-xs text-gray-500 mt-1 bg-orange-50 rounded-lg p-2">🏃 {exMsg}</div>}
     </div>
-
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
       <div className="text-xs font-bold text-gray-600 mb-1">😊 Mood (30 days)</div>
-      <Spark data={dailies.map(function(d){ return d.mood; })} color="#f59e0b" />
+      <Spark data={dailies.map(function(d){return d.mood;})} color="#f59e0b" />
     </div>
-
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
-      <div className="text-xs font-bold text-gray-600 mb-1">⚡ ON Time (minutes/day, 30 days)</div>
-      <Spark data={dailies.map(function(d){ return d.on||null; })} color="#10b981" />
+      <div className="text-xs font-bold text-gray-600 mb-1">⚡ ON Time (minutes/day)</div>
+      <Spark data={dailies.map(function(d){return d.on;})} color="#10b981" />
     </div>
-
     <div className="bg-white rounded-xl p-3 shadow-sm mb-4">
       <div className="text-xs font-bold text-gray-600 mb-1">⚖️ Weight (30 days)</div>
-      <Spark data={(function(){
-        var wByDay={};
-        weight.forEach(function(w){ wByDay[w.date]=parseFloat(w.weight)||0; });
-        return dailies.map(function(d){ return wByDay[d.d]||null; });
-      })()} color="#8b5cf6" />
+      <Spark data={dailies.map(function(d){return wByDay[d.d]||null;})} color="#8b5cf6" />
     </div>
-
     <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
-      <div className="font-bold mb-1">📊 30-Day Averages</div>
-      {(function(){
-        var hasData = dailies.filter(function(d){ return d.sym!==null; });
-        var hasSleep = dailies.filter(function(d){ return d.sleep!==null; });
-        var hasMood = dailies.filter(function(d){ return d.mood!==null; });
-        return (<div className="grid grid-cols-2 gap-2">
-          {hasData.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-red-500">{(hasData.reduce(function(s,d){return s+d.sym;},0)/hasData.length).toFixed(1)}</div><div>Avg Symptoms</div></div>}
-          {hasSleep.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-indigo-500">{(hasSleep.reduce(function(s,d){return s+d.sleep;},0)/hasSleep.length).toFixed(1)}</div><div>Avg Sleep</div></div>}
-          {hasMood.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-amber-500">{(hasMood.reduce(function(s,d){return s+d.mood;},0)/hasMood.length).toFixed(1)}</div><div>Avg Mood</div></div>}
-          <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-orange-500">{Math.round(dailies.reduce(function(s,d){return s+d.ex;},0)/days)}</div><div>Avg Exercise</div></div>
-        </div>);
-      })()}
+      <div className="font-bold text-gray-600 mb-2">📊 30-Day Averages</div>
+      <div className="grid grid-cols-2 gap-2">
+        {hasSym.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-red-500 text-base">{(hasSym.reduce(function(s,d){return s+d.sym;},0)/hasSym.length).toFixed(1)}</div><div>Avg Symptoms</div></div>}
+        {hasSleep.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-indigo-500 text-base">{(hasSleep.reduce(function(s,d){return s+d.sleep;},0)/hasSleep.length).toFixed(1)}</div><div>Avg Sleep</div></div>}
+        {hasMood.length>0 && <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-amber-500 text-base">{(hasMood.reduce(function(s,d){return s+d.mood;},0)/hasMood.length).toFixed(1)}</div><div>Avg Mood</div></div>}
+        <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-orange-500 text-base">{Math.round(totalEx/DAYS)}</div><div>Avg Exercise (min)</div></div>
+      </div>
     </div>
   </div>);
 }
+
 
 function ReportPage(p) {
   var [period, sPeriod] = useState("weekly");
