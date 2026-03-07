@@ -929,23 +929,59 @@ function Setup(p) {
 
     <h2 className="text-lg font-bold text-gray-800 mb-2 mt-2">💊 Medications</h2>
 
-    <div className="bg-white rounded-2xl p-4 shadow-sm mb-2">
-      <h3 className="font-bold text-gray-700 mb-1">Add New Medication</h3>
-      <p className="text-xs text-gray-500 mb-3">Name, dose label, and reminder times.</p>
-      <input value={n} onChange={function(e) { sN(e.target.value); }} placeholder="Medication name e.g. Sinemet" className="w-full border rounded-xl p-3 text-sm mb-2" />
-      <input value={d} onChange={function(e) { sD(e.target.value); }} placeholder="Dose label e.g. 25/100mg" className="w-full border rounded-xl p-3 text-sm mb-3" />
-      <span className="text-sm font-semibold text-gray-700">⏰ Reminder times</span>
-      <p className="text-xs text-gray-400 mb-2">You will get a notification at these times each day.</p>
-      {ts.map(function(t, i) { return (<div key={i} className="flex gap-2 mt-1"><input type="time" value={t} onChange={function(e) { sTs(function(prev) { return prev.map(function(x, j) { return j === i ? e.target.value : x; }); }); }} className="flex-1 border rounded-lg p-2 text-sm" />{ts.length > 1 && <button onClick={function() { sTs(function(prev) { return prev.filter(function(_, j) { return j !== i; }); }); }} className="text-red-400 px-2">✕</button>}</div>); })}
-      <button onClick={function() { sTs(function(prev) { return prev.concat(["12:00"]); }); }} className="text-blue-600 text-sm mt-2 block">+ add another time</button>
-      <button onClick={function() { if (!n.trim()) return; var nm = { id: Date.now().toString(), name: n, dose: d, times: ts }; setMeds(function(prev) { var u = prev.concat([nm]); dbSave("meds", nm); return u; }); sN(""); sD(""); sTs(["08:00"]); }} className="w-full mt-4 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">Add Medication</button>
-    </div>
+    {(function() {
+      var [editMedId, setEditMedId] = useState(null);
+      var [editName, setEditName] = useState("");
+      var [editDose, setEditDose] = useState("");
+      var startEdit = function(m) { setEditMedId(m.id); setEditName(m.name); setEditDose(m.dose||""); };
+      var saveEdit = function() {
+        if (!editName.trim()) return;
+        setMeds(function(prev) {
+          return prev.map(function(m) {
+            if (m.id !== editMedId) return m;
+            var updated = Object.assign({}, m, { name: editName.trim(), dose: editDose.trim() });
+            dbSave("meds", updated);
+            return updated;
+          });
+        });
+        setEditMedId(null);
+      };
+      return (<div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm mb-2">
+          <h3 className="font-bold text-gray-700 mb-1">Add New Medication</h3>
+          <p className="text-xs text-gray-500 mb-3">Enter the name and dose label. Reminder times are set in the Reminders section above.</p>
+          <input value={n} onChange={function(e) { sN(e.target.value); }} placeholder="Medication name e.g. Sinemet" className="w-full border rounded-xl p-3 text-sm mb-2" />
+          <input value={d} onChange={function(e) { sD(e.target.value); }} placeholder="Dose label e.g. 25/100mg" className="w-full border rounded-xl p-3 text-sm mb-3" />
+          <button onClick={function() { if (!n.trim()) return; var nm = { id: Date.now().toString(), name: n, dose: d, times: ts }; setMeds(function(prev) { var u = prev.concat([nm]); dbSave("meds", nm); return u; }); sN(""); sD(""); sTs(["08:00"]); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">Add Medication</button>
+        </div>
 
-    {meds.length > 0 && <div className="bg-white rounded-2xl p-4 shadow-sm mb-2">
-      <h3 className="font-bold text-gray-700 mb-1">Your Medications</h3>
-      <p className="text-xs text-gray-500 mb-3">Tap 🗑️ to remove a medication.</p>
-      {meds.map(function(m) { return (<div key={m.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0"><div><div className="font-semibold text-sm">{m.name} {m.dose && <span className="text-gray-400 font-normal text-xs">({m.dose})</span>}</div><div className="text-xs text-gray-400">⏰ {(m.times || []).length > 0 ? (m.times || []).join(", ") : "No reminders set"}</div></div><button onClick={function() { setMeds(function(prev) { var u = prev.filter(function(x) { return x.id !== m.id; }); dbDel("meds", m.id); return u; }); }} className="text-red-300 text-lg pl-4">🗑️</button></div>); })}
-    </div>}
+        {meds.length > 0 && <div className="bg-white rounded-2xl p-4 shadow-sm mb-2">
+          <h3 className="font-bold text-gray-700 mb-3">Your Medications</h3>
+          {meds.map(function(m) {
+            if (editMedId === m.id) {
+              return (<div key={m.id} className="mb-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 mb-2">✏️ Editing: {m.name}</p>
+                <input value={editName} onChange={function(e){setEditName(e.target.value);}} placeholder="Medication name" className="w-full border rounded-xl p-2.5 text-sm mb-2" />
+                <input value={editDose} onChange={function(e){setEditDose(e.target.value);}} placeholder="Dose label e.g. 25/100mg" className="w-full border rounded-xl p-2.5 text-sm mb-3" />
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} className="flex-1 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold">Save</button>
+                  <button onClick={function(){setEditMedId(null);}} className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold">Cancel</button>
+                </div>
+              </div>);
+            }
+            return (<div key={m.id} className="flex justify-between items-center py-2.5 border-b border-gray-100 last:border-0">
+              <div className="flex-1">
+                <div className="font-semibold text-sm">{m.name} {m.dose && <span className="text-gray-400 font-normal text-xs ml-1">({m.dose})</span>}</div>
+              </div>
+              <div className="flex items-center gap-3 pl-2">
+                <button onClick={function(){startEdit(m);}} className="text-blue-500 text-xs font-semibold bg-blue-50 px-2.5 py-1 rounded-lg">Edit</button>
+                <button onClick={function() { if(!window.confirm("Delete "+m.name+"?")) return; setMeds(function(prev) { var u = prev.filter(function(x) { return x.id !== m.id; }); dbDel("meds", m.id); return u; }); }} className="text-red-400 text-lg">🗑️</button>
+              </div>
+            </div>);
+          })}
+        </div>}
+      </div>);
+    })()}
 
     {meds.length > 0 && <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <h3 className="font-bold text-gray-700 mb-1">💉 Default Dose Per Medication</h3>
