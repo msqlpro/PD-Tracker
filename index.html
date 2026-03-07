@@ -1287,6 +1287,19 @@ function HistoryPage(p) {
       var date = entry[0], items = entry[1];
       return (<div key={date} className="mb-4">
         <h3 className="font-bold text-gray-500 text-sm mb-2">{new Date(date + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</h3>
+        {(function(){
+          // Auto-fasting for this day: last meal of previous day → first meal of this day
+          var yd = (function(){ var dt=new Date(date+"T12:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().slice(0,10); })();
+          var dayMeals = meals.filter(function(m){ return m.loggedAt && m.loggedAt.slice(0,10)===date; }).sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+          var prevMeals = meals.filter(function(m){ return m.loggedAt && m.loggedAt.slice(0,10)===yd; }).sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+          var lastMeal = prevMeals.length ? prevMeals[prevMeals.length-1] : null;
+          var fastHrs = null;
+          if (lastMeal && dayMeals.length) {
+            var hrs = (new Date(dayMeals[0].loggedAt) - new Date(lastMeal.loggedAt)) / 3600000;
+            if (hrs > 0) fastHrs = Math.round(hrs*10)/10;
+          }
+          return fastHrs !== null ? <div className={"inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium mb-2 " + (fastHrs>=16?"bg-emerald-100 text-emerald-700":fastHrs>=14?"bg-teal-100 text-teal-700":"bg-amber-100 text-amber-700")}>{"⏱️ Fasted "+fastHrs+"h"+(fastHrs>=16?" 🎉":fastHrs>=14?" ✅":"")}</div> : null;
+        })()}
         {items.map(function(it) {
           if (it._t === "med") return <button key={it.id} onClick={function() { setM({ type: "eDose", log: it }); }} className="w-full bg-blue-50 rounded-xl p-2.5 mb-1 text-left text-sm"><div className="flex justify-between"><span>💊 {it.medName} {it.dose}</span><span className="text-gray-400 text-xs">{ft(it.takenAt)}</span></div>{it.effectiveness > 0 && <div className="text-blue-600 text-xs">{"⭐".repeat(it.effectiveness)}</div>}</button>;
           if (it._t === "meal") return <button key={it.id} onClick={function() { setM({ type: "eMeal", meal: it }); }} className="w-full bg-green-50 rounded-xl p-2.5 mb-1 text-left text-sm"><div className="flex justify-between items-start"><span>🍽️ {it.description}</span><span className="text-gray-400 text-xs shrink-0 ml-2">{ft(it.loggedAt)}</span></div>{it.foodBreakdown && it.foodBreakdown.length > 0 ? <div className="mt-1 ml-1"><FoodBreakdown items={it.foodBreakdown} totals={{ protein: it.protein || 0, carbs: it.carbs || 0, fibre: it.fibre || 0, calories: it.calories || 0, sugar: it.sugar || 0 }} /></div> : <div className="mt-1 flex gap-1 flex-wrap"><NB l="P" v={it.protein || 0} c="text-red-600" /><NB l="C" v={it.carbs || 0} c="text-amber-600" /><NB l="F" v={it.fibre || 0} c="text-green-600" /><NB l="Cal" v={it.calories || 0} c="text-pink-600" /><NB l="S" v={it.sugar || 0} c="text-purple-600" /></div>}</button>;
