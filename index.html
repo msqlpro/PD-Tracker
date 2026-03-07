@@ -170,6 +170,10 @@ async function generateReport(period, data) {
       data.activity.forEach(function(a) { summary += "- " + (a.loggedAt || "").slice(0, 16) + " " + a.type + " " + a.duration + "min" + (a.note ? " (" + a.note + ")" : "") + "\n"; });
     }
 
+    // Reload API key from localStorage in case it was set after page load
+    if (!ANTHROPIC_API_KEY) ANTHROPIC_API_KEY = localStorage.getItem("pd_api_key") || "";
+    if (!ANTHROPIC_API_KEY) return "❌ No API key set. Go to Settings → 🤖 AI Features and paste your Anthropic API key first.";
+
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({
@@ -177,9 +181,13 @@ async function generateReport(period, data) {
         messages: [{ role: "user", content: summary + "\n\nYou are a Parkinson's disease tracking analyst. Provide a clear, insightful " + period + " report covering:\n1. **Medication Patterns** — timing consistency, effectiveness trends, any missed doses\n2. **Protein-Medication Interaction** — ONLY flag as a concern if a HIGH-protein meal (30g+) was eaten within 30 minutes BEFORE a dose. A dose taken 1-2 hours AFTER eating is normal and acceptable for non-first doses during the eating window. Do NOT flag doses that already have 4/5 or 5/5 effectiveness. The first dose at 7am on an empty stomach is optimal.\n3. **Symptom Trends** — most frequent/severe symptoms, any time-of-day patterns\n4. **ON/OFF Analysis** — ratio, duration patterns, correlation with medication timing\n5. **Sleep Impact** — quality trends, correlation with next-day symptoms\n6. **Exercise Benefits** — correlation with symptom severity and ON time\n7. **Nutrition Overview** — daily protein/fibre/calorie averages, fasting compliance\n8. **Fasting Compliance** — adherence to 14h intermittent fasting target, average fasting duration, consistency\n9. **Weight Trends** — weight change over the period, rate of loss/gain, correlation with exercise and nutrition\n10. **Mood Patterns** — average mood, trends, correlation with sleep/exercise/medication effectiveness\n11. **Gut Health & Bowel** — Bristol stool scale patterns, frequency, correlation with diet/fibre/hydration (very relevant for PD)\n12. **Key Recommendations** — 3-5 specific, actionable suggestions\n\nCRITICAL RULES:\n- Levodopa is best absorbed on an EMPTY stomach. Do NOT recommend eating before or with medication.\n- The patient takes 3 daily doses: ~7am (fasted, optimal), ~12pm, ~5pm. The 12pm and 5pm doses will inevitably overlap with the 10:30am-8:30pm eating window — this is NORMAL and expected.\n- Do NOT suggest moving doses to impractical times. Do NOT label good effectiveness (4-5/5) as compromised.\n- Only flag ACTUAL problems supported by the data (e.g. low effectiveness scores correlating with meal timing).\n- Never suggest taking medication CLOSER to a meal as a fix.\n- Be encouraging about what's working well. Be proportionate — don't label minor observations as 'critical'.\nBe concise but specific. Use the actual data. Skip sections with no data. Use emoji for readability. Format with markdown headers and bullet points." }]
       })
     });
+    if (!response.ok) {
+      var errBody = await response.text();
+      return "❌ API error " + response.status + ": " + errBody.slice(0, 200);
+    }
     var result = await response.json();
     return (result.content || []).map(function(b) { return b.text || ""; }).join("");
-  } catch (e) { return "Report generation failed. Please try again."; }
+  } catch (e) { return "❌ Report failed: " + (e && e.message ? e.message : String(e)) + ". Check your API key in Settings → 🤖 AI Features."; }
 }
 
 // ── Supabase Storage Layer ──
