@@ -425,15 +425,25 @@ function ExMod(p) {
 
 function SlpMod(p) {
   var ex = p.existing, isEdit = !!ex;
-  var [h, sH] = useState(isEdit ? ex.hours : 7);
+  var calcHours = function(bedtime, waketime) {
+    try {
+      var bp = bedtime.split(":"), wp = waketime.split(":");
+      var bMins = parseInt(bp[0])*60 + parseInt(bp[1]);
+      var wMins = parseInt(wp[0])*60 + parseInt(wp[1]);
+      var diff = wMins - bMins;
+      if (diff <= 0) diff += 1440; // crosses midnight
+      return Math.round((diff / 60) * 2) / 2; // round to nearest 0.5
+    } catch(e) { return 7; }
+  };
+  var [h, sH] = useState(isEdit ? ex.hours : calcHours("22:00", "06:00"));
   var [q, sQ] = useState(isEdit ? ex.quality : 3);
   var [bt, sBt] = useState(isEdit ? (ex.bedtime || "22:00") : "22:00");
   var [wt, sWt] = useState(isEdit ? (ex.wakeTime || "06:00") : "06:00");
   return (<Mod onClose={p.onClose}>
     <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">😴 Sleep</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
     <div className="grid grid-cols-2 gap-3 mb-3">
-      <label><span className="text-sm font-medium">Bed</span><input type="time" value={bt} onChange={function(e) { sBt(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
-      <label><span className="text-sm font-medium">Wake</span><input type="time" value={wt} onChange={function(e) { sWt(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
+      <label><span className="text-sm font-medium">Bed</span><input type="time" value={bt} onChange={function(e) { var v=e.target.value; sBt(v); sH(calcHours(v, wt)); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
+      <label><span className="text-sm font-medium">Wake</span><input type="time" value={wt} onChange={function(e) { var v=e.target.value; sWt(v); sH(calcHours(bt, v)); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
     </div>
     <div className="block mb-3"><span className="text-sm font-medium">Hours: {h}</span><input type="range" min={0} max={12} step={0.5} value={h} onChange={function(e) { sH(parseFloat(e.target.value)); }} className="w-full mt-1" style={{ accentColor: "#4f46e5" }} /></div>
     <div className="block mb-4"><span className="text-sm font-medium">Quality: {["", "😫", "😕", "😐", "😊", "😁"][q]}</span><input type="range" min={1} max={5} value={q} onChange={function(e) { sQ(parseInt(e.target.value)); }} className="w-full mt-1" style={{ accentColor: "#4f46e5" }} /></div>
