@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE } } html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -186,7 +186,7 @@ async function generateReport(period, data) {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001", max_tokens: 2000,
-        messages: [{ role: "user", content: summary + "\n\nYou are a Parkinson's disease tracking analyst. Provide a clear, insightful " + period + " report covering:\n1. **Medication Patterns** — timing consistency, dose amounts, any missed doses\n2. **Protein-Medication Interaction** — ONLY flag as a concern if a HIGH-protein meal (30g+) was eaten within 30 minutes BEFORE a dose. A dose taken 1-2 hours AFTER eating is normal and acceptable for non-first doses during the eating window. The first dose at 7am on an empty stomach is optimal.\n3. **Symptom Trends** — most frequent/severe symptoms, any time-of-day patterns\n4. **ON/OFF Analysis** — ratio, duration patterns, correlation with medication timing\n5. **Sleep Impact** — quality trends, correlation with next-day symptoms\n6. **Exercise Benefits** — correlation with symptom severity and ON time\n7. **Nutrition Overview** — daily protein/fibre/calorie averages, fasting compliance\n8. **Fasting Compliance** — adherence to 14h intermittent fasting target, average fasting duration, consistency\n9. **Weight Trends** — weight change over the period, rate of loss/gain, correlation with exercise and nutrition\n10. **Mood Patterns** — average mood, trends, correlation with sleep/exercise/symptom severity\n11. **Gut Health & Bowel** — Bristol stool scale patterns, frequency, correlation with diet/fibre/hydration (very relevant for PD)\n12. **Key Recommendations** — 3-5 specific, actionable suggestions\n\nCRITICAL RULES:\n- Levodopa is best absorbed on an EMPTY stomach. Do NOT recommend eating before or with medication.\n- The patient takes 3 daily doses: ~7am (fasted, optimal), ~12pm, ~5pm. The 12pm and 5pm doses will inevitably overlap with the 10:30am-8:30pm eating window — this is NORMAL and expected.\n- Do NOT suggest moving doses to impractical times. Do NOT label good effectiveness (4-5/5) as compromised.\n- Only flag ACTUAL problems supported by the data (e.g. low effectiveness scores correlating with meal timing).\n- Never suggest taking medication CLOSER to a meal as a fix.\n- Be encouraging about what's working well. Be proportionate — don't label minor observations as 'critical'.\nBe concise but specific. Use the actual data. Skip sections with no data. Use emoji for readability. Format with markdown headers and bullet points." }]
+        messages: [{ role: "user", content: summary + "\n\nYou are a Parkinson's disease tracking analyst. Provide a clear, insightful " + period + " report covering:\n1. **Medication Patterns** — timing consistency, dose amounts, any missed doses\n2. **Protein-Medication Interaction** — ONLY flag as a concern if a HIGH-protein meal (30g+) was eaten within 30 minutes BEFORE a dose. A dose taken 1-2 hours AFTER eating is normal and acceptable for non-first doses during the eating window. The first dose at 7am on an empty stomach is optimal.\n3. **Symptom Trends** — most frequent/severe symptoms, any time-of-day patterns\n4. **ON/OFF Analysis** — ratio, duration patterns, correlation with medication timing\n5. **Sleep Impact** — quality trends, correlation with next-day symptoms\n6. **Exercise Benefits** — correlation with symptom severity and ON time\n7. **Nutrition Overview** — daily protein/fibre/calorie averages, fasting compliance\n8. **Fasting Compliance** — adherence to 14h intermittent fasting target, average fasting duration, consistency\n9. **Weight Trends** — weight change over the period, rate of loss/gain, correlation with exercise and nutrition\n10. **Mood Patterns** — average mood, trends, correlation with sleep/exercise/symptom severity\n11. **Gut & Bladder Health** — Bowel movement patterns (straining, frequency), urination patterns (urgency, frequency), correlation with diet/hydration (both very relevant for PD)\n12. **Key Recommendations** — 3-5 specific, actionable suggestions\n\nCRITICAL RULES:\n- Levodopa is best absorbed on an EMPTY stomach. Do NOT recommend eating before or with medication.\n- The patient takes 3 daily doses: ~7am (fasted, optimal), ~12pm, ~5pm. The 12pm and 5pm doses will inevitably overlap with the 10:30am-8:30pm eating window — this is NORMAL and expected.\n- Do NOT suggest moving doses to impractical times. Do NOT label good effectiveness (4-5/5) as compromised.\n- Only flag ACTUAL problems supported by the data (e.g. low effectiveness scores correlating with meal timing).\n- Never suggest taking medication CLOSER to a meal as a fix.\n- Be encouraging about what's working well. Be proportionate — don't label minor observations as 'critical'.\nBe concise but specific. Use the actual data. Skip sections with no data. Use emoji for readability. Format with markdown headers and bullet points." }]
       })
     });
     if (!response.ok) {
@@ -692,30 +692,45 @@ var BRISTOL = [
 
 function BowelMod(p) {
   var ex = p.existing, isEdit = !!ex;
-  var [note, sNote] = useState(isEdit ? (ex.note || "") : "");
+  // Parse stored type from note prefix
+  var storedNote = isEdit ? (ex.note || "") : "";
+  var storedType = storedNote.startsWith("URINE:") ? "urine" : "bowel";
+  var storedCleanNote = storedNote.startsWith("URINE:") ? storedNote.slice(6) : storedNote;
+  var [toiletType, setToiletType] = useState(storedType);
+  var [note, sNote] = useState(storedCleanNote);
   var [time, sTime] = useState(isEdit ? ft(ex.loggedAt) : nw());
   var [date, sDate] = useState(isEdit ? dateOf(ex.loggedAt) : td());
   var [strain, sStrain] = useState(isEdit ? (ex.strain || false) : false);
 
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🚽 {isEdit ? "Edit" : "Log"} Bowel Movement</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
-    <div className="flex gap-3 mb-3">
-      <label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
-      <label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
+    <div className="flex justify-between items-center mb-4">
+      <h3 className="text-lg font-bold">🚽 {isEdit ? "Edit" : "Log"} Toilet</h3>
+      <button onClick={p.onClose} className="text-gray-400 text-2xl leading-none">×</button>
     </div>
-    <button onClick={function() { sStrain(!strain); }} className={"w-full py-2.5 rounded-xl text-sm font-medium mb-3 " + (strain ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500")}>
+    <div className="flex gap-2 mb-4">
+      <button onClick={function(){ setToiletType("bowel"); }} className={"flex-1 py-2.5 rounded-xl text-sm font-bold " + (toiletType === "bowel" ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-600")}>💩 Bowel</button>
+      <button onClick={function(){ setToiletType("urine"); }} className={"flex-1 py-2.5 rounded-xl text-sm font-bold " + (toiletType === "urine" ? "bg-yellow-400 text-white" : "bg-gray-100 text-gray-600")}>💛 Urine</button>
+    </div>
+    <div className="flex gap-3 mb-3">
+      <label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="w-full border rounded-xl p-2.5 mt-1 text-sm" /></label>
+      <label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="w-full border rounded-xl p-2.5 mt-1 text-sm" /></label>
+    </div>
+    {toiletType === "bowel" ? <button onClick={function() { sStrain(!strain); }} className={"w-full py-2.5 rounded-xl text-sm font-medium mb-3 " + (strain ? "bg-red-100 text-red-700 border border-red-200" : "bg-gray-100 text-gray-600")}>
       {strain ? "⚠️ Straining: Yes" : "Straining: No"}
-    </button>
-    <textarea value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Notes (optional)" className="w-full border rounded-xl p-3 text-sm mb-3 resize-none" rows={1} />
+    </button> : <button onClick={function() { sStrain(!strain); }} className={"w-full py-2.5 rounded-xl text-sm font-medium mb-3 " + (strain ? "bg-orange-100 text-orange-700 border border-orange-200" : "bg-gray-100 text-gray-600")}>
+      {strain ? "⚡ Urgency: Yes" : "Urgency: No"}
+    </button>}
+    <textarea value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Notes (optional)" className="w-full border rounded-xl p-3 text-sm h-20 resize-none mb-4" />
     <SaveDel canDel={isEdit} color="bg-amber-600" label={isEdit ? "Update" : "Save"} onDel={function() { p.onDelete(ex.id); }} onSave={function() {
-      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), strain: strain, note: note, loggedAt: date + "T" + time + ":00" });
+      var savedNote = toiletType === "urine" ? "URINE:" + note : note;
+      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), strain: strain, note: savedNote, loggedAt: date + "T" + time + ":00" });
       p.onClose();
     }} />
   </Mod>);
 }
 
 // ── Activity / Therapy Tracking ──
-var DEF_ACT = ["Infrared Session", "Sauna", "Cold Shower", "Massage", "Meditation", "Physiotherapy", "Speech Therapy", "Acupuncture"];
+var DEF_ACT = ["Infrared Session", "Sauna", "Cold Shower", "Massage", "Meditation", "Physiotherapy", "Speech Therapy", "Acupuncture", "Fishing"];
 
 function ActivityMod(p) {
   var ex = p.existing, isEdit = !!ex;
@@ -855,7 +870,7 @@ function Setup(p) {
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <div className="flex justify-between items-center">
-        <div><h3 className="font-bold text-gray-700">🚽 Bowel Tracking</h3><p className="text-xs text-gray-500">Show/hide bowel button</p></div>
+        <div><h3 className="font-bold text-gray-700">🚽 Toilet Tracking</h3><p className="text-xs text-gray-500">Show/hide toilet button</p></div>
         <button onClick={function() { var cur=localStorage.getItem("pd_showBowel"); localStorage.setItem("pd_showBowel", cur==="false"?"true":"false"); window.location.reload(); }} className={"w-14 h-8 rounded-full relative transition-colors " + (localStorage.getItem("pd_showBowel")!=="false" ? "bg-blue-600" : "bg-gray-300")}>
           <div className={"w-6 h-6 bg-white rounded-full absolute top-1 transition-transform " + (localStorage.getItem("pd_showBowel")!=="false" ? "translate-x-7" : "translate-x-1")} />
         </button>
@@ -1311,7 +1326,7 @@ function TodayPage(p) {
       <button onClick={function() { setM({ type: "symstate" }); }} className="bg-gradient-to-r from-rose-600 to-pink-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🩺 Symptom / State</button>
       <button onClick={function() { setM({ type: "weight" }); }} className="bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">⚖️ Weight</button>
       <button onClick={function() { setM({ type: "mood" }); }} className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">😊 Mood</button>
-      {(localStorage.getItem("pd_showBowel") !== "false") && <button onClick={function() { setM({ type: "bowel" }); }} className="bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🚽 Bowel</button>}
+      {(localStorage.getItem("pd_showBowel") !== "false") && <button onClick={function() { setM({ type: "bowel" }); }} className="bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🚽 Toilet</button>}
       <button onClick={function() { setM({ type: "activity" }); }} className="bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">🧘 Activity</button>
       <button onClick={function() { setM({ type: "slp" }); }} className="bg-gradient-to-r from-indigo-700 to-slate-600 text-white rounded-xl py-4 text-sm font-bold shadow-sm">😴 Sleep</button>
       <button onClick={function() { setM({ type: "notes" }); }} className="bg-gradient-to-r from-sky-600 to-blue-500 text-white rounded-xl py-4 text-sm font-bold shadow-sm">Notes</button>
