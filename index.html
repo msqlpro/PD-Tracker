@@ -1285,10 +1285,12 @@ function TodayPage(p) {
       var lastSeg = ooSorted[ooSorted.length-1];
       var lastLeft = Math.min(100, Math.max(0, ((new Date(lastSeg.loggedAt).getTime() - dayStart) / dayMs) * 100));
       segs.push({ state: lastSeg.state, left: lastLeft, width: 100 - lastLeft });
+      var onPct = Math.round(segs.reduce(function(acc,sg){ return acc + (sg.state==="on" ? sg.width : 0); }, 0));
+      var offPct = 100 - onPct;
       return (<div className="bg-white rounded-xl p-3 shadow-sm mb-2">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-gray-600">ON/OFF Timeline</span>
-          <div className="flex gap-2 text-[10px]"><span className="text-emerald-600 font-medium">ON</span><span className="text-rose-500 font-medium">OFF</span></div>
+          <div className="flex gap-2 text-[10px]"><span className="text-emerald-600 font-semibold">🟢 {onPct}%</span><span className="text-rose-500 font-semibold">🔴 {offPct}%</span></div>
         </div>
         <div className="relative w-full h-6 bg-gray-100 rounded-full overflow-hidden">
           {segs.map(function(sg,idx){ return <div key={idx} className={"absolute h-full " + (sg.state==="on" ? "bg-emerald-400" : "bg-rose-400")} style={{left:sg.left+"%", width:sg.width+"%"}} />; })}
