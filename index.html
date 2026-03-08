@@ -1681,6 +1681,38 @@ function ReportPage(p) {
   var [period, sPeriod] = useState("weekly");
   var [report, sReport] = useState(null);
   var [loading, sLoading] = useState(false);
+  var [chatMsgs, sChatMsgs] = useState([]);
+  var [chatInput, sChatInput] = useState("");
+  var [chatLoading, sChatLoading] = useState(false);
+  var chatEndRef = useRef(null);
+
+  var askAboutReport = async function() {
+    var q = chatInput.trim();
+    if (!q || !report) return;
+    var newMsgs = [...chatMsgs, {role:"user", content:q}];
+    sChatMsgs(newMsgs);
+    sChatInput("");
+    sChatLoading(true);
+    try {
+      var res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: "You are a knowledgeable Parkinson's Disease health assistant. The user has just generated a PD health report and wants to ask questions about it. Answer clearly and helpfully, referencing specific data from the report where relevant. Be concise but thorough. The full report is:\n\n" + report,
+          messages: newMsgs
+        })
+      });
+      var data = await res.json();
+      var reply = data.content && data.content[0] && data.content[0].text ? data.content[0].text : "Sorry, I couldn't generate a response.";
+      sChatMsgs(function(prev) { return [...prev, {role:"assistant", content:reply}]; });
+    } catch(e) {
+      sChatMsgs(function(prev) { return [...prev, {role:"assistant", content:"Error: " + e.message}]; });
+    }
+    sChatLoading(false);
+    setTimeout(function() { if (chatEndRef.current) chatEndRef.current.scrollIntoView({behavior:"smooth"}); }, 100);
+  };
 
   function getData() {
     var days;
@@ -1710,7 +1742,7 @@ function ReportPage(p) {
   }
 
   var doReport = async function() {
-    sLoading(true); sReport(null);
+    sLoading(true); sReport(null); sChatMsgs([]); sChatInput("");
     var data = getData();
     var total = data.logs.length + data.meals.length + data.ex.length + data.slp.length + data.sym.length + data.oo.length + data.fast.length + data.drinks.length + data.weight.length + data.mood.length + data.bowel.length + data.activity.length;
     if (total === 0) { sReport("No data found for this period. Start logging to generate a report!"); sLoading(false); return; }
@@ -1727,7 +1759,7 @@ function ReportPage(p) {
 
     <div className="flex gap-2 mb-4">
       {["daily", "weekly", "monthly", "all"].map(function(per) {
-        return <button key={per} onClick={function() { sPeriod(per); sReport(null); }} className={"flex-1 py-2.5 rounded-xl text-sm font-bold " + (period === per ? "bg-blue-600 text-white" : "bg-white border border-gray-200 text-gray-600")}>{per === "all" ? "All Time" : per.charAt(0).toUpperCase() + per.slice(1)}</button>;
+        return <button key={per} onClick={function() { sPeriod(per); sReport(null); sChatMsgs([]); }} className={"flex-1 py-2.5 rounded-xl text-sm font-bold " + (period === per ? "bg-blue-600 text-white" : "bg-white border border-gray-200 text-gray-600")}>{per === "all" ? "All Time" : per.charAt(0).toUpperCase() + per.slice(1)}</button>;
       })}
     </div>
 
@@ -1794,6 +1826,54 @@ function ReportPage(p) {
         printWin.document.close();
         setTimeout(function(){ printWin.print(); }, 400);
       }} className="w-full mt-2 py-2.5 bg-purple-100 text-purple-700 rounded-xl text-sm font-bold">Print / Save as PDF</button>
+    </div>}
+
+    {report && <div className="bg-white rounded-2xl shadow-sm mt-4 overflow-hidden">
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 flex items-center gap-2">
+        <span className="text-lg">💬</span>
+        <div>
+          <div className="text-white font-bold text-sm">Ask about this report</div>
+          <div className="text-indigo-200 text-xs">Ask follow-up questions about your data</div>
+        </div>
+      </div>
+
+      {chatMsgs.length > 0 && <div className="max-h-80 overflow-y-auto p-3 space-y-3 bg-gray-50">
+        {chatMsgs.map(function(m, i) {
+          return <div key={i} className={"flex " + (m.role === "user" ? "justify-end" : "justify-start")}>
+            <div className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm " + (m.role === "user" ? "bg-indigo-600 text-white rounded-br-sm" : "bg-white border border-gray-200 text-gray-800 rounded-bl-sm shadow-sm")}>
+              {m.role === "assistant" ? <RenderMD text={m.content} /> : m.content}
+            </div>
+          </div>;
+        })}
+        {chatLoading && <div className="flex justify-start">
+          <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-2 text-sm text-gray-500 flex items-center gap-2">
+            <span className="animate-spin inline-block w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full"></span>
+            Thinking...
+          </div>
+        </div>}
+        <div ref={chatEndRef} />
+      </div>}
+
+      {chatMsgs.length === 0 && <div className="px-4 py-3 bg-indigo-50 flex flex-wrap gap-2">
+        {["What's my biggest concern?", "How is my sleep affecting symptoms?", "Tips to improve my ON time?", "Explain my medication pattern"].map(function(q) {
+          return <button key={q} onClick={function() { sChatInput(q); }} className="text-xs bg-white border border-indigo-200 text-indigo-700 rounded-full px-3 py-1.5 font-medium">{q}</button>;
+        })}
+      </div>}
+
+      <div className="p-3 border-t border-gray-100 flex gap-2">
+        <input
+          type="text"
+          value={chatInput}
+          onChange={function(e) { sChatInput(e.target.value); }}
+          onKeyDown={function(e) { if (e.key === "Enter" && !chatLoading) askAboutReport(); }}
+          placeholder="Ask anything about your report..."
+          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+          disabled={chatLoading}
+        />
+        <button onClick={askAboutReport} disabled={!chatInput.trim() || chatLoading} className="bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-40">
+          {chatLoading ? "..." : "Send"}
+        </button>
+      </div>
     </div>}
   </div>);
 }
