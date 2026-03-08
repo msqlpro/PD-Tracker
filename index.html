@@ -936,8 +936,8 @@ function Setup(p) {
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <h3 className="font-bold text-gray-700 mb-3">💪 Daily Protein Target</h3>
       <div className="flex items-center gap-3">
-        <input type="range" min={20} max={200} step={5} value={p.protTarget || 50} onChange={function(e) { p.setProtTarget(parseInt(e.target.value)); }} className="flex-1" style={{ accentColor: "#dc2626" }} />
-        <span className="text-lg font-bold text-red-700 w-16 text-right">{p.protTarget || 50}g</span>
+        <input type="range" min={20} max={200} step={5} value={p.protTarget || 140} onChange={function(e) { p.setProtTarget(parseInt(e.target.value)); }} className="flex-1" style={{ accentColor: "#dc2626" }} />
+        <span className="text-lg font-bold text-red-700 w-16 text-right">{p.protTarget || 140}g</span>
       </div>
       <div className="flex justify-between mt-1 text-[10px] text-gray-400"><span>20g</span><span>75g</span><span>125g</span><span>200g</span></div>
       <p className="text-xs text-gray-500 mt-2">💡 Average adult: 50g/day. Higher if active or building muscle. Important for PD to maintain muscle mass.</p>
@@ -1828,7 +1828,7 @@ function App() {
 
   var loadData = useCallback(async function(isInitial) {
     try {
-      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4)]);
+      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 140), ld(K.medTarget, 4)]);
       var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17];
       var fm = m.length > 0 ? m : DEF_MEDS;
       fm = fm.filter(function(x) { return x && x.name; });
