@@ -1618,7 +1618,12 @@ function Spark(sp) {
 function InsightsPage(p) {
   var logs = p.logs || [], meals = p.meals || [], exArr = p.ex || [], slp = p.slp || [];
   var sym = p.sym || [], oo = p.oo || [], weightArr = p.weight || [], mood = p.mood || [];
+  var [aiInsights, sAiInsights] = useState(null);
+  var [aiLoading, sAiLoading] = useState(false);
+
   var NDAYS = 30;
+
+  // Build daily summary objects
   var dailies = [];
   for (var di = NDAYS - 1; di >= 0; di--) {
     var ddt = new Date(); ddt.setDate(ddt.getDate() - di);
@@ -1627,85 +1632,272 @@ function InsightsPage(p) {
     var dSlp = slp.find(function(s){ return s.date === dd; });
     var dEx = exArr.filter(function(e){ return e.loggedAt && e.loggedAt.startsWith(dd); });
     var dMood = mood.find(function(m){ return m.date === dd; });
+    var dMeals = meals.filter(function(m){ return m.loggedAt && m.loggedAt.startsWith(dd); });
+    var dLogs = logs.filter(function(l){ return l.takenAt && l.takenAt.startsWith(dd); });
     var dOoList = oo.filter(function(o){ return o.loggedAt && o.loggedAt.startsWith(dd); }).sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
-    var avgSev = dSym.length ? dSym.reduce(function(s,x){ return s + (x.severity||0); }, 0) / dSym.length : null;
+    var avgSev = dSym.length ? dSym.reduce(function(s,x){ return s+(x.severity||0);},0)/dSym.length : null;
+    var avgEff = dLogs.length ? dLogs.reduce(function(s,l){ return s+(l.effectiveness||0);},0)/dLogs.length : null;
     var onMins = 0;
     for (var oi = 0; oi < dOoList.length - 1; oi++) {
       var odur = (new Date(dOoList[oi+1].loggedAt) - new Date(dOoList[oi].loggedAt)) / 60000;
       if (dOoList[oi].state === "on") onMins += odur;
     }
+    var totalProtein = dMeals.reduce(function(s,m){ return s+(m.protein||0);},0);
     dailies.push({
       dd: dd,
       sym: avgSev,
-      sleep: dSlp ? (dSlp.quality || null) : null,
-      exMins: dEx.reduce(function(s,e){ return s + (e.duration||0); }, 0),
+      sleep: dSlp ? (dSlp.quality||null) : null,
+      sleepHrs: dSlp ? (dSlp.hours||null) : null,
+      exMins: dEx.reduce(function(s,e){ return s+(e.duration||0);},0),
       onMins: onMins > 0 ? onMins : null,
-      mood: dMood ? (dMood.level || null) : null
+      mood: dMood ? (dMood.level||null) : null,
+      protein: totalProtein > 0 ? totalProtein : null,
+      medEff: avgEff,
+      mealCount: dMeals.length
     });
   }
   var wByDay = {};
-  weightArr.forEach(function(w){ wByDay[w.date] = parseFloat(w.weight) || 0; });
+  weightArr.forEach(function(w){ wByDay[w.date] = parseFloat(w.weight)||0; });
 
-  var sleepSymMsg = "";
-  var goodNext = [], badNext = [];
-  for (var ci = 0; ci < dailies.length - 1; ci++) {
-    if (dailies[ci].sleep !== null && dailies[ci+1].sym !== null) {
-      if (dailies[ci].sleep >= 4) goodNext.push(dailies[ci+1].sym);
-      else if (dailies[ci].sleep <= 2) badNext.push(dailies[ci+1].sym);
+  // Pearson correlation helper
+  function pearson(pairs) {
+    var n = pairs.length;
+    if (n < 4) return null;
+    var sx=0,sy=0,sx2=0,sy2=0,sxy=0;
+    pairs.forEach(function(p){ sx+=p[0];sy+=p[1];sx2+=p[0]*p[0];sy2+=p[1]*p[1];sxy+=p[0]*p[1]; });
+    var num = n*sxy - sx*sy;
+    var den = Math.sqrt((n*sx2-sx*sx)*(n*sy2-sy*sy));
+    return den===0 ? null : num/den;
+  }
+
+  // Compute client-side correlations
+  var correlations = (function() {
+    var results = [];
+
+    // Sleep quality → next day symptom severity
+    var sleepSymPairs = [];
+    for (var i=0;i<dailies.length-1;i++) {
+      if (dailies[i].sleep!==null && dailies[i+1].sym!==null) sleepSymPairs.push([dailies[i].sleep, dailies[i+1].sym]);
     }
-  }
-  if (goodNext.length >= 3 && badNext.length >= 3) {
-    var gAvg = (goodNext.reduce(function(s,v){return s+v;},0)/goodNext.length).toFixed(1);
-    var bAvg = (badNext.reduce(function(s,v){return s+v;},0)/badNext.length).toFixed(1);
-    sleepSymMsg = "Good sleep → avg " + gAvg + "/10 symptoms. Poor sleep → " + bAvg + "/10.";
-  }
-  var exMsg = "";
-  var exOnDays = dailies.filter(function(d){ return d.exMins > 0 && d.sym !== null; });
-  var noExDays = dailies.filter(function(d){ return d.exMins === 0 && d.sym !== null; });
-  if (exOnDays.length >= 3 && noExDays.length >= 3) {
-    var exAvg = (exOnDays.reduce(function(s,d){return s+d.sym;},0)/exOnDays.length).toFixed(1);
-    var noExAvg = (noExDays.reduce(function(s,d){return s+d.sym;},0)/noExDays.length).toFixed(1);
-    exMsg = "Exercise days: " + exAvg + "/10 symptoms. Rest days: " + noExAvg + "/10.";
-  }
+    var r1 = pearson(sleepSymPairs);
+    if (r1!==null && Math.abs(r1)>0.2) {
+      var goodSlp = sleepSymPairs.filter(function(p){return p[0]>=4;}).map(function(p){return p[1];});
+      var badSlp = sleepSymPairs.filter(function(p){return p[0]<=2;}).map(function(p){return p[1];});
+      if (goodSlp.length>=2 && badSlp.length>=2) {
+        var gA=(goodSlp.reduce(function(s,v){return s+v;},0)/goodSlp.length).toFixed(1);
+        var bA=(badSlp.reduce(function(s,v){return s+v;},0)/badSlp.length).toFixed(1);
+        results.push({ icon:"😴", color:"indigo", title:"Sleep → Next Day Symptoms", r:r1,
+          detail: "After good sleep (4-5★): avg symptom severity "+gA+"/5. After poor sleep (1-2★): "+bA+"/5.",
+          strength: Math.abs(r1)>0.5?"strong":Math.abs(r1)>0.3?"moderate":"weak" });
+      }
+    }
+
+    // Exercise → same day symptoms
+    var exSymPairs = dailies.filter(function(d){return d.exMins>0&&d.sym!==null;}).map(function(d){return [d.exMins,d.sym];});
+    var noExSym = dailies.filter(function(d){return d.exMins===0&&d.sym!==null;}).map(function(d){return d.sym;});
+    if (exSymPairs.length>=3 && noExSym.length>=3) {
+      var r2 = pearson(exSymPairs);
+      var exAvg=(exSymPairs.reduce(function(s,p){return s+p[1];},0)/exSymPairs.length).toFixed(1);
+      var noExAvg=(noExSym.reduce(function(s,v){return s+v;},0)/noExSym.length).toFixed(1);
+      results.push({ icon:"🏃", color:"orange", title:"Exercise → Symptom Severity", r:r2||0,
+        detail: "Exercise days: "+exAvg+"/5 avg severity. Rest days: "+noExAvg+"/5.",
+        strength: parseFloat(noExAvg)-parseFloat(exAvg)>0.5?"strong":parseFloat(noExAvg)-parseFloat(exAvg)>0.2?"moderate":"weak" });
+    }
+
+    // Sleep hours → medication effectiveness
+    var slpEffPairs = dailies.filter(function(d){return d.sleepHrs!==null&&d.medEff!==null;}).map(function(d){return [d.sleepHrs,d.medEff];});
+    var r3 = pearson(slpEffPairs);
+    if (r3!==null && Math.abs(r3)>0.2) {
+      var goodHrs = slpEffPairs.filter(function(p){return p[0]>=7;}).map(function(p){return p[1];});
+      var badHrs = slpEffPairs.filter(function(p){return p[0]<6;}).map(function(p){return p[1];});
+      if (goodHrs.length>=2 && badHrs.length>=2) {
+        var ghA=(goodHrs.reduce(function(s,v){return s+v;},0)/goodHrs.length).toFixed(1);
+        var bhA=(badHrs.reduce(function(s,v){return s+v;},0)/badHrs.length).toFixed(1);
+        results.push({ icon:"💊", color:"blue", title:"Sleep Hours → Med Effectiveness", r:r3,
+          detail: "7h+ sleep: avg effectiveness "+ghA+"/5. Under 6h: "+bhA+"/5.",
+          strength: Math.abs(r3)>0.5?"strong":Math.abs(r3)>0.3?"moderate":"weak" });
+      }
+    }
+
+    // Protein → medication effectiveness
+    var protEffPairs = dailies.filter(function(d){return d.protein!==null&&d.medEff!==null;}).map(function(d){return [d.protein,d.medEff];});
+    var r4 = pearson(protEffPairs);
+    if (r4!==null && Math.abs(r4)>0.2) {
+      var hiProt = protEffPairs.filter(function(p){return p[0]>100;}).map(function(p){return p[1];});
+      var loProt = protEffPairs.filter(function(p){return p[0]<=100;}).map(function(p){return p[1];});
+      if (hiProt.length>=2 && loProt.length>=2) {
+        var hpA=(hiProt.reduce(function(s,v){return s+v;},0)/hiProt.length).toFixed(1);
+        var lpA=(loProt.reduce(function(s,v){return s+v;},0)/loProt.length).toFixed(1);
+        results.push({ icon:"🥩", color:"red", title:"Daily Protein → Med Effectiveness", r:r4,
+          detail: "High protein days (100g+): "+hpA+"/5. Lower protein days: "+lpA+"/5.",
+          strength: Math.abs(r4)>0.5?"strong":Math.abs(r4)>0.3?"moderate":"weak" });
+      }
+    }
+
+    // Mood → next day exercise
+    var moodExPairs = [];
+    for (var i=0;i<dailies.length-1;i++) {
+      if (dailies[i].mood!==null && dailies[i+1].exMins!==null) moodExPairs.push([dailies[i].mood, dailies[i+1].exMins]);
+    }
+    var r5 = pearson(moodExPairs);
+    if (r5!==null && Math.abs(r5)>0.25) {
+      results.push({ icon:"😊", color:"yellow", title:"Mood → Next Day Activity", r:r5,
+        detail: r5>0 ? "Better mood days tend to be followed by more exercise." : "Lower mood days tend to be followed by more exercise (possibly compensating).",
+        strength: Math.abs(r5)>0.5?"strong":Math.abs(r5)>0.3?"moderate":"weak" });
+    }
+
+    // Exercise → ON time
+    var exOnPairs = dailies.filter(function(d){return d.exMins>0&&d.onMins!==null;}).map(function(d){return [d.exMins,d.onMins];});
+    var noExOn = dailies.filter(function(d){return d.exMins===0&&d.onMins!==null;}).map(function(d){return d.onMins;});
+    if (exOnPairs.length>=3 && noExOn.length>=2) {
+      var exOnAvg=Math.round(exOnPairs.reduce(function(s,p){return s+p[1];},0)/exOnPairs.length);
+      var noExOnAvg=Math.round(noExOn.reduce(function(s,v){return s+v;},0)/noExOn.length);
+      results.push({ icon:"🟢", color:"green", title:"Exercise → ON Time", r:null,
+        detail: "Exercise days: avg "+exOnAvg+"min ON. Rest days: avg "+noExOnAvg+"min ON.",
+        strength: exOnAvg-noExOnAvg>30?"strong":exOnAvg-noExOnAvg>10?"moderate":"weak" });
+    }
+
+    return results;
+  })();
+
+  // Build data summary for AI
+  var buildSummary = function() {
+    var s = "DAILY DATA (last 30 days):
+";
+    dailies.forEach(function(d) {
+      if (d.sym!==null||d.sleep!==null||d.exMins>0||d.mood!==null||d.medEff!==null) {
+        s += d.dd+": ";
+        if (d.sym!==null) s+="sym="+d.sym.toFixed(1)+"/5 ";
+        if (d.sleep!==null) s+="sleep="+d.sleep+"/5("+d.sleepHrs+"h) ";
+        if (d.exMins>0) s+="ex="+d.exMins+"min ";
+        if (d.mood!==null) s+="mood="+d.mood+"/5 ";
+        if (d.medEff!==null) s+="medEff="+d.medEff.toFixed(1)+"/5 ";
+        if (d.protein!==null) s+="protein="+d.protein+"g ";
+        if (d.onMins!==null) s+="ON="+Math.round(d.onMins)+"min ";
+        s+="
+";
+      }
+    });
+    s += "
+CLIENT-COMPUTED CORRELATIONS:
+";
+    correlations.forEach(function(c){ s+=c.title+": r="+c.r+", "+c.detail+"
+"; });
+    return s;
+  };
+
+  var runAiAnalysis = async function() {
+    sAiLoading(true);
+    try {
+      var res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body: JSON.stringify({
+          model:"claude-haiku-4-5-20251001", max_tokens:1500,
+          messages:[{role:"user", content: buildSummary()+"
+
+You are a Parkinson's disease data analyst. Based on this 30-day tracking data, provide 4-6 specific, personalised correlation insights. For each insight:
+- State the pattern found in the data (use actual numbers)
+- Explain why this matters for PD management
+- Give one specific, actionable recommendation
+
+Focus on: sleep/symptom relationships, exercise/ON-time, protein/medication effectiveness, mood patterns.
+Be direct and specific. Use the actual numbers from the data. Format each insight with a clear title and 2-3 sentences. Skip any correlation where there isn't enough data. Do not use generic PD advice - only comment on what the actual data shows."}]
+        })
+      });
+      var data = await res.json();
+      sAiInsights(data.content&&data.content[0]?data.content[0].text:"No insights available.");
+    } catch(e) { sAiInsights("Error: "+e.message); }
+    sAiLoading(false);
+  };
+
   var hasSym = dailies.filter(function(d){return d.sym!==null;});
   var hasSleep = dailies.filter(function(d){return d.sleep!==null;});
   var hasMood = dailies.filter(function(d){return d.mood!==null;});
   var totalExMins = dailies.reduce(function(s,d){return s+d.exMins;},0);
 
+  var colourMap = { indigo:"bg-indigo-50 border-indigo-200 text-indigo-700", orange:"bg-orange-50 border-orange-200 text-orange-700", blue:"bg-blue-50 border-blue-200 text-blue-700", red:"bg-red-50 border-red-200 text-red-700", yellow:"bg-yellow-50 border-yellow-200 text-yellow-700", green:"bg-green-50 border-green-200 text-green-700" };
+  var strengthBadge = { strong:"bg-emerald-100 text-emerald-700", moderate:"bg-amber-100 text-amber-700", weak:"bg-gray-100 text-gray-500" };
+
   return (<div className="p-4 pb-28">
-    <h2 className="text-xl font-bold mb-4">Insights</h2>
+    <h2 className="text-xl font-bold mb-1">📈 Insights</h2>
+    <p className="text-xs text-gray-500 mb-4">Patterns from your last 30 days of data</p>
+
+    {/* Correlation Cards */}
+    {correlations.length > 0 && <div className="mb-4">
+      <h3 className="font-bold text-gray-700 text-sm mb-2">🔗 Correlations Found</h3>
+      {correlations.map(function(c, i) {
+        var cls = colourMap[c.color] || colourMap.blue;
+        return (<div key={i} className={"rounded-xl p-3 mb-2 border " + cls}>
+          <div className="flex justify-between items-start mb-1">
+            <span className="font-bold text-sm">{c.icon} {c.title}</span>
+            <span className={"text-[10px] font-bold px-2 py-0.5 rounded-full " + strengthBadge[c.strength]}>{c.strength}</span>
+          </div>
+          <p className="text-xs opacity-80">{c.detail}</p>
+          {c.r!==null && <p className="text-[10px] opacity-50 mt-1">r = {c.r.toFixed(2)}</p>}
+        </div>);
+      })}
+    </div>}
+
+    {correlations.length === 0 && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-sm text-amber-700">
+      📊 Not enough data yet for correlations — keep logging for a few more days and patterns will start to emerge.
+    </div>}
+
+    {/* AI Deep Analysis */}
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+      <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-3">
+        <div className="text-white font-bold text-sm">🧠 AI Correlation Analysis</div>
+        <div className="text-violet-200 text-xs">Deep pattern analysis across all your data</div>
+      </div>
+      {!aiInsights && <div className="p-4">
+        <p className="text-sm text-gray-500 mb-3">Ask the AI to analyse all your tracked variables together and find patterns specific to how PD affects you.</p>
+        <button onClick={runAiAnalysis} disabled={aiLoading} className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
+          {aiLoading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"/>Analysing your data...</> : <>🔍 Analyse My Patterns</>}
+        </button>
+      </div>}
+      {aiInsights && <div className="p-4">
+        <RenderMD text={aiInsights} />
+        <button onClick={function(){sAiInsights(null);}} className="mt-3 w-full py-2 bg-violet-100 text-violet-700 rounded-xl text-sm font-bold">🔄 Re-analyse</button>
+      </div>}
+    </div>
+
+    {/* Sparkline charts */}
+    <h3 className="font-bold text-gray-700 text-sm mb-2">📊 30-Day Trends</h3>
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
-      <div className="text-xs font-bold text-gray-600 mb-1">Symptom Severity (30 days)</div>
+      <div className="text-xs font-bold text-gray-600 mb-1">Symptom Severity</div>
       <Spark data={dailies.map(function(d){return d.sym;})} color="#ef4444" />
-      {sleepSymMsg ? <div className="text-xs text-gray-500 mt-1 bg-blue-50 rounded-lg p-2">{sleepSymMsg}</div> : null}
     </div>
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
-      <div className="text-xs font-bold text-gray-600 mb-1">Sleep Quality (30 days)</div>
+      <div className="text-xs font-bold text-gray-600 mb-1">Sleep Quality</div>
       <Spark data={dailies.map(function(d){return d.sleep;})} color="#6366f1" />
     </div>
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
-      <div className="text-xs font-bold text-gray-600 mb-1">Exercise Minutes (30 days)</div>
-      <Spark data={dailies.map(function(d){return d.exMins > 0 ? d.exMins : null;})} color="#f97316" />
-      {exMsg ? <div className="text-xs text-gray-500 mt-1 bg-orange-50 rounded-lg p-2">{exMsg}</div> : null}
+      <div className="text-xs font-bold text-gray-600 mb-1">Exercise Minutes</div>
+      <Spark data={dailies.map(function(d){return d.exMins>0?d.exMins:null;})} color="#f97316" />
     </div>
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
-      <div className="text-xs font-bold text-gray-600 mb-1">Mood (30 days)</div>
+      <div className="text-xs font-bold text-gray-600 mb-1">Medication Effectiveness</div>
+      <Spark data={dailies.map(function(d){return d.medEff;})} color="#3b82f6" />
+    </div>
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
+      <div className="text-xs font-bold text-gray-600 mb-1">Mood</div>
       <Spark data={dailies.map(function(d){return d.mood;})} color="#f59e0b" />
     </div>
     <div className="bg-white rounded-xl p-3 shadow-sm mb-3">
-      <div className="text-xs font-bold text-gray-600 mb-1">ON Time minutes/day (30 days)</div>
+      <div className="text-xs font-bold text-gray-600 mb-1">ON Time (mins/day)</div>
       <Spark data={dailies.map(function(d){return d.onMins;})} color="#10b981" />
     </div>
     <div className="bg-white rounded-xl p-3 shadow-sm mb-4">
-      <div className="text-xs font-bold text-gray-600 mb-1">Weight (30 days)</div>
+      <div className="text-xs font-bold text-gray-600 mb-1">Weight</div>
       <Spark data={dailies.map(function(d){return wByDay[d.dd]||null;})} color="#8b5cf6" />
     </div>
+
     <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
       <div className="font-bold text-gray-600 mb-2">30-Day Averages</div>
       <div className="grid grid-cols-2 gap-2">
-        {hasSym.length > 0 ? <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-red-500 text-base">{(hasSym.reduce(function(s,d){return s+d.sym;},0)/hasSym.length).toFixed(1)}</div><div>Avg Symptoms</div></div> : null}
-        {hasSleep.length > 0 ? <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-indigo-500 text-base">{(hasSleep.reduce(function(s,d){return s+d.sleep;},0)/hasSleep.length).toFixed(1)}</div><div>Avg Sleep</div></div> : null}
-        {hasMood.length > 0 ? <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-amber-500 text-base">{(hasMood.reduce(function(s,d){return s+d.mood;},0)/hasMood.length).toFixed(1)}</div><div>Avg Mood</div></div> : null}
+        {hasSym.length>0?<div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-red-500 text-base">{(hasSym.reduce(function(s,d){return s+d.sym;},0)/hasSym.length).toFixed(1)}</div><div>Avg Symptoms</div></div>:null}
+        {hasSleep.length>0?<div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-indigo-500 text-base">{(hasSleep.reduce(function(s,d){return s+d.sleep;},0)/hasSleep.length).toFixed(1)}</div><div>Avg Sleep</div></div>:null}
+        {hasMood.length>0?<div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-amber-500 text-base">{(hasMood.reduce(function(s,d){return s+d.mood;},0)/hasMood.length).toFixed(1)}</div><div>Avg Mood</div></div>:null}
         <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-orange-500 text-base">{Math.round(totalExMins/NDAYS)}</div><div>Avg Exercise min</div></div>
       </div>
     </div>
