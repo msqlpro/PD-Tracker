@@ -1773,8 +1773,7 @@ function InsightsPage(p) {
         if (d.medEff!==null) s+="medEff="+d.medEff.toFixed(1)+"/5 ";
         if (d.protein!==null) s+="protein="+d.protein+"g ";
         if (d.onMins!==null) s+="ON="+Math.round(d.onMins)+"min ";
-        s+="
-";
+        s+="\n";
       }
     });
     s += "
