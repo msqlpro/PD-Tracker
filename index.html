@@ -1790,15 +1790,7 @@ function InsightsPage(p) {
         headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body: JSON.stringify({
           model:"claude-haiku-4-5-20251001", max_tokens:1500,
-          messages:[{role:"user", content: buildSummary()+"
-
-You are a Parkinson's disease data analyst. Based on this 30-day tracking data, provide 4-6 specific, personalised correlation insights. For each insight:
-- State the pattern found in the data (use actual numbers)
-- Explain why this matters for PD management
-- Give one specific, actionable recommendation
-
-Focus on: sleep/symptom relationships, exercise/ON-time, protein/medication effectiveness, mood patterns.
-Be direct and specific. Use the actual numbers from the data. Format each insight with a clear title and 2-3 sentences. Skip any correlation where there isn't enough data. Do not use generic PD advice - only comment on what the actual data shows."}]
+          messages:[{role:"user", content: buildSummary()+"\n\nYou are a Parkinson's disease data analyst. Based on this 30-day tracking data, provide 4-6 specific, personalised correlation insights. For each insight:\n- State the pattern found in the data (use actual numbers)\n- Explain why this matters for PD management\n- Give one specific, actionable recommendation\n\nFocus on: sleep/symptom relationships, exercise/ON-time, protein/medication effectiveness, mood patterns.\nBe direct and specific. Use the actual numbers from the data. Format each insight with a clear title and 2-3 sentences. Skip any correlation where there isn't enough data. Do not use generic PD advice - only comment on what the actual data shows."}]
         })
       });
       var data = await res.json();
