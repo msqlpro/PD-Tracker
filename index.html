@@ -1762,8 +1762,7 @@ function InsightsPage(p) {
 
   // Build data summary for AI
   var buildSummary = function() {
-    var NL = "
-";
+    var NL = "\n";
     var s = "DAILY DATA (last 30 days):" + NL;
     dailies.forEach(function(d) {
       if (d.sym!==null||d.sleep!==null||d.exMins>0||d.mood!==null||d.medEff!==null) {
