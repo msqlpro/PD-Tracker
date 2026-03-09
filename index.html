@@ -237,7 +237,7 @@ var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", 
 function canStore() { return true; }
 async function ld(k, fb) {
   // Profile settings come from Supabase profiles table
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode) {
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.greenTeaTarget) {
     try {
       var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single();
       if (data && data.settings) {
@@ -247,6 +247,7 @@ async function ld(k, fb) {
         if (k === K.protTarget) return s.protTarget || fb;
         if (k === K.medTarget) return s.medTarget || fb;
         if (k === K.darkMode) return s.darkMode || fb;
+        if (k === K.greenTeaTarget) return s.greenTeaTarget || fb;
       }
     } catch(e) {}
     return fb;
@@ -259,7 +260,7 @@ async function ld(k, fb) {
 }
 async function sv(k, v) {
   // Profile settings
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode) {
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.greenTeaTarget) {
     try {
       var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single();
       var settings = (existing && existing.settings) || {};
@@ -268,6 +269,7 @@ async function sv(k, v) {
       else if (k === K.protTarget) settings.protTarget = v;
       else if (k === K.medTarget) settings.medTarget = v;
       else if (k === K.darkMode) settings.darkMode = v;
+      else if (k === K.greenTeaTarget) settings.greenTeaTarget = v;
       await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings });
     } catch(e) { console.error("Save setting", e); }
     return;
