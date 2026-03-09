@@ -1762,25 +1762,24 @@ function InsightsPage(p) {
 
   // Build data summary for AI
   var buildSummary = function() {
-    var s = "DAILY DATA (last 30 days):\n";
+    var NL = "
+";
+    var s = "DAILY DATA (last 30 days):" + NL;
     dailies.forEach(function(d) {
       if (d.sym!==null||d.sleep!==null||d.exMins>0||d.mood!==null||d.medEff!==null) {
-        s += d.dd+": ";
-        if (d.sym!==null) s+="sym="+d.sym.toFixed(1)+"/5 ";
-        if (d.sleep!==null) s+="sleep="+d.sleep+"/5("+d.sleepHrs+"h) ";
-        if (d.exMins>0) s+="ex="+d.exMins+"min ";
-        if (d.mood!==null) s+="mood="+d.mood+"/5 ";
-        if (d.medEff!==null) s+="medEff="+d.medEff.toFixed(1)+"/5 ";
-        if (d.protein!==null) s+="protein="+d.protein+"g ";
-        if (d.onMins!==null) s+="ON="+Math.round(d.onMins)+"min ";
-        s+="\n";
+        var row = d.dd + ": ";
+        if (d.sym!==null) row+="sym="+d.sym.toFixed(1)+"/5 ";
+        if (d.sleep!==null) row+="sleep="+d.sleep+"/5("+d.sleepHrs+"h) ";
+        if (d.exMins>0) row+="ex="+d.exMins+"min ";
+        if (d.mood!==null) row+="mood="+d.mood+"/5 ";
+        if (d.medEff!==null) row+="medEff="+d.medEff.toFixed(1)+"/5 ";
+        if (d.protein!==null) row+="protein="+d.protein+"g ";
+        if (d.onMins!==null) row+="ON="+Math.round(d.onMins)+"min ";
+        s += row + NL;
       }
     });
-    s += "
-CLIENT-COMPUTED CORRELATIONS:
-";
-    correlations.forEach(function(c){ s+=c.title+": r="+c.r+", "+c.detail+"
-"; });
+    s += NL + "CLIENT-COMPUTED CORRELATIONS:" + NL;
+    correlations.forEach(function(c){ s += c.title+": r="+c.r+", "+c.detail + NL; });
     return s;
   };
 
