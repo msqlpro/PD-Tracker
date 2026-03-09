@@ -233,7 +233,7 @@ var FROM_ROW = {
 async function dbLoad(key) { var t = TBL[key]; if (!t) return []; var { data, error } = await sb.from(t).select("*").eq("user_id", CURRENT_UID); if (error) { console.error("Load " + key, error); return []; } return (data || []).map(FROM_ROW[key]); }
 async function dbSave(key, item) { var t = TBL[key]; if (!t) return; var row = TO_ROW[key](item); var { error } = await sb.from(t).upsert(row); if (error) console.error("Save " + key, error); }
 async function dbDel(key, id) { var t = TBL[key]; if (!t) return; var { error } = await sb.from(t).delete().eq("id", id); if (error) console.error("Del " + key, error); }
-var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget" };
+var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", greenTeaTarget: "greenTeaTarget" };
 function canStore() { return true; }
 async function ld(k, fb) {
   // Profile settings come from Supabase profiles table
@@ -959,6 +959,20 @@ function Setup(p) {
     </div>
 
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">🍵 Daily Green Tea Target</h3>
+      <div className="flex items-center gap-3">
+        <input type="range" min={1} max={10} step={1} value={p.greenTeaTarget || 3} onChange={function(e) { p.setGreenTeaTarget(parseInt(e.target.value)); }} className="flex-1" style={{ accentColor: "#16a34a" }} />
+        <span className="text-lg font-bold text-green-700 w-16 text-right">{p.greenTeaTarget || 3} cups</span>
+      </div>
+      <div className="relative mt-1" style={{paddingLeft:"7px",paddingRight:"7px"}}>
+        <div className="flex justify-between text-[10px] text-gray-400">
+          {[1,2,3,4,5,6,7,8,9,10].map(function(n){return <span key={n} className={n===(p.greenTeaTarget||3)?"text-green-600 font-bold":""}>{n}</span>;})}
+        </div>
+      </div>
+      <p className="text-xs text-gray-500 mt-2">💡 Green tea is rich in EGCG — neuroprotective antioxidants beneficial for PD. Default: 3 cups.</p>
+    </div>
+
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <h3 className="font-bold text-gray-700 mb-3">⏰ Medication Reminders</h3>
       <p className="text-xs text-gray-500 mb-3">Get browser notifications at your med times. You must allow notifications when prompted.</p>
       {(function() {
@@ -1182,6 +1196,7 @@ function TodayPage(p) {
   var dn = tMl.reduce(function(a, m) { return { protein: a.protein + (m.protein || 0), carbs: a.carbs + (m.carbs || 0), fibre: a.fibre + (m.fibre || 0), calories: a.calories + (m.calories || 0), sugar: a.sugar + (m.sugar || 0) }; }, { protein: 0, carbs: 0, fibre: 0, calories: 0, sugar: 0 });
   var drinkCals = tDr.reduce(function(s, d) { return s + (d.calories || 0); }, 0);
   var drinkCaff = tDr.reduce(function(s, d) { return s + (d.caffeine || 0); }, 0);
+  var greenTeaCups = tDr.filter(function(d){ return (d.name||"").toLowerCase().replace(/\s/g,"").includes("greentea"); }).length;
   var totalCalsIn = dn.calories + drinkCals;
   var em = tE.reduce(function(s, e) { return s + (e.duration || 0); }, 0);
   var calBurned = tE.reduce(function(s, e) {
@@ -1266,6 +1281,15 @@ function TodayPage(p) {
           <div className="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (medPct >= 100 ? "bg-emerald-500" : "bg-blue-400")} style={{ width: Math.min(medPct, 100) + "%" }} /></div>
           <div className="text-[10px] text-gray-500 mt-0.5">{medsTaken} / {mt} doses</div>
         </div>
+        {(function(){
+          var gtt = p.greenTeaTarget || 3;
+          var gtPct = Math.min(100, Math.round((greenTeaCups / gtt) * 100));
+          return (<div className="bg-white rounded-xl p-2 shadow-sm col-span-2">
+            <div className="flex justify-between"><span className="text-[10px] font-bold text-green-700">🍵 Green Tea</span><span className="text-[10px] text-gray-400">{greenTeaCups}/{gtt} cups</span></div>
+            <div className="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (gtPct >= 100 ? "bg-emerald-500" : "bg-green-400")} style={{ width: Math.min(gtPct, 100) + "%" }} /></div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{gtPct >= 100 ? "✅ Target met!" : (gtt - greenTeaCups) + " more to go"}</div>
+          </div>);
+        })()}
       </div>);
     })()}
     {lO && <div className={"rounded-xl p-2.5 mb-2 " + (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200")}><span className="font-medium text-sm">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-xs text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
@@ -1439,6 +1463,14 @@ function TodayPage(p) {
         tSy.map(function(s) { return { _t: "sym", _d: s.loggedAt || "", d: s }; }),
         tO.map(function(o) { return { _t: "oo", _d: o.loggedAt || "", d: o }; }),
         fast.filter(function(f) { return f.date === td(); }).map(function(f) { return { _t: "fast", _d: f.date + "T" + (f.endTime || "12:00"), d: f }; }),
+        // Auto-calculated fast entry if no manual fast today and we have data
+        (function() {
+          var hasFastToday = fast.some(function(f){ return f.date === td(); });
+          if (hasFastToday || autoFastHrs === null) return [];
+          var firstTodayMeal = tMl.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); })[0];
+          var breakTime = firstTodayMeal ? firstTodayMeal.loggedAt : new Date().toISOString();
+          return [{ _t: "autofast", _d: breakTime, d: { hrs: autoFastHrs, breakTime: breakTime } }];
+        })(),
         tDr.map(function(d) { return { _t: "drink", _d: d.loggedAt || "", d: d }; }),
         weight.filter(function(w) { return w.date === td(); }).map(function(w) { return { _t: "weight", _d: w.date + "T12:00", d: w }; }),
         mood.filter(function(m) { return m.date === td(); }).map(function(m) { return { _t: "mood", _d: m.date + "T08:00", d: m }; }),
@@ -1455,6 +1487,7 @@ function TodayPage(p) {
         if (it._t === "sym") { var st = SYMS.find(function(t) { return t.id === i.symptomId; }); return <button key={i.id} onClick={function() { setM({ type: "eSym", data: i }); }} className="w-full bg-red-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{st ? st.e : ""} {st ? st.l : i.symptomId}</span><span className="text-xs text-gray-400">{ft(i.loggedAt)}</span></div></button>; }
         if (it._t === "oo") return <button key={i.id} onClick={function() { setM({ type: "eOo", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.state === "on" ? "bg-green-50" : "bg-red-50")}>{i.state === "on" ? "🟢 ON" : "🔴 OFF"} <span className="text-gray-400 text-xs">{ft(i.loggedAt)}</span></button>;
         if (it._t === "fast") return <button key={i.id} onClick={function() { setM({ type: "eFast", data: i }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><span>⏱️ {i.hours}h fast</span><span className="text-xs text-gray-400 ml-2">{i.startTime}→{i.endTime}</span></button>;
+        if (it._t === "autofast") { var afc = i.hrs >= 16 ? "bg-emerald-50 border border-emerald-200" : i.hrs >= 14 ? "bg-teal-50 border border-teal-200" : "bg-amber-50 border border-amber-200"; var afl = i.hrs >= 16 ? "🎉" : i.hrs >= 14 ? "✅" : ""; return <div key="autofast" className={"w-full rounded-xl p-2.5 mb-1.5 text-sm " + afc}><span className="font-medium">⏱️ Fast: {i.hrs}h {afl}</span><span className="text-xs text-gray-400 ml-2">auto-calculated</span></div>; }
         if (it._t === "drink") return <button key={i.id} onClick={function() { setM({ type: "eDrink", data: i }); }} className="w-full bg-cyan-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{i.emoji || "🥤"} {i.name}</span><span className="text-xs text-gray-400">{ft(i.loggedAt)}</span></div><div className="text-xs text-gray-600">{i.volume}ml{i.caffeine ? " · ☕" + i.caffeine + "mg" : ""}{i.calories ? " · " + i.calories + "kcal" : ""}</div></button>;
         if (it._t === "weight") return <button key={i.id} onClick={function() { setM({ type: "eWeight", data: i }); }} className="w-full bg-violet-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><span>⚖️ {i.weight}kg</span></button>;
         if (it._t === "mood") return <button key={i.id} onClick={function() { setM({ type: "eMood", data: i }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><span>{MOOD_EMOJI[i.level]} {MOOD_LABELS[i.level]}</span></button>;
@@ -1898,6 +1931,7 @@ function App() {
   var [calTarget, sCalTarget] = useState(2000);
   var [protTarget, sProtTarget] = useState(50);
   var [medTarget, sMedTarget] = useState(4);
+  var [greenTeaTarget, sGreenTeaTarget] = useState(3);
   var [dark, sDark] = useState(false);
   var [weightGoal, setWeightGoalState] = useState(null);
   var [showGoalPop, setShowGoalPop] = useState(false);
@@ -1908,15 +1942,15 @@ function App() {
 
   var loadData = useCallback(async function(isInitial) {
     try {
-      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 140), ld(K.medTarget, 4)]);
-      var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17];
+      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 140), ld(K.medTarget, 4), ld(K.greenTeaTarget, 3)]);
+      var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17], gtt = r[18];
       var fm = m.length > 0 ? m : DEF_MEDS;
       fm = fm.filter(function(x) { return x && x.name; });
       var seen = {}; fm = fm.filter(function(x) { var k = (x.name || "").toLowerCase().trim(); if (!k || seen[k]) return false; seen[k] = true; return true; });
       if (isInitial && (m.length === 0 || fm.length !== m.length)) sv(K.meds, fm);
       var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
       if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
-      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt);
+      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); sGreenTeaTarget(gtt);
       try { var sg=localStorage.getItem("pd_weightGoal"); if(sg) setWeightGoalState(JSON.parse(sg)); } catch(e) {}
     } catch (err) {}
     if (isInitial) setReady(true);
@@ -2047,11 +2081,11 @@ function App() {
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")} style={{ fontFamily: "system-ui, sans-serif" }}>
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><div className="flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div></div>
-    {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
+    {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} greenTeaTarget={greenTeaTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} weightGoal={weightGoal} setWeightGoal={setWeightGoal} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} />}
+    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} weightGoal={weightGoal} setWeightGoal={setWeightGoal} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} greenTeaTarget={greenTeaTarget} setGreenTeaTarget={function(v){sGreenTeaTarget(v);sv(K.greenTeaTarget,v);}} dark={dark} toggleDark={toggleDark} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-4 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}><div className="relative">{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}{t.id === "today" && missedDoseBadge > 0 ? <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{missedDoseBadge}</span> : null}</div><span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
