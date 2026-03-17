@@ -600,6 +600,29 @@ function TodayPage(p) {
       </div>);
     })()}
 
+    {/* ── Apple Health ── */}
+    {(function() {
+      var ah = p.appleHealth || {};
+      if (ah.steps === null && ah.heartRate === null && !ah.sleep) return null;
+      return (<div className="bg-white rounded-xl p-3 shadow-sm mb-2">
+        <div className="text-[10px] font-bold text-gray-500 mb-2">⌚ APPLE WATCH TODAY</div>
+        <div className="flex gap-2">
+          {ah.steps !== null && <div className="flex-1 bg-green-50 rounded-lg p-2 text-center">
+            <div className="text-base font-bold text-green-700">{ah.steps !== undefined ? ah.steps.toLocaleString() : "—"}</div>
+            <div className="text-[10px] text-gray-500">Steps</div>
+          </div>}
+          {ah.heartRate !== null && <div className="flex-1 bg-red-50 rounded-lg p-2 text-center">
+            <div className="text-base font-bold text-red-600">{ah.heartRate || "—"}<span className="text-[10px] font-normal"> bpm</span></div>
+            <div className="text-[10px] text-gray-500">Resting HR</div>
+          </div>}
+          {ah.sleep && ah.sleep.total_hours && <div className="flex-1 bg-indigo-50 rounded-lg p-2 text-center">
+            <div className="text-base font-bold text-indigo-700">{Number(ah.sleep.total_hours).toFixed(1)}h</div>
+            <div className="text-[10px] text-gray-500">Sleep</div>
+          </div>}
+        </div>
+      </div>);
+    })()}
+
     {/* ── Streaks ── */}
     {(function() {
       var calcStreak = function(dates) { var sorted = dates.slice().sort().reverse(); var streak = 0; for (var i = 0; i < sorted.length; i++) { if (sorted[i] === dAgo(i)) streak++; else break; } return streak; };
@@ -762,6 +785,7 @@ function App() {
   var [cactList, setCactList] = useState([]);
   var [alarmsOn, setAlarmsOn] = useState(false);
   var [alarmTimesList, setAlarmTimesList] = useState(["08:00","12:00","17:00","22:00"]);
+  var [appleHealth, setAppleHealth] = useState({ steps: null, sleep: null, heartRate: null });
   var DEF_MEDS = [{ id: "sinemet_default", name: "Sinemet", dose: "", times: [] }];
 
   var loadData = useCallback(async function(isInitial) {
@@ -780,6 +804,24 @@ function App() {
   }, []);
 
   useEffect(function() { loadData(true); }, []);
+  useEffect(function() {
+    async function loadAppleHealth() {
+      try {
+        var today = td();
+        var [mob, slp, vit] = await Promise.all([
+          sb.from("apple_health_mobility").select("steps").eq("user_id", CURRENT_UID).eq("date", today).single(),
+          sb.from("apple_health_sleep").select("total_hours,deep_hours,rem_hours").eq("user_id", CURRENT_UID).eq("date", today).single(),
+          sb.from("apple_health_vitals").select("resting_heart_rate").eq("user_id", CURRENT_UID).eq("date", today).single()
+        ]);
+        setAppleHealth({
+          steps: mob.data ? mob.data.steps : null,
+          sleep: slp.data ? slp.data : null,
+          heartRate: vit.data ? vit.data.resting_heart_rate : null
+        });
+      } catch(e) {}
+    }
+    loadAppleHealth();
+  }, []);
   useEffect(function() {
     var interval = setInterval(function() { loadData(false); }, 30000);
     var onVisible = function() { if (document.visibilityState === "visible") loadData(false); };
@@ -886,7 +928,7 @@ function App() {
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
+    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
     {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} />}
