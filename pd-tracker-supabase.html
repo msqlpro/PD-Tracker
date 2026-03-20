@@ -31,6 +31,7 @@ input, select, textarea, button { font-family: inherit; }
 <div id="root"></div>
 <script type="text/babel" data-type="module">
 
+
 // ══════════════════════════════════════════════════════
 // SUPABASE CONFIG
 // ══════════════════════════════════════════════════════
@@ -511,6 +512,14 @@ function Setup(p) {
       <p className="text-xs text-gray-500 mb-3">For meal analysis, photo analysis and AI reports.</p>
       {typeof window !== "undefined" && localStorage.getItem("pd_api_key") ? <div><p className="text-sm text-green-600 font-bold mb-2">✅ API key set</p><button onClick={function() { localStorage.removeItem("pd_api_key"); ANTHROPIC_API_KEY = ""; window.location.reload(); }} className="w-full py-3 bg-red-500 text-white rounded-xl font-bold text-sm">Remove API Key</button></div> : <div><button onClick={async function() { try { var text = await navigator.clipboard.readText(); if (text && text.trim().startsWith("sk-")) { localStorage.setItem("pd_api_key", text.trim()); ANTHROPIC_API_KEY = text.trim(); alert("API key saved!"); window.location.reload(); } else { alert("No valid API key on clipboard. Key should start with sk-."); } } catch(e) { var key = prompt("Paste your Anthropic API key:"); if (key && key.trim().startsWith("sk-")) { localStorage.setItem("pd_api_key", key.trim()); ANTHROPIC_API_KEY = key.trim(); alert("API key saved!"); window.location.reload(); } } }} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-base">📋 Paste API Key from Clipboard</button></div>}
     </div>
+    <div className="bg-white rounded-2xl p-4 shadow-sm mt-4">
+      <h3 className="font-bold text-gray-700 mb-3">🍽️ Backfill Food Data</h3>
+      <p className="text-xs text-gray-500 mb-3">Re-analyses all historical meals to extract individual food items. This allows AI reports to say "you ate eggs 12 times" instead of just showing protein totals. Requires API key.</p>
+      <button onClick={p.onBackfillMeals} disabled={p.backfilling} className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+        {p.backfilling ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"/>{p.backfillProgress}</> : <>🔍 Re-analyse All Meals for Food Data</>}
+      </button>
+      {p.backfillDone && <p className="text-center text-sm text-green-600 font-bold mt-2">✅ {p.backfillDone}</p>}
+    </div>
     <div className="bg-white rounded-2xl p-4 shadow-sm mt-4"><h3 className="font-bold text-gray-700 mb-3">☁️ Account</h3><button onClick={async function() { await sb.auth.signOut(); window.location.reload(); }} className="w-full py-3 bg-red-500 text-white rounded-xl font-bold text-sm">🚪 Sign Out</button></div>
     <div className="bg-white rounded-2xl p-4 shadow-sm mt-4">
       <h3 className="font-bold text-gray-700 mb-3">📦 Import from Local Version</h3>
@@ -775,16 +784,12 @@ function AppGrid(p) {
   var [wiggle, setWiggle] = useState(false);
   var [dragIdx, setDragIdx] = useState(null);
   var gridRef = React.useRef(null);
-  var initialBtns = buildButtons();
-  var stateRef = React.useRef({ wiggle: false, buttons: initialBtns, dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false });
+  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false });
 
-  // Keep stateRef in sync
+  // Keep stateRef in sync so event listeners (attached once) can read latest state
   useEffect(function() { stateRef.current.wiggle = wiggle; }, [wiggle]);
   useEffect(function() { stateRef.current.buttons = buttons; }, [buttons]);
   useEffect(function() { stateRef.current.dragIdx = dragIdx; }, [dragIdx]);
-
-  // Keep setM fresh in stateRef
-  useEffect(function() { stateRef.current.setM = p.setM; });
 
   var saveOrder = function(btns) {
     try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
@@ -893,8 +898,8 @@ function AppGrid(p) {
           var idx = parseInt(cell.getAttribute("data-bidx"));
           if (!isNaN(idx) && s.buttons[idx]) {
             var btn = s.buttons[idx];
-            if (btn.med) s.setM({ type: "dose", med: btn.med });
-            else s.setM({ type: btn.id });
+            if (btn.med) p.setM({ type: "dose", med: btn.med });
+            else p.setM({ type: btn.id });
           }
         }
       }
@@ -911,44 +916,6 @@ function AppGrid(p) {
       grid.removeEventListener("touchend", handleTouchEnd);
     };
   }, []);
-
-  // Compute ON/OFF ring data
-  var tO = p.tO || [], lO = p.lO || null;
-  var onPct = 0;
-  if (tO.length >= 2) {
-    var sorted = tO.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
-    var dayStart = new Date(td()+"T00:00:00");
-    var pctFn = function(t) { return Math.min(100,Math.max(0,((new Date(t)-dayStart)/86400000)*100)); };
-    var segs = [];
-    for (var si = 0; si < sorted.length-1; si++) {
-      segs.push({ state: sorted[si].state, w: pctFn(sorted[si+1].loggedAt)-pctFn(sorted[si].loggedAt) });
-    }
-    segs.push({ state: sorted[sorted.length-1].state, w: 100-pctFn(sorted[sorted.length-1].loggedAt) });
-    onPct = Math.round(segs.reduce(function(acc,s){ return acc+(s.state==="on"?s.w:0); },0));
-  }
-  var isOn = lO && lO.state === "on";
-  var R = 20, CIRC = 2 * Math.PI * R;
-  var onArc = (onPct / 100) * CIRC;
-
-  var OORing = (
-    <div className="flex flex-col items-center" onClick={function(){ p.setM({ type: "symstate" }); }}>
-      <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg" style={{ background: isOn ? "linear-gradient(135deg,#059669,#34d399)" : lO ? "linear-gradient(135deg,#dc2626,#f87171)" : "linear-gradient(135deg,#6b7280,#9ca3af)" }}>
-        <svg width="56" height="56" viewBox="0 0 56 56">
-          <circle cx="28" cy="28" r={R} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="5" />
-          {tO.length >= 2 && <circle cx="28" cy="28" r={R} fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="5"
-            strokeDasharray={onArc + " " + (CIRC - onArc)}
-            strokeLinecap="round"
-            transform="rotate(-90 28 28)" />}
-          <text x="28" y="33" textAnchor="middle" fill="white" fontSize={tO.length >= 2 ? "10" : "9"} fontWeight="bold">
-            {tO.length >= 2 ? onPct+"%" : lO ? (isOn?"ON":"OFF") : "⚡"}
-          </text>
-        </svg>
-      </div>
-      <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>
-        {lO ? (isOn ? "ON" : "OFF") : "State"}
-      </span>
-    </div>
-  );
 
   return (<div className="mb-5">
     {wiggle && (
@@ -970,7 +937,6 @@ function AppGrid(p) {
           </div>
         );
       })}
-      {!wiggle && OORing}
     </div>
   </div>);
 }
@@ -998,7 +964,38 @@ function TodayPage(p) {
 
   return (<div className="p-4 pb-28">
 
-    <AppGrid meds={meds} setM={setM} tO={tO} lO={lO} />
+    <AppGrid meds={meds} setM={setM} />
+
+    {(function() {
+      var hasTimeline = tO.length >= 2;
+      var sorted = tO.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+      var segs = [], onPct = 0;
+      if (hasTimeline) {
+        var dayStart = new Date(td()+"T00:00:00");
+        var pct = function(t) { return Math.min(100, Math.max(0, ((new Date(t) - dayStart) / 86400000) * 100)); };
+        for (var i = 0; i < sorted.length - 1; i++) {
+          segs.push({ state: sorted[i].state, left: pct(sorted[i].loggedAt), width: pct(sorted[i+1].loggedAt) - pct(sorted[i].loggedAt) });
+        }
+        var last = sorted[sorted.length-1];
+        segs.push({ state: last.state, left: pct(last.loggedAt), width: 100 - pct(last.loggedAt) });
+        onPct = Math.round(segs.reduce(function(acc,sg){ return acc + (sg.state==="on" ? sg.width : 0); }, 0));
+      }
+      if (!lO && !hasTimeline) return null;
+      return (<div className={"rounded-xl p-3 shadow-sm mb-3 " + (lO ? (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200") : "bg-white border border-gray-100")}>
+        <div className="flex justify-between items-center mb-1">
+          <span className={"font-bold text-sm " + (lO ? (lO.state === "on" ? "text-emerald-700" : "text-rose-600") : "text-gray-500")}>
+            {lO ? (lO.state === "on" ? "🟢 ON" : "🔴 OFF") : "⚡"}{lO ? <span className="text-xs font-normal text-gray-500 ml-1.5">since {ft(lO.loggedAt)}</span> : null}
+          </span>
+          {hasTimeline && <div className="flex gap-2 text-[10px]"><span className="text-emerald-600 font-semibold">🟢 {onPct}%</span><span className="text-rose-500 font-semibold">🔴 {100-onPct}%</span></div>}
+        </div>
+        {hasTimeline && (<div>
+          <div className="relative w-full h-5 bg-gray-200 rounded-full overflow-hidden">
+            {segs.map(function(s,i){ return <div key={i} className={"absolute h-full " + (s.state==="on" ? "bg-emerald-400" : "bg-rose-400")} style={{ left: s.left+"%", width: s.width+"%" }} />; })}
+          </div>
+          <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
+        </div>)}
+      </div>);
+    })()}
 
     <div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
@@ -1232,6 +1229,9 @@ function App() {
   var [alarmTimesList, setAlarmTimesList] = useState(["08:00","12:00","17:00","22:00"]);
   var [appleHealth, setAppleHealth] = useState({ steps: null, sleep: null, heartRate: null });
   var [followUp, setFollowUp] = useState(null); // { medName, logId, takenAt, minutesAfter }
+  var [backfilling, setBackfilling] = useState(false);
+  var [backfillProgress, setBackfillProgress] = useState("");
+  var [backfillDone, setBackfillDone] = useState("");
   var DEF_MEDS = [{ id: "sinemet_default", name: "Sinemet", dose: "", times: [] }];
 
   var loadData = useCallback(async function(isInitial) {
@@ -1310,42 +1310,7 @@ function App() {
   var aMeal = add(sMeals, K.meals), uMeal = upd(sMeals, K.meals), dMeal = del(sMeals, K.meals);
   var aSlp = function(s) { sSlp(function(prev) { var u = prev.filter(function(x) { return x.id !== s.id; }).concat([s]); dbSave(K.sleep, s); return u; }); };
   var uSlp = upd(sSlp, K.sleep), dSlp = del(sSlp, K.sleep);
-  var hMs = function(meal, delId) {
-    if (delId) { dMeal(delId); return; }
-    if (!meal) return;
-    var isNew = !meals.find(function(m) { return m.id === meal.id; });
-    if (isNew) {
-      aMeal(meal);
-      // Auto-fasting: if this is the first meal today, check for a fast to log
-      var mealDate = meal.loggedAt ? meal.loggedAt.slice(0, 10) : td();
-      var todayMeals = meals.filter(function(m) { return m.loggedAt && m.loggedAt.slice(0, 10) === mealDate; });
-      if (todayMeals.length === 0) {
-        // Find the last meal from previous days
-        var prevMeals = meals.filter(function(m) { return m.loggedAt && m.loggedAt.slice(0, 10) < mealDate; });
-        if (prevMeals.length > 0) {
-          prevMeals.sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); });
-          var lastMeal = prevMeals[0];
-          var lastTime = lastMeal.loggedAt.slice(11, 16); // HH:MM
-          var breakfastTime = meal.loggedAt.slice(11, 16);
-          // Calculate hours between last meal and this meal
-          var lastDt = new Date(lastMeal.loggedAt);
-          var thisDt = new Date(meal.loggedAt);
-          var diffMins = (thisDt - lastDt) / 60000;
-          var hrs = Math.round(diffMins / 6) / 10;
-          if (hrs >= 8 && hrs <= 36) {
-            // Reasonable fasting window — check no fast already logged for today
-            var alreadyFasted = fast.find(function(f) { return f.date === mealDate; });
-            if (!alreadyFasted) {
-              var fastEntry = { id: Date.now().toString() + "_af", startTime: lastTime, endTime: breakfastTime, hours: hrs, date: mealDate };
-              aFast(fastEntry);
-            }
-          }
-        }
-      }
-    } else {
-      uMeal(meal);
-    }
-  };
+  var hMs = function(meal, delId) { if (delId) { dMeal(delId); return; } if (!meal) return; meals.find(function(m) { return m.id === meal.id; }) ? uMeal(meal) : aMeal(meal); };
   function close() { sModal(null); }
 
   var [reanalyzing, setReanalyzing] = useState(false);
@@ -1361,6 +1326,37 @@ function App() {
       if (result && result.totals) { var updated = Object.assign({}, m, { protein: result.totals.protein, carbs: result.totals.carbs, fibre: result.totals.fibre, calories: result.totals.calories || 0, sugar: result.totals.sugar, foodBreakdown: result.foods || [] }); uMeal(updated); }
     }
     setReProgress(""); setReanalyzing(false);
+  };
+
+  var backfillAllMeals = async function() {
+    var toBackfill = meals.filter(function(m) { return m.description && (!m.foodBreakdown || m.foodBreakdown.length === 0); });
+    if (!toBackfill.length) { setBackfillDone("All meals already have food data!"); return; }
+    setBackfilling(true); setBackfillDone("");
+    var ok = 0;
+    for (var i = 0; i < toBackfill.length; i++) {
+      var m = toBackfill[i];
+      setBackfillProgress("Analysing " + (i + 1) + "/" + toBackfill.length + ": " + m.description.slice(0, 30) + "...");
+      try {
+        var result = await analyzeMealWithAI(m.description);
+        if (result && result.totals) {
+          var updated = Object.assign({}, m, {
+            protein: m.protein || result.totals.protein,
+            carbs: m.carbs || result.totals.carbs,
+            fibre: m.fibre || result.totals.fibre,
+            calories: m.calories || result.totals.calories || 0,
+            sugar: m.sugar || result.totals.sugar,
+            foodBreakdown: result.foods || []
+          });
+          uMeal(updated);
+          ok++;
+        }
+      } catch(e) {}
+      // Small delay to avoid rate limits
+      await new Promise(function(r) { setTimeout(r, 300); });
+    }
+    setBackfilling(false);
+    setBackfillProgress("");
+    setBackfillDone("Done! " + ok + " of " + toBackfill.length + " meals now have food breakdown data.");
   };
 
   var handleDoseSave = function(logItem, companionLogId) {
@@ -1398,7 +1394,7 @@ function App() {
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} />}
+    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
@@ -1476,20 +1472,6 @@ function AuthScreen() {
   </div>);
 }
 
-// ── Error Boundary ──
-class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { error: null }; }
-  componentDidCatch(error, info) { this.setState({ error: error.message + "\n" + (info.componentStack || "") }); }
-  render() {
-    if (this.state.error) {
-      return (<div style={{ padding: 20, fontFamily: "monospace", fontSize: 12, background: "#fee", color: "#900", whiteSpace: "pre-wrap", overflowY: "auto", maxHeight: "100vh" }}>
-        <strong>⚠️ App Error — please screenshot this and send to developer:</strong>{"\n\n"}{this.state.error}
-      </div>);
-    }
-    return this.props.children;
-  }
-}
-
 function AuthGate() {
   var [session, setSession] = useState(null);
   var [checking, setChecking] = useState(true);
@@ -1503,7 +1485,8 @@ function AuthGate() {
   return <App />;
 }
 
-ReactDOM.render(<ErrorBoundary><AuthGate /></ErrorBoundary>, document.getElementById("root"));
+ReactDOM.render(<AuthGate />, document.getElementById("root"));
+
 </script>
 </body>
 </html>
