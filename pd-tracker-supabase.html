@@ -746,6 +746,7 @@ var DEF_APP_BUTTONS = [
   { id: "activity", emoji: "🧘", label: "Activity",  grad: "from-pink-600 to-rose-500" },
   { id: "slp",      emoji: "😴", label: "Sleep",     grad: "from-indigo-700 to-slate-600" },
 ];
+
 function AppGrid(p) {
   var buildButtons = function() {
     var medBtns = (p.meds || []).map(function(m) {
@@ -763,70 +764,152 @@ function AppGrid(p) {
     } catch(e) {}
     return all;
   };
+
   var [buttons, setButtons] = useState(buildButtons);
   var [wiggle, setWiggle] = useState(false);
-  var [dragging, setDragging] = useState(null);
-  var longTimer = React.useRef(null);
-  var dragIdxRef = React.useRef(null);
-  var didDrag = React.useRef(false);
+  var [dragIdx, setDragIdx] = useState(null);
+  var gridRef = React.useRef(null);
+  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false });
+
+  // Keep stateRef in sync so event listeners (attached once) can read latest state
+  useEffect(function() { stateRef.current.wiggle = wiggle; }, [wiggle]);
+  useEffect(function() { stateRef.current.buttons = buttons; }, [buttons]);
+  useEffect(function() { stateRef.current.dragIdx = dragIdx; }, [dragIdx]);
 
   var saveOrder = function(btns) {
     try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
   };
-  var exitWiggle = function() { setWiggle(false); setDragging(null); saveOrder(buttons); };
 
-  var onTouchStart = function(e, idx) {
-    didDrag.current = false;
-    if (wiggle) { dragIdxRef.current = idx; setDragging(idx); return; }
-    longTimer.current = setTimeout(function() { setWiggle(true); dragIdxRef.current = idx; setDragging(idx); }, 550);
+  var exitWiggle = function() {
+    setWiggle(false);
+    setDragIdx(null);
+    stateRef.current.wiggle = false;
+    saveOrder(stateRef.current.buttons);
   };
-  var onTouchMoveGrid = function(e) {
-    if (!wiggle || dragIdxRef.current === null) { clearTimeout(longTimer.current); return; }
-    didDrag.current = true;
-    e.preventDefault();
-    var touch = e.touches[0];
-    var el = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (!el) return;
-    var cell = el.closest ? el.closest("[data-bidx]") : null;
-    if (!cell) return;
-    var overIdx = parseInt(cell.getAttribute("data-bidx"));
-    if (isNaN(overIdx) || overIdx === dragIdxRef.current) return;
-    setButtons(function(prev) {
-      var arr = prev.slice();
-      var item = arr.splice(dragIdxRef.current, 1)[0];
+
+  // Attach non-passive touch listeners to the grid so we can preventDefault during drag
+  useEffect(function() {
+    var grid = gridRef.current;
+    if (!grid) return;
+
+    var handleTouchStart = function(e) {
+      var s = stateRef.current;
+      var touch = e.touches[0];
+      s.startX = touch.clientX;
+      s.startY = touch.clientY;
+      s.tapped = true;
+
+      // Find which cell was touched
+      var cell = touch.target.closest ? touch.target.closest("[data-bidx]") : null;
+      var idx = cell ? parseInt(cell.getAttribute("data-bidx")) : null;
+      if (idx === null || isNaN(idx)) return;
+
+      if (s.wiggle) {
+        s.dragIdx = idx;
+        setDragIdx(idx);
+        return;
+      }
+
+      // Long press to enter wiggle mode
+      s.longTimer = setTimeout(function() {
+        s.wiggle = true;
+        s.dragIdx = idx;
+        setWiggle(true);
+        setDragIdx(idx);
+      }, 500);
+    };
+
+    var handleTouchMove = function(e) {
+      var s = stateRef.current;
+      var touch = e.touches[0];
+      var dx = Math.abs(touch.clientX - s.startX);
+      var dy = Math.abs(touch.clientY - s.startY);
+
+      // If moved more than 8px before wiggle, cancel long press
+      if (!s.wiggle && (dx > 8 || dy > 8)) {
+        clearTimeout(s.longTimer);
+        s.tapped = false;
+        return;
+      }
+
+      if (!s.wiggle || s.dragIdx === null) return;
+
+      e.preventDefault(); // stop page scroll during drag
+
+      var el = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (!el) return;
+      var cell = el.closest ? el.closest("[data-bidx]") : null;
+      if (!cell) return;
+      var overIdx = parseInt(cell.getAttribute("data-bidx"));
+      if (isNaN(overIdx) || overIdx === s.dragIdx) return;
+
+      var arr = s.buttons.slice();
+      var item = arr.splice(s.dragIdx, 1)[0];
       arr.splice(overIdx, 0, item);
-      dragIdxRef.current = overIdx;
-      return arr;
-    });
-  };
-  var onTouchEnd = function(e, idx, btn) {
-    clearTimeout(longTimer.current);
-    var wasWiggle = wiggle;
-    if (wasWiggle) { setDragging(null); dragIdxRef.current = null; saveOrder(buttons); return; }
-    if (!didDrag.current) {
-      if (btn.med) p.setM({ type: "dose", med: btn.med });
-      else p.setM({ type: btn.id });
-    }
-  };
+      s.dragIdx = overIdx;
+      s.buttons = arr;
+      setButtons(arr.slice());
+      setDragIdx(overIdx);
+    };
+
+    var handleTouchEnd = function(e) {
+      var s = stateRef.current;
+      clearTimeout(s.longTimer);
+
+      if (s.wiggle) {
+        setDragIdx(null);
+        s.dragIdx = null;
+        saveOrder(s.buttons);
+        return;
+      }
+
+      // It was a tap — trigger the button action
+      if (s.tapped) {
+        var touch = e.changedTouches[0];
+        var el = document.elementFromPoint(touch.clientX, touch.clientY);
+        var cell = el && el.closest ? el.closest("[data-bidx]") : null;
+        if (cell) {
+          var idx = parseInt(cell.getAttribute("data-bidx"));
+          if (!isNaN(idx) && s.buttons[idx]) {
+            var btn = s.buttons[idx];
+            if (btn.med) p.setM({ type: "dose", med: btn.med });
+            else p.setM({ type: btn.id });
+          }
+        }
+      }
+      s.tapped = false;
+    };
+
+    grid.addEventListener("touchstart", handleTouchStart, { passive: true });
+    grid.addEventListener("touchmove", handleTouchMove, { passive: false });
+    grid.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+    return function() {
+      grid.removeEventListener("touchstart", handleTouchStart);
+      grid.removeEventListener("touchmove", handleTouchMove);
+      grid.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, []); // only attach once
 
   return (<div className="mb-5">
-    {wiggle && (<div className="flex justify-between items-center mb-3 px-1">
-      <span className="text-xs text-gray-400 font-medium">Drag to rearrange</span>
-      <button onClick={exitWiggle} className="bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow">Done</button>
-    </div>)}
-    <div className="grid grid-cols-4 gap-x-2 gap-y-4" onTouchMove={onTouchMoveGrid}>
+    {wiggle && (
+      <div className="flex justify-between items-center mb-3 px-1">
+        <span className="text-xs text-gray-400 font-medium">Hold & drag to rearrange</span>
+        <button onClick={exitWiggle} className="bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow">Done</button>
+      </div>
+    )}
+    <div ref={gridRef} className="grid grid-cols-4 gap-x-3 gap-y-4">
       {buttons.map(function(btn, idx) {
-        return (<div key={btn.id} data-bidx={idx}
-          className="flex flex-col items-center select-none"
-          onTouchStart={function(e) { onTouchStart(e, idx); }}
-          onTouchEnd={function(e) { onTouchEnd(e, idx, btn); }}
-        >
-          <div className={"w-16 h-16 rounded-2xl bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-md " + (wiggle ? "wiggling" : "")}
-            style={{ opacity: dragging === idx ? 0.5 : 1, animationDelay: (idx * 0.04) + "s", transition: "opacity 0.15s" }}>
-            <span style={{ fontSize: "1.7rem", lineHeight: 1 }}>{btn.emoji}</span>
+        var isDragging = dragIdx === idx;
+        return (
+          <div key={btn.id} data-bidx={idx} className="flex flex-col items-center" style={{ touchAction: wiggle ? "none" : "auto" }}>
+            <div className={"w-16 h-16 rounded-2xl bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg " + (wiggle ? "wiggling" : "")}
+              style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
+              <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.emoji}</span>
+            </div>
+            <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.label}</span>
           </div>
-          <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight max-w-[4rem]">{btn.label}</span>
-        </div>);
+        );
       })}
     </div>
   </div>);
