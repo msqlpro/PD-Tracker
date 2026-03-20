@@ -74,7 +74,7 @@ async function generateReport(period, data) {
     summary += "Patient takes Sinemet (levodopa/carbidopa). Follows 14hr intermittent fasting (eats 10:30am-8:30pm). Mediterranean diet focused on gut microbiome.\n";
     summary += "IMPORTANT MEDICAL CONTEXT: Levodopa should be taken on an EMPTY stomach. Taking the first dose at 7am, hours before the 10:30am eating window, is OPTIMAL timing.\n\n";
     if (data.logs.length) { summary += "MEDICATION DOSES (" + data.logs.length + "):\n"; data.logs.forEach(function(l) { summary += "- " + l.medName + " " + (l.dose || "") + " at " + (l.takenAt || "").slice(11, 16) + " eff:" + (l.effectiveness || "unrated") + "/5\n"; }); }
-    if (data.meals.length) { summary += "\nMEALS (" + data.meals.length + "):\n"; data.meals.forEach(function(m) { summary += "- " + (m.loggedAt || "").slice(0, 16) + " " + m.description + " (P:" + (m.protein || 0) + "g C:" + (m.carbs || 0) + "g F:" + (m.fibre || 0) + "g Cal:" + (m.calories || 0) + "kcal S:" + (m.sugar || 0) + "g)\n"; }); }
+    if (data.meals.length) { summary += "\nMEALS (" + data.meals.length + "):\n"; data.meals.forEach(function(m) { summary += "- " + (m.loggedAt || "").slice(0, 16) + " " + m.description + " (P:" + (m.protein || 0) + "g C:" + (m.carbs || 0) + "g F:" + (m.fibre || 0) + "g Cal:" + (m.calories || 0) + "kcal S:" + (m.sugar || 0) + "g)"; if (m.foodBreakdown && m.foodBreakdown.length) { summary += " [foods: " + m.foodBreakdown.map(function(f) { return f.food + "(P:" + f.protein + "g,Cal:" + f.calories + "kcal)"; }).join(", ") + "]"; } summary += "\n"; }); }
     if (data.ex.length) { summary += "\nEXERCISE (" + data.ex.length + "):\n"; data.ex.forEach(function(e) { summary += "- " + (e.loggedAt || "").slice(0, 16) + " " + e.type + " " + e.duration + "min " + e.intensity + "\n"; }); }
     if (data.slp.length) { summary += "\nSLEEP (" + data.slp.length + " nights):\n"; data.slp.forEach(function(s) { summary += "- " + s.date + " " + s.hours + "h quality:" + s.quality + "/5 " + s.bedtime + "->" + s.wakeTime + "\n"; }); }
     if (data.sym.length) { summary += "\nSYMPTOMS (" + data.sym.length + "):\n"; data.sym.forEach(function(s) { summary += "- " + (s.loggedAt || "").slice(0, 16) + " " + s.symptomId + " sev:" + s.severity + "/5" + (s.notes ? " (" + s.notes + ")" : "") + "\n"; }); }
@@ -643,6 +643,16 @@ function InsightsPage(p) {
         s+="\n";
       }
     });
+    // Add actual food breakdown for each meal
+    var recentMeals = p.meals.filter(function(m) { return m.loggedAt && m.loggedAt >= dAgo(30) && m.foodBreakdown && m.foodBreakdown.length; });
+    if (recentMeals.length) {
+      s += "\nFOOD DETAIL (last 30 days, " + recentMeals.length + " analysed meals):\n";
+      recentMeals.forEach(function(m) {
+        s += "- " + m.loggedAt.slice(0,10) + " " + m.description + ": ";
+        s += m.foodBreakdown.map(function(f) { return f.food + "(P:" + f.protein + "g,C:" + f.carbs + "g,Cal:" + f.calories + "kcal)"; }).join(", ");
+        s += "\n";
+      });
+    }
     if (correlations.length) { s += "\nCOMPUTED CORRELATIONS:\n"; correlations.forEach(function(c) { s += c.title+": "+c.detail+"\n"; }); }
     if (extraQ) s += "\nUSER QUESTION: " + extraQ;
     return s;
