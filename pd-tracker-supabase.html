@@ -1180,7 +1180,8 @@ function DoseFollowUpMod(p) {
   </Mod>);
 }
 
-
+// ── Main App ──
+function App() {
   var [tab, sTab] = useState("today");
   var [meds, sMeds] = useState([]);
   var [logs, sLogs] = useState([]);
@@ -1352,7 +1353,10 @@ function DoseFollowUpMod(p) {
       onSave={function(result) {
         var stamp = new Date().toISOString();
         if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); }
-        if (result.eff && followUp.logId) { uLog(logs.find(function(l) { return l.id === followUp.logId; }) ? Object.assign({}, logs.find(function(l) { return l.id === followUp.logId; }), { effectiveness: result.eff }) : null); }
+        if (result.eff && followUp.logId) {
+          var existing = logs.find(function(l) { return l.id === followUp.logId; });
+          if (existing) { uLog(Object.assign({}, existing, { effectiveness: result.eff })); }
+        }
         setFollowUp(null);
       }}
     />}
