@@ -23,6 +23,8 @@ body { margin:0; font-family: system-ui, -apple-system, sans-serif; overscroll-b
 input, select, textarea, button { font-family: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .animate-spin { animation: spin 1s linear infinite; }
+@keyframes wiggle { 0% { transform: rotate(-2.5deg) scale(1.03); } 100% { transform: rotate(2.5deg) scale(1.03); } }
+.wiggling { animation: wiggle 0.18s ease-in-out infinite alternate; }
 </style>
 </head>
 <body>
@@ -730,6 +732,106 @@ function InsightsPage(p) {
 }
 
 // ── TodayPage ──
+// ── AppGrid — iOS-style icon grid with long-press wiggle + drag to reorder ──
+var APP_BTN_ORDER_KEY = "pd_appgrid_order";
+var DEF_APP_BUTTONS = [
+  { id: "meal",     emoji: "🍽️", label: "Meal",      grad: "from-emerald-500 to-teal-500" },
+  { id: "drink",    emoji: "🥤", label: "Drink",     grad: "from-cyan-500 to-sky-500" },
+  { id: "ex",       emoji: "🏃", label: "Exercise",  grad: "from-orange-500 to-amber-400" },
+  { id: "symstate", emoji: "🩺", label: "Symptoms",  grad: "from-rose-600 to-pink-500" },
+  { id: "fast",     emoji: "⏱️", label: "Fasting",   grad: "from-teal-600 to-emerald-500" },
+  { id: "weight",   emoji: "⚖️", label: "Weight",    grad: "from-violet-600 to-purple-500" },
+  { id: "mood",     emoji: "😊", label: "Mood",      grad: "from-amber-500 to-yellow-400" },
+  { id: "bowel",    emoji: "🚽", label: "Toilet",    grad: "from-amber-600 to-orange-500" },
+  { id: "activity", emoji: "🧘", label: "Activity",  grad: "from-pink-600 to-rose-500" },
+  { id: "slp",      emoji: "😴", label: "Sleep",     grad: "from-indigo-700 to-slate-600" },
+];
+function AppGrid(p) {
+  var buildButtons = function() {
+    var medBtns = (p.meds || []).map(function(m) {
+      return { id: "dose_" + m.id, emoji: "💊", label: m.name, grad: "from-indigo-600 to-blue-500", med: m };
+    });
+    var all = medBtns.concat(DEF_APP_BUTTONS);
+    try {
+      var saved = JSON.parse(localStorage.getItem(APP_BTN_ORDER_KEY) || "null");
+      if (saved && Array.isArray(saved)) {
+        var ordered = [];
+        saved.forEach(function(id) { var b = all.find(function(x) { return x.id === id; }); if (b) ordered.push(b); });
+        all.forEach(function(b) { if (saved.indexOf(b.id) < 0) ordered.push(b); });
+        return ordered;
+      }
+    } catch(e) {}
+    return all;
+  };
+  var [buttons, setButtons] = useState(buildButtons);
+  var [wiggle, setWiggle] = useState(false);
+  var [dragging, setDragging] = useState(null);
+  var longTimer = React.useRef(null);
+  var dragIdxRef = React.useRef(null);
+  var didDrag = React.useRef(false);
+
+  var saveOrder = function(btns) {
+    try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
+  };
+  var exitWiggle = function() { setWiggle(false); setDragging(null); saveOrder(buttons); };
+
+  var onTouchStart = function(e, idx) {
+    didDrag.current = false;
+    if (wiggle) { dragIdxRef.current = idx; setDragging(idx); return; }
+    longTimer.current = setTimeout(function() { setWiggle(true); dragIdxRef.current = idx; setDragging(idx); }, 550);
+  };
+  var onTouchMoveGrid = function(e) {
+    if (!wiggle || dragIdxRef.current === null) { clearTimeout(longTimer.current); return; }
+    didDrag.current = true;
+    e.preventDefault();
+    var touch = e.touches[0];
+    var el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!el) return;
+    var cell = el.closest ? el.closest("[data-bidx]") : null;
+    if (!cell) return;
+    var overIdx = parseInt(cell.getAttribute("data-bidx"));
+    if (isNaN(overIdx) || overIdx === dragIdxRef.current) return;
+    setButtons(function(prev) {
+      var arr = prev.slice();
+      var item = arr.splice(dragIdxRef.current, 1)[0];
+      arr.splice(overIdx, 0, item);
+      dragIdxRef.current = overIdx;
+      return arr;
+    });
+  };
+  var onTouchEnd = function(e, idx, btn) {
+    clearTimeout(longTimer.current);
+    var wasWiggle = wiggle;
+    if (wasWiggle) { setDragging(null); dragIdxRef.current = null; saveOrder(buttons); return; }
+    if (!didDrag.current) {
+      if (btn.med) p.setM({ type: "dose", med: btn.med });
+      else p.setM({ type: btn.id });
+    }
+  };
+
+  return (<div className="mb-5">
+    {wiggle && (<div className="flex justify-between items-center mb-3 px-1">
+      <span className="text-xs text-gray-400 font-medium">Drag to rearrange</span>
+      <button onClick={exitWiggle} className="bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow">Done</button>
+    </div>)}
+    <div className="grid grid-cols-4 gap-x-2 gap-y-4" onTouchMove={onTouchMoveGrid}>
+      {buttons.map(function(btn, idx) {
+        return (<div key={btn.id} data-bidx={idx}
+          className="flex flex-col items-center select-none"
+          onTouchStart={function(e) { onTouchStart(e, idx); }}
+          onTouchEnd={function(e) { onTouchEnd(e, idx, btn); }}
+        >
+          <div className={"w-16 h-16 rounded-2xl bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-md " + (wiggle ? "wiggling" : "")}
+            style={{ opacity: dragging === idx ? 0.5 : 1, animationDelay: (idx * 0.04) + "s", transition: "opacity 0.15s" }}>
+            <span style={{ fontSize: "1.7rem", lineHeight: 1 }}>{btn.emoji}</span>
+          </div>
+          <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight max-w-[4rem]">{btn.label}</span>
+        </div>);
+      })}
+    </div>
+  </div>);
+}
+
 function TodayPage(p) {
   var meds = p.meds, logs = p.logs, meals = p.meals, ex = p.ex, slp = p.slp, sym = p.sym, oo = p.oo, fast = p.fast, drinks = p.drinks, weight = p.weight || [], mood = p.mood || [], bowel = p.bowel || [], activity = p.activity || [], setM = p.setM;
   var tL = logs.filter(function(l) { return l.takenAt && isT(l.takenAt); });
@@ -781,19 +883,7 @@ function TodayPage(p) {
       </div>);
     })()}
 
-    <div className="grid grid-cols-2 gap-2 mb-5">
-      {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">💊 {m.name}</button>; })}
-      <button onClick={function() { setM({ type: "meal" }); }} className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🍽️ Meal</button>
-      <button onClick={function() { setM({ type: "drink" }); }} className="bg-gradient-to-r from-cyan-600 to-sky-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🥤 Drink</button>
-      <button onClick={function() { setM({ type: "ex" }); }} className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🏃 Exercise</button>
-      <button onClick={function() { setM({ type: "symstate" }); }} className="bg-gradient-to-r from-rose-600 to-pink-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🩺 Symptom / State</button>
-      <button onClick={function() { setM({ type: "fast" }); }} className="bg-gradient-to-r from-teal-600 to-emerald-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">⏱️ Fasting</button>
-      <button onClick={function() { setM({ type: "weight" }); }} className="bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">⚖️ Weight</button>
-      <button onClick={function() { setM({ type: "mood" }); }} className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">😊 Mood</button>
-      <button onClick={function() { setM({ type: "bowel" }); }} className="bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🚽 Toilet</button>
-      <button onClick={function() { setM({ type: "activity" }); }} className="bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🧘 Activity</button>
-      <button onClick={function() { setM({ type: "slp" }); }} className="bg-gradient-to-r from-indigo-700 to-slate-600 text-white rounded-xl py-3 text-sm font-bold shadow-sm">😴 Sleep</button>
-    </div>
+    <AppGrid meds={meds} setM={setM} />
 
     <div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
