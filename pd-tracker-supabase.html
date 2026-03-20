@@ -39,11 +39,9 @@ var ANTHROPIC_API_KEY = "";
 var CURRENT_UID = null;
 var { useState, useEffect, useCallback } = React;
 
-// ── Companion drinks are stored in Supabase profiles.settings (no localStorage) ──
-function loadCompanionDrinks() { return {}; } // fallback only — real load happens via ld()
-function saveCompanionDrinks(map) {} // no-op — saving is done via sv()
+function loadCompanionDrinks() { return {}; }
+function saveCompanionDrinks(map) {}
 
-// ── AI Meal Analysis ──
 async function analyzeMealWithAI(description) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -94,7 +92,6 @@ async function generateReport(period, data) {
   } catch (e) { return "Report generation failed. Please try again."; }
 }
 
-// ── Supabase Storage Layer ──
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
   meds: function(d) { return { id: d.id, user_id: CURRENT_UID, name: d.name, dose: d.dose || "", times: d.times || [] }; },
@@ -189,7 +186,6 @@ function RenderMD(p) {
   return (<div className="space-y-1">{lines.map(function(line, i) { var t = line.trim(); if (!t) return <div key={i} className="h-2" />; if (t.match(/^###\s/)) return <h4 key={i} className="font-bold text-sm text-gray-800 mt-3">{t.replace(/^###\s*/, "")}</h4>; if (t.match(/^##\s/)) return <h3 key={i} className="font-bold text-base text-gray-900 mt-4">{t.replace(/^##\s*/, "")}</h3>; if (t.match(/^#\s/)) return <h2 key={i} className="font-bold text-lg text-gray-900 mt-4 mb-1">{t.replace(/^#\s*/, "")}</h2>; if (t.match(/^[-*]\s/)) return <div key={i} className="text-sm text-gray-700 pl-3 flex"><span className="mr-2">•</span><span>{t.replace(/^[-*]\s*/, "")}</span></div>; return <p key={i} className="text-sm text-gray-700">{t}</p>; })}</div>);
 }
 
-// ── Companion Drink Picker ──
 function CompanionDrinkPicker(p) {
   var cd = p.value;
   var [open, setOpen] = useState(false);
@@ -220,7 +216,6 @@ function CompanionDrinkPicker(p) {
   </div>);
 }
 
-// ── DoseMod — companion drink support ──
 function DoseMod(p) {
   var med = p.med, ex = p.existing, isEdit = !!ex;
   var [time, sTime] = useState(isEdit ? ft(ex.takenAt) : nw());
@@ -455,7 +450,6 @@ function SymStateMod(p) {
   </Mod>);
 }
 
-// ── Setup Page (with companion drink per med) ──
 function Setup(p) {
   var meds = p.meds, setMeds = p.setMeds;
   var companionDrinks = p.companionDrinks || {};
@@ -529,7 +523,213 @@ function Setup(p) {
   </div>);
 }
 
-// ── TodayPage — BUTTONS AT TOP ──
+// ── Spark — mini SVG sparkline ──
+function Spark(p) {
+  var data = (p.data || []).filter(function(v) { return v !== null && v !== undefined; });
+  if (data.length < 2) return <div className="h-10 flex items-center justify-center text-xs text-gray-400">Not enough data yet</div>;
+  var mn = Math.min.apply(null, data), mx = Math.max.apply(null, data);
+  var range = mx - mn || 1;
+  var W = 300, H = 40;
+  var pts = data.map(function(v, i) {
+    var x = (i / (data.length - 1)) * W;
+    var y = H - ((v - mn) / range) * (H - 4) - 2;
+    return x.toFixed(1) + "," + y.toFixed(1);
+  }).join(" ");
+  return (<svg viewBox={"0 0 " + W + " " + H} className="w-full" style={{ height: 40 }}>
+    <polyline points={pts} fill="none" stroke={p.color || "#6366f1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>);
+}
+
+// ── InsightsPage ──
+function InsightsPage(p) {
+  var DAYS = 30;
+  var [aiInsights, sAiInsights] = useState(null);
+  var [aiLoading, sAiLoading] = useState(false);
+  var [aiQ, sAiQ] = useState("");
+  var [aiQResult, sAiQResult] = useState(null);
+  var [aiQLoading, sAiQLoading] = useState(false);
+
+  var dailies = Array.from({ length: DAYS }, function(_, i) {
+    var d = dAgo(i);
+    var dayLogs = p.logs.filter(function(l) { return dateOf(l.takenAt) === d; });
+    var daySym = p.sym.filter(function(s) { return dateOf(s.loggedAt) === d; });
+    var daySlp = p.slp.find(function(s) { return s.date === d; });
+    var dayEx = p.ex.filter(function(e) { return dateOf(e.loggedAt) === d; });
+    var dayOo = p.oo.filter(function(o) { return dateOf(o.loggedAt) === d; });
+    var dayMood = (p.mood || []).find(function(m) { return m.date === d; });
+    var dayMeals = p.meals.filter(function(m) { return dateOf(m.loggedAt) === d; });
+    var avgEff = dayLogs.length ? dayLogs.reduce(function(s, l) { return s + (l.effectiveness || 0); }, 0) / dayLogs.length : null;
+    var avgSym = daySym.length ? daySym.reduce(function(s, sy) { return s + (sy.severity || 0); }, 0) / daySym.length : null;
+    var exMins = dayEx.reduce(function(s, e) { return s + (e.duration || 0); }, 0);
+    var totalProt = dayMeals.reduce(function(s, m) { return s + (m.protein || 0); }, 0);
+    var onMins = null;
+    if (dayOo.length) {
+      var sorted = dayOo.slice().sort(function(a, b) { return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+      var on = 0;
+      for (var i = 0; i < sorted.length - 1; i++) {
+        if (sorted[i].state === "on") on += (new Date(sorted[i+1].loggedAt) - new Date(sorted[i].loggedAt)) / 60000;
+      }
+      onMins = Math.round(on);
+    }
+    return { d: d, sym: avgSym, sleep: daySlp ? daySlp.quality : null, sleepHrs: daySlp ? daySlp.hours : null, exMins: exMins, medEff: avgEff && avgEff > 0 ? avgEff : null, mood: dayMood ? dayMood.level : null, protein: totalProt || null, onMins: onMins };
+  }).reverse();
+
+  var wByDay = {};
+  (p.weight || []).forEach(function(w) { wByDay[w.date] = w.weight; });
+
+  function pearson(pairs) {
+    if (!pairs || pairs.length < 3) return null;
+    var n = pairs.length, sx = 0, sy = 0, sxy = 0, sx2 = 0, sy2 = 0;
+    pairs.forEach(function(p) { sx += p[0]; sy += p[1]; sxy += p[0]*p[1]; sx2 += p[0]*p[0]; sy2 += p[1]*p[1]; });
+    var num = n*sxy - sx*sy;
+    var den = Math.sqrt((n*sx2-sx*sx)*(n*sy2-sy*sy));
+    return den === 0 ? null : parseFloat((num/den).toFixed(2));
+  }
+
+  var correlations = (function() {
+    var results = [];
+    var slpSymPairs = [];
+    for (var i = 0; i < dailies.length - 1; i++) {
+      if (dailies[i].sleep !== null && dailies[i+1].sym !== null) slpSymPairs.push([dailies[i].sleep, dailies[i+1].sym]);
+    }
+    var r1 = pearson(slpSymPairs);
+    if (r1 !== null && Math.abs(r1) > 0.2) {
+      var goodSlp = slpSymPairs.filter(function(p) { return p[0] >= 4; }).map(function(p) { return p[1]; });
+      var badSlp = slpSymPairs.filter(function(p) { return p[0] <= 2; }).map(function(p) { return p[1]; });
+      if (goodSlp.length >= 2 && badSlp.length >= 2) {
+        var gA = (goodSlp.reduce(function(s,v){return s+v;},0)/goodSlp.length).toFixed(1);
+        var bA = (badSlp.reduce(function(s,v){return s+v;},0)/badSlp.length).toFixed(1);
+        results.push({ icon:"😴", color:"indigo", title:"Sleep → Next Day Symptoms", r: r1, detail: "After good sleep (4-5★): avg severity "+gA+"/5. After poor sleep (1-2★): "+bA+"/5.", strength: Math.abs(r1)>0.5?"strong":Math.abs(r1)>0.3?"moderate":"weak" });
+      }
+    }
+    var exSymPairs = dailies.filter(function(d){return d.exMins>0&&d.sym!==null;}).map(function(d){return [d.exMins,d.sym];});
+    var noExSym = dailies.filter(function(d){return d.exMins===0&&d.sym!==null;}).map(function(d){return d.sym;});
+    if (exSymPairs.length >= 3 && noExSym.length >= 3) {
+      var exAvg = (exSymPairs.reduce(function(s,p){return s+p[1];},0)/exSymPairs.length).toFixed(1);
+      var noExAvg = (noExSym.reduce(function(s,v){return s+v;},0)/noExSym.length).toFixed(1);
+      results.push({ icon:"🏃", color:"orange", title:"Exercise → Symptom Severity", r: pearson(exSymPairs)||0, detail: "Exercise days: "+exAvg+"/5 avg severity. Rest days: "+noExAvg+"/5.", strength: parseFloat(noExAvg)-parseFloat(exAvg)>0.5?"strong":parseFloat(noExAvg)-parseFloat(exAvg)>0.2?"moderate":"weak" });
+    }
+    var protEffPairs = dailies.filter(function(d){return d.protein!==null&&d.medEff!==null;}).map(function(d){return [d.protein,d.medEff];});
+    var r4 = pearson(protEffPairs);
+    if (r4 !== null && Math.abs(r4) > 0.2) {
+      var hiProt = protEffPairs.filter(function(p){return p[0]>80;}).map(function(p){return p[1];});
+      var loProt = protEffPairs.filter(function(p){return p[0]<=80;}).map(function(p){return p[1];});
+      if (hiProt.length >= 2 && loProt.length >= 2) {
+        var hpA = (hiProt.reduce(function(s,v){return s+v;},0)/hiProt.length).toFixed(1);
+        var lpA = (loProt.reduce(function(s,v){return s+v;},0)/loProt.length).toFixed(1);
+        results.push({ icon:"🥩", color:"red", title:"Protein → Med Effectiveness", r: r4, detail: "High protein days (80g+): "+hpA+"/5. Lower protein days: "+lpA+"/5.", strength: Math.abs(r4)>0.5?"strong":Math.abs(r4)>0.3?"moderate":"weak" });
+      }
+    }
+    var exOnPairs = dailies.filter(function(d){return d.exMins>0&&d.onMins!==null;}).map(function(d){return [d.exMins,d.onMins];});
+    var noExOn = dailies.filter(function(d){return d.exMins===0&&d.onMins!==null;}).map(function(d){return d.onMins;});
+    if (exOnPairs.length >= 3 && noExOn.length >= 2) {
+      var exOnAvg = Math.round(exOnPairs.reduce(function(s,p){return s+p[1];},0)/exOnPairs.length);
+      var noExOnAvg = Math.round(noExOn.reduce(function(s,v){return s+v;},0)/noExOn.length);
+      results.push({ icon:"🟢", color:"green", title:"Exercise → ON Time", r: null, detail: "Exercise days: avg "+exOnAvg+"min ON. Rest days: avg "+noExOnAvg+"min ON.", strength: exOnAvg-noExOnAvg>30?"strong":exOnAvg-noExOnAvg>10?"moderate":"weak" });
+    }
+    return results;
+  })();
+
+  var buildSummary = function(extraQ) {
+    var s = "PARKINSON'S TRACKING DATA — LAST 30 DAYS:\n";
+    dailies.forEach(function(d) {
+      if (d.sym!==null||d.sleep!==null||d.exMins>0||d.mood!==null||d.medEff!==null) {
+        s += d.d + ": ";
+        if (d.sym!==null) s+="sym="+d.sym.toFixed(1)+"/5 ";
+        if (d.sleep!==null) s+="sleep="+d.sleep+"/5("+d.sleepHrs+"h) ";
+        if (d.exMins>0) s+="ex="+d.exMins+"min ";
+        if (d.mood!==null) s+="mood="+d.mood+"/5 ";
+        if (d.medEff!==null) s+="medEff="+d.medEff.toFixed(1)+"/5 ";
+        if (d.protein!==null) s+="protein="+d.protein+"g ";
+        if (d.onMins!==null) s+="ON="+d.onMins+"min ";
+        s+="\n";
+      }
+    });
+    if (correlations.length) { s += "\nCOMPUTED CORRELATIONS:\n"; correlations.forEach(function(c) { s += c.title+": "+c.detail+"\n"; }); }
+    if (extraQ) s += "\nUSER QUESTION: " + extraQ;
+    return s;
+  };
+
+  var runAiAnalysis = async function() {
+    sAiLoading(true); sAiInsights(null);
+    try {
+      var res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}, body: JSON.stringify({ model:"claude-sonnet-4-5-20250929", max_tokens:1500, messages:[{role:"user",content:buildSummary()+"\n\nYou are a Parkinson's disease data analyst. Analyse the patterns above and give clear, specific insights about how this person's lifestyle factors (sleep, exercise, protein, ON/OFF time) interact with their symptoms and medication effectiveness. Be encouraging, specific, and use emoji. Use markdown formatting."}] }) });
+      var data = await res.json();
+      sAiInsights((data.content||[]).map(function(b){return b.text||"";}).join(""));
+    } catch(e) { sAiInsights("Analysis failed — check your API key in Settings."); }
+    sAiLoading(false);
+  };
+
+  var runAiQuestion = async function() {
+    if (!aiQ.trim()) return;
+    sAiQLoading(true); sAiQResult(null);
+    try {
+      var res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}, body: JSON.stringify({ model:"claude-sonnet-4-5-20250929", max_tokens:1000, messages:[{role:"user",content:buildSummary(aiQ)+"\n\nYou are a helpful Parkinson's disease tracking assistant. Answer the user's question based on their tracking data above. Be specific, reference their actual numbers where relevant, and be encouraging. Use markdown."}] }) });
+      var data = await res.json();
+      sAiQResult((data.content||[]).map(function(b){return b.text||"";}).join(""));
+    } catch(e) { sAiQResult("Failed — check your API key in Settings."); }
+    sAiQLoading(false);
+  };
+
+  var colorMap = { indigo:"border-indigo-200 bg-indigo-50", orange:"border-orange-200 bg-orange-50", red:"border-red-200 bg-red-50", green:"border-green-200 bg-green-50" };
+  var hasSym = dailies.filter(function(d){return d.sym!==null;});
+  var hasSleep = dailies.filter(function(d){return d.sleep!==null;});
+  var hasMood = dailies.filter(function(d){return d.mood!==null;});
+
+  return (<div className="p-4 pb-28">
+    <h2 className="text-xl font-bold mb-4">📈 Insights</h2>
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3">
+        <div className="text-white font-bold text-sm">💬 Ask About Your Data</div>
+        <div className="text-blue-200 text-xs">Ask anything — AI answers using your 30-day history</div>
+      </div>
+      <div className="p-4">
+        <textarea value={aiQ} onChange={function(e){sAiQ(e.target.value);sAiQResult(null);}} placeholder={'e.g. "Why do I feel worse on Tuesdays?" or "Is my sleep affecting my ON time?"'} className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none mb-3" rows={2} />
+        <button onClick={runAiQuestion} disabled={!aiQ.trim()||aiQLoading} className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
+          {aiQLoading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"/>Thinking...</> : <>✨ Ask AI</>}
+        </button>
+        {aiQResult && <div className="mt-3 bg-blue-50 rounded-xl p-3 border border-blue-100"><RenderMD text={aiQResult}/><button onClick={function(){sAiQResult(null);sAiQ("");}} className="mt-2 text-xs text-blue-500">✕ Clear</button></div>}
+      </div>
+    </div>
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+      <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-3">
+        <div className="text-white font-bold text-sm">🧠 AI Pattern Analysis</div>
+        <div className="text-violet-200 text-xs">Deep analysis across all your tracked variables</div>
+      </div>
+      {!aiInsights && <div className="p-4"><p className="text-sm text-gray-500 mb-3">Analyses sleep, exercise, protein, ON/OFF and medication patterns together.</p>
+        <button onClick={runAiAnalysis} disabled={aiLoading} className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
+          {aiLoading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"/>Analysing your patterns...</> : <>🔍 Analyse My Patterns</>}
+        </button>
+      </div>}
+      {aiInsights && <div className="p-4"><RenderMD text={aiInsights}/><button onClick={function(){sAiInsights(null);}} className="mt-3 w-full py-2 bg-violet-100 text-violet-700 rounded-xl text-sm font-bold">🔄 Re-analyse</button></div>}
+    </div>
+    {correlations.length > 0 && <div className="mb-4"><h3 className="font-bold text-gray-700 text-sm mb-2">🔗 Computed Correlations</h3>
+      {correlations.map(function(c,i){ return (<div key={i} className={"rounded-xl p-3 mb-2 border "+(colorMap[c.color]||"bg-gray-50 border-gray-200")}>
+        <div className="flex justify-between items-start"><span className="text-sm font-bold">{c.icon} {c.title}</span><span className={"text-[10px] font-bold px-2 py-0.5 rounded-full "+(c.strength==="strong"?"bg-green-100 text-green-700":c.strength==="moderate"?"bg-amber-100 text-amber-700":"bg-gray-100 text-gray-500")}>{c.strength}</span></div>
+        <p className="text-xs text-gray-600 mt-1">{c.detail}</p>
+        {c.r!==null&&<p className="text-[10px] text-gray-400 mt-0.5">r = {c.r}</p>}
+      </div>); })}
+    </div>}
+    <h3 className="font-bold text-gray-700 text-sm mb-2">📊 30-Day Trends</h3>
+    {hasSym.length>2&&<div className="bg-white rounded-xl p-3 shadow-sm mb-3"><div className="text-xs font-bold text-gray-600 mb-1">🩺 Symptom Severity</div><Spark data={dailies.map(function(d){return d.sym;})} color="#ef4444"/></div>}
+    {hasSleep.length>2&&<div className="bg-white rounded-xl p-3 shadow-sm mb-3"><div className="text-xs font-bold text-gray-600 mb-1">😴 Sleep Quality</div><Spark data={dailies.map(function(d){return d.sleep;})} color="#6366f1"/></div>}
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3"><div className="text-xs font-bold text-gray-600 mb-1">🏃 Exercise Minutes</div><Spark data={dailies.map(function(d){return d.exMins>0?d.exMins:null;})} color="#f97316"/></div>
+    {hasMood.length>2&&<div className="bg-white rounded-xl p-3 shadow-sm mb-3"><div className="text-xs font-bold text-gray-600 mb-1">😊 Mood</div><Spark data={dailies.map(function(d){return d.mood;})} color="#f59e0b"/></div>}
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-3"><div className="text-xs font-bold text-gray-600 mb-1">⚡ ON Time (mins/day)</div><Spark data={dailies.map(function(d){return d.onMins;})} color="#10b981"/></div>
+    <div className="bg-white rounded-xl p-3 shadow-sm mb-4"><div className="text-xs font-bold text-gray-600 mb-1">⚖️ Weight</div><Spark data={dailies.map(function(d){return wByDay[d.d]||null;})} color="#8b5cf6"/></div>
+    <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
+      <div className="font-bold text-gray-600 mb-2">📊 30-Day Averages</div>
+      <div className="grid grid-cols-2 gap-2">
+        {hasSym.length>0&&<div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-red-500 text-base">{(hasSym.reduce(function(s,d){return s+d.sym;},0)/hasSym.length).toFixed(1)}</div><div>Avg Symptoms</div></div>}
+        {hasSleep.length>0&&<div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-indigo-500 text-base">{(hasSleep.reduce(function(s,d){return s+d.sleep;},0)/hasSleep.length).toFixed(1)}</div><div>Avg Sleep</div></div>}
+        {hasMood.length>0&&<div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-amber-500 text-base">{(hasMood.reduce(function(s,d){return s+d.mood;},0)/hasMood.length).toFixed(1)}</div><div>Avg Mood</div></div>}
+        <div className="bg-white rounded-lg p-2 text-center"><div className="font-bold text-orange-500 text-base">{Math.round(dailies.reduce(function(s,d){return s+d.exMins;},0)/DAYS)}</div><div>Avg Ex (min)</div></div>
+      </div>
+    </div>
+  </div>);
+}
+
+// ── TodayPage ──
 function TodayPage(p) {
   var meds = p.meds, logs = p.logs, meals = p.meals, ex = p.ex, slp = p.slp, sym = p.sym, oo = p.oo, fast = p.fast, drinks = p.drinks, weight = p.weight || [], mood = p.mood || [], bowel = p.bowel || [], activity = p.activity || [], setM = p.setM;
   var tL = logs.filter(function(l) { return l.takenAt && isT(l.takenAt); });
@@ -554,8 +754,33 @@ function TodayPage(p) {
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-3">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</h2>
 
-    {/* ── ACTION BUTTONS — TOP OF PAGE ── */}
     {lO && <div className={"rounded-xl p-2.5 mb-2 " + (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200")}><span className="font-medium text-sm">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-xs text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
+
+    {(function() {
+      if (tO.length < 2) return null;
+      var sorted = tO.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+      var segs = [];
+      var dayStart = new Date(td()+"T00:00:00");
+      var pct = function(t) { return Math.min(100, Math.max(0, ((new Date(t) - dayStart) / 86400000) * 100)); };
+      for (var i = 0; i < sorted.length - 1; i++) {
+        segs.push({ state: sorted[i].state, left: pct(sorted[i].loggedAt), width: pct(sorted[i+1].loggedAt) - pct(sorted[i].loggedAt) });
+      }
+      var last = sorted[sorted.length-1];
+      segs.push({ state: last.state, left: pct(last.loggedAt), width: 100 - pct(last.loggedAt) });
+      var onPct = Math.round(segs.reduce(function(acc,sg){ return acc + (sg.state==="on" ? sg.width : 0); }, 0));
+      var offPct = 100 - onPct;
+      return (<div className="bg-white rounded-xl p-3 shadow-sm mb-2">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold text-gray-600">⚡ ON/OFF Timeline</span>
+          <div className="flex gap-3 text-[10px]"><span className="text-emerald-600 font-semibold">🟢 {onPct}% ON</span><span className="text-rose-500 font-semibold">🔴 {offPct}% OFF</span></div>
+        </div>
+        <div className="relative w-full h-7 bg-gray-100 rounded-full overflow-hidden">
+          {segs.map(function(s,i){ return <div key={i} className={"absolute h-full " + (s.state==="on" ? "bg-emerald-400" : "bg-rose-400")} style={{ left: s.left+"%", width: s.width+"%" }} />; })}
+        </div>
+        <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
+      </div>);
+    })()}
+
     <div className="grid grid-cols-2 gap-2 mb-5">
       {meds.map(function(m) { return <button key={m.id} onClick={function() { setM({ type: "dose", med: m }); }} className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">💊 {m.name}</button>; })}
       <button onClick={function() { setM({ type: "meal" }); }} className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl py-3 text-sm font-bold shadow-sm">🍽️ Meal</button>
@@ -570,7 +795,6 @@ function TodayPage(p) {
       <button onClick={function() { setM({ type: "slp" }); }} className="bg-gradient-to-r from-indigo-700 to-slate-600 text-white rounded-xl py-3 text-sm font-bold shadow-sm">😴 Sleep</button>
     </div>
 
-    {/* ── STATS ── */}
     <div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
@@ -600,30 +824,19 @@ function TodayPage(p) {
       </div>);
     })()}
 
-    {/* ── Apple Health ── */}
     {(function() {
       var ah = p.appleHealth || {};
       if (ah.steps === null && ah.heartRate === null && !ah.sleep) return null;
       return (<div className="bg-white rounded-xl p-3 shadow-sm mb-2">
         <div className="text-[10px] font-bold text-gray-500 mb-2">⌚ APPLE WATCH TODAY</div>
         <div className="flex gap-2">
-          {ah.steps !== null && <div className="flex-1 bg-green-50 rounded-lg p-2 text-center">
-            <div className="text-base font-bold text-green-700">{ah.steps !== undefined ? ah.steps.toLocaleString() : "—"}</div>
-            <div className="text-[10px] text-gray-500">Steps</div>
-          </div>}
-          {ah.heartRate !== null && <div className="flex-1 bg-red-50 rounded-lg p-2 text-center">
-            <div className="text-base font-bold text-red-600">{ah.heartRate || "—"}<span className="text-[10px] font-normal"> bpm</span></div>
-            <div className="text-[10px] text-gray-500">Resting HR</div>
-          </div>}
-          {ah.sleep && ah.sleep.total_hours && <div className="flex-1 bg-indigo-50 rounded-lg p-2 text-center">
-            <div className="text-base font-bold text-indigo-700">{Number(ah.sleep.total_hours).toFixed(1)}h</div>
-            <div className="text-[10px] text-gray-500">Sleep</div>
-          </div>}
+          {ah.steps !== null && <div className="flex-1 bg-green-50 rounded-lg p-2 text-center"><div className="text-base font-bold text-green-700">{ah.steps !== undefined ? ah.steps.toLocaleString() : "—"}</div><div className="text-[10px] text-gray-500">Steps</div></div>}
+          {ah.heartRate !== null && <div className="flex-1 bg-red-50 rounded-lg p-2 text-center"><div className="text-base font-bold text-red-600">{ah.heartRate || "—"}<span className="text-[10px] font-normal"> bpm</span></div><div className="text-[10px] text-gray-500">Resting HR</div></div>}
+          {ah.sleep && ah.sleep.total_hours && <div className="flex-1 bg-indigo-50 rounded-lg p-2 text-center"><div className="text-base font-bold text-indigo-700">{Number(ah.sleep.total_hours).toFixed(1)}h</div><div className="text-[10px] text-gray-500">Sleep</div></div>}
         </div>
       </div>);
     })()}
 
-    {/* ── Streaks ── */}
     {(function() {
       var calcStreak = function(dates) { var sorted = dates.slice().sort().reverse(); var streak = 0; for (var i = 0; i < sorted.length; i++) { if (sorted[i] === dAgo(i)) streak++; else break; } return streak; };
       var exDates = []; ex.forEach(function(e) { var d = dateOf(e.loggedAt); if (exDates.indexOf(d) < 0) exDates.push(d); });
@@ -779,7 +992,6 @@ function App() {
   var [dark, sDark] = useState(false);
   var [modal, sModal] = useState(null);
   var [ready, setReady] = useState(false);
-  // ── Companion drinks state ──
   var [companionDrinks, setCompanionDrinks] = useState({});
   var [cexList, setCexList] = useState([]);
   var [cactList, setCactList] = useState([]);
@@ -813,11 +1025,7 @@ function App() {
           sb.from("apple_health_sleep").select("total_hours,deep_hours,rem_hours").eq("user_id", CURRENT_UID).eq("date", today).single(),
           sb.from("apple_health_vitals").select("resting_heart_rate").eq("user_id", CURRENT_UID).eq("date", today).single()
         ]);
-        setAppleHealth({
-          steps: mob.data ? mob.data.steps : null,
-          sleep: slp.data ? slp.data : null,
-          heartRate: vit.data ? vit.data.resting_heart_rate : null
-        });
+        setAppleHealth({ steps: mob.data ? mob.data.steps : null, sleep: slp.data ? slp.data : null, heartRate: vit.data ? vit.data.resting_heart_rate : null });
       } catch(e) {}
     }
     loadAppleHealth();
@@ -886,43 +1094,27 @@ function App() {
     setReProgress(""); setReanalyzing(false);
   };
 
-  // ── Handle dose log + companion drink ──
   var handleDoseSave = function(logItem, companionLogId) {
     aLog(logItem);
     if (companionLogId) {
-      var med = meds.find(function(m) { return m.id === logItem.medId; });
       var cd = companionDrinks[logItem.medId];
       if (cd) {
-        var info = DRINKS.find(function(d) { return d.id === cd.drinkId; });
-        var drinkEntry = {
-          id: "cd_" + companionLogId,
-          drinkId: cd.drinkId,
-          name: cd.name,
-          emoji: cd.emoji || "🥤",
-          volume: cd.volume,
-          caffeine: cd.caffeine || 0,
-          calories: cd.calories || 0,
-          note: "Auto-logged with " + logItem.medName,
-          loggedAt: logItem.takenAt,
-          companionForLogId: companionLogId
-        };
+        var drinkEntry = { id: "cd_" + companionLogId, drinkId: cd.drinkId, name: cd.name, emoji: cd.emoji || "🥤", volume: cd.volume, caffeine: cd.caffeine || 0, calories: cd.calories || 0, note: "Auto-logged with " + logItem.medName, loggedAt: logItem.takenAt, companionForLogId: companionLogId };
         aDrink(drinkEntry);
       }
     }
     close();
   };
 
-  // ── Handle dose delete — also deletes companion drink ──
   var handleDoseDelete = function(logId) {
     dLog(logId);
-    // Find and delete companion drink if exists
     var compDrink = drinks.find(function(d) { return d.companionForLogId === logId || d.id === "cd_" + logId; });
     if (compDrink) { dDrink(compDrink.id); }
     close();
   };
 
   var dayNum = new Date().getDate().toString();
-  var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "report", i: "📊", n: "Report" }, { id: "setup", i: "⚙️", n: "Setup" }];
+  var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "insights", i: "📈", n: "Insights" }, { id: "report", i: "📊", n: "Report" }, { id: "setup", i: "⚙️", n: "Setup" }];
 
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
@@ -930,10 +1122,11 @@ function App() {
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div>
     {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
+    {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
     {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
-      {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-5 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
+      {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
 
     {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} onSave={handleDoseSave} onClose={close} />}
