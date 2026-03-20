@@ -222,7 +222,6 @@ function DoseMod(p) {
   var med = p.med, ex = p.existing, isEdit = !!ex;
   var [time, sTime] = useState(isEdit ? ft(ex.takenAt) : nw());
   var [date, sDate] = useState(isEdit ? dateOf(ex.takenAt) : td());
-  var [eff, sEff] = useState(isEdit ? (ex.effectiveness || 0) : 0);
   var [dose, setDose] = useState(isEdit ? (ex.dose || "") : (med.dose || ""));
   var cd = p.companionDrink || null;
   return (<Mod onClose={p.onClose}>
@@ -232,16 +231,13 @@ function DoseMod(p) {
       <label className="flex-1"><span className="text-sm font-medium">Time taken</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
     </div>
     <label className="block mb-3"><span className="text-sm font-medium">Dose / amount</span><input type="text" value={dose} onChange={function(e) { setDose(e.target.value); }} placeholder="e.g. 25/100, 1 tablet" className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
-    <div className="block mb-4"><span className="text-sm font-medium">Effectiveness: {eff ? eff + "/5" : "Rate later"}</span>
-      <div className="flex gap-2 mt-2">{[1, 2, 3, 4, 5].map(function(n) { return <button key={n} onClick={function() { sEff(n === eff ? 0 : n); }} className={"flex-1 py-2.5 rounded-lg text-sm font-medium " + (n <= eff ? "bg-blue-600 text-white" : "bg-gray-100")}>{n}</button>; })}</div>
-    </div>
     {cd && !isEdit && (<div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 mb-4 flex items-center gap-3">
       <span className="text-xl">{cd.emoji}</span>
       <div><div className="text-sm font-semibold text-cyan-800">Companion drink will be logged</div><div className="text-xs text-cyan-600">{cd.name} · {cd.volume}ml{cd.caffeine ? " · ☕" + cd.caffeine + "mg" : ""}</div></div>
     </div>)}
     <SaveDel canDel={isEdit} label={isEdit ? "Update" : "Log Dose"} onDel={function() { p.onDelete(ex.id); }} onSave={function() {
       var logId = isEdit ? ex.id : Date.now().toString();
-      p.onSave({ id: logId, medId: med.id, medName: med.name, dose: dose, takenAt: date + "T" + time + ":00", effectiveness: eff }, cd && !isEdit ? logId : null);
+      p.onSave({ id: logId, medId: med.id, medName: med.name, dose: dose, takenAt: date + "T" + time + ":00", effectiveness: isEdit ? (ex.effectiveness || 0) : 0 }, cd && !isEdit ? logId : null);
     }} />
   </Mod>);
 }
@@ -738,9 +734,9 @@ var DEF_APP_BUTTONS = [
   { id: "meal",     emoji: "🍽️", label: "Meal",      grad: "from-emerald-500 to-teal-500" },
   { id: "drink",    emoji: "🥤", label: "Drink",     grad: "from-cyan-500 to-sky-500" },
   { id: "ex",       emoji: "🏃", label: "Exercise",  grad: "from-orange-500 to-amber-400" },
-  { id: "symstate", emoji: "🩺", label: "Symptoms",  grad: "from-rose-600 to-pink-500" },
+  { id: "symstate", emoji: "🩺", label: "Symptoms",  grad: "from-red-500 to-rose-400" },
   { id: "fast",     emoji: "⏱️", label: "Fasting",   grad: "from-teal-600 to-emerald-500" },
-  { id: "weight",   emoji: "⚖️", label: "Weight",    grad: "from-violet-600 to-purple-500" },
+  { id: "weight",   emoji: "⚖️", label: "Weight",    grad: "from-blue-500 to-cyan-400" },
   { id: "mood",     emoji: "😊", label: "Mood",      grad: "from-amber-500 to-yellow-400" },
   { id: "bowel",    emoji: "🚽", label: "Toilet",    grad: "from-amber-600 to-orange-500" },
   { id: "activity", emoji: "🧘", label: "Activity",  grad: "from-pink-600 to-rose-500" },
@@ -1032,11 +1028,10 @@ function TodayPage(p) {
       var drinksByDate = {}; drinks.forEach(function(d) { var dt = dateOf(d.loggedAt); if (!drinksByDate[dt]) drinksByDate[dt] = 0; if (hydrateDrinks.indexOf(d.drinkId) >= 0) drinksByDate[dt] += (d.volume || 0); });
       var waterDates = []; Object.keys(drinksByDate).forEach(function(dt) { if (drinksByDate[dt] >= (p.waterTarget || 2000)) waterDates.push(dt); });
       var exS = calcStreak(exDates), fastS = calcStreak(fastDates), moodS = calcStreak(moodDates), waterS = calcStreak(waterDates);
-      if (!exS && !fastS && !moodS && !waterS) return null;
-      return (<div className="bg-white rounded-xl p-3 shadow-sm mb-4"><div className="text-sm font-bold text-gray-700 mb-2">🔥 Streaks</div><div className="flex flex-wrap gap-3">{exS > 0 && <div className="flex items-center gap-1"><span className="text-lg">🏃</span><span className="text-sm font-bold text-orange-600">{exS}d</span></div>}{fastS > 0 && <div className="flex items-center gap-1"><span className="text-lg">⏱️</span><span className="text-sm font-bold text-teal-600">{fastS}d</span></div>}{waterS > 0 && <div className="flex items-center gap-1"><span className="text-lg">💧</span><span className="text-sm font-bold text-cyan-600">{waterS}d</span></div>}{moodS > 0 && <div className="flex items-center gap-1"><span className="text-lg">😊</span><span className="text-sm font-bold text-yellow-600">{moodS}d</span></div>}</div></div>);
+      if (!exS && !fastS && !moodS && !waterS) return <h3 className="font-bold text-gray-600 mb-2 mt-2">Today's Log</h3>;
+      return (<div className="flex items-center justify-between mb-2 mt-2"><h3 className="font-bold text-gray-600">Today's Log</h3><div className="flex gap-3">{exS > 0 && <div className="flex items-center gap-0.5"><span className="text-sm">🏃</span><span className="text-xs font-bold text-orange-600">{exS}d</span></div>}{fastS > 0 && <div className="flex items-center gap-0.5"><span className="text-sm">⏱️</span><span className="text-xs font-bold text-teal-600">{fastS}d</span></div>}{waterS > 0 && <div className="flex items-center gap-0.5"><span className="text-sm">💧</span><span className="text-xs font-bold text-cyan-600">{waterS}d</span></div>}{moodS > 0 && <div className="flex items-center gap-0.5"><span className="text-sm">😊</span><span className="text-xs font-bold text-yellow-600">{moodS}d</span></div>}</div></div>);
     })()}
 
-    <h3 className="font-bold text-gray-600 mb-2 mt-2">Today's Log</h3>
     {(function() { var noCal = p.meals.filter(function(m) { return !m.calories && m.description; }); return noCal.length > 0 ? <button onClick={p.onReanalyse} disabled={p.reanalyzing} className="w-full py-2.5 mb-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">{p.reanalyzing ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />{p.reProgress}</> : <>✨ Re-analyse {noCal.length} meal{noCal.length > 1 ? "s" : ""} for calories</>}</button> : null; })()}
 
     {(function() {
@@ -1156,8 +1151,36 @@ function ReportPage(p) {
   </div>);
 }
 
-// ── Main App ──
-function App() {
+// ── DoseFollowUpMod — fired 30 and 60 min after dose ──
+function DoseFollowUpMod(p) {
+  var [eff, sEff] = useState(0);
+  var [ooState, sOoState] = useState(null);
+  var label = p.minutesAfter === 30 ? "30 min" : "60 min";
+  return (<Mod onClose={p.onDismiss}>
+    <div className="flex justify-between items-center mb-3">
+      <h3 className="text-base font-bold">💊 {p.medName} — {label} check-in</h3>
+      <button onClick={p.onDismiss} className="text-gray-400 text-2xl">×</button>
+    </div>
+    <p className="text-xs text-gray-500 mb-4">You took {p.medName} {label} ago. How is it going?</p>
+    <div className="mb-4">
+      <span className="text-sm font-medium block mb-2">⚡ Are you ON or OFF?</span>
+      <div className="flex gap-2">
+        <button onClick={function() { sOoState(ooState === "on" ? null : "on"); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (ooState === "on" ? "bg-green-500 text-white" : "bg-gray-100")}>🟢 ON</button>
+        <button onClick={function() { sOoState(ooState === "off" ? null : "off"); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (ooState === "off" ? "bg-red-500 text-white" : "bg-gray-100")}>🔴 OFF</button>
+      </div>
+    </div>
+    <div className="mb-4">
+      <span className="text-sm font-medium block mb-2">Medication effectiveness so far: {eff ? eff + "/5" : "—"}</span>
+      <div className="flex gap-2">{[1,2,3,4,5].map(function(n) { return <button key={n} onClick={function() { sEff(n === eff ? 0 : n); }} className={"flex-1 py-2.5 rounded-lg text-sm font-medium " + (n <= eff ? "bg-blue-600 text-white" : "bg-gray-100")}>{n}</button>; })}</div>
+    </div>
+    <div className="flex gap-2 mt-2">
+      <button onClick={p.onDismiss} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Skip</button>
+      <button onClick={function() { p.onSave({ ooState: ooState, eff: eff }); }} disabled={!ooState && !eff} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm disabled:opacity-40">Save</button>
+    </div>
+  </Mod>);
+}
+
+
   var [tab, sTab] = useState("today");
   var [meds, sMeds] = useState([]);
   var [logs, sLogs] = useState([]);
@@ -1185,6 +1208,7 @@ function App() {
   var [alarmsOn, setAlarmsOn] = useState(false);
   var [alarmTimesList, setAlarmTimesList] = useState(["08:00","12:00","17:00","22:00"]);
   var [appleHealth, setAppleHealth] = useState({ steps: null, sleep: null, heartRate: null });
+  var [followUp, setFollowUp] = useState(null); // { medName, logId, takenAt, minutesAfter }
   var DEF_MEDS = [{ id: "sinemet_default", name: "Sinemet", dose: "", times: [] }];
 
   var loadData = useCallback(async function(isInitial) {
@@ -1290,6 +1314,11 @@ function App() {
         aDrink(drinkEntry);
       }
     }
+    // Schedule 30 and 60 min follow-up popups
+    var medName = logItem.medName;
+    var logId = logItem.id;
+    setTimeout(function() { setFollowUp({ medName: medName, logId: logId, minutesAfter: 30 }); }, 30 * 60 * 1000);
+    setTimeout(function() { setFollowUp({ medName: medName, logId: logId, minutesAfter: 60 }); }, 60 * 60 * 1000);
     close();
   };
 
@@ -1316,6 +1345,17 @@ function App() {
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
 
+    {followUp && <DoseFollowUpMod
+      medName={followUp.medName}
+      minutesAfter={followUp.minutesAfter}
+      onDismiss={function() { setFollowUp(null); }}
+      onSave={function(result) {
+        var stamp = new Date().toISOString();
+        if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); }
+        if (result.eff && followUp.logId) { uLog(logs.find(function(l) { return l.id === followUp.logId; }) ? Object.assign({}, logs.find(function(l) { return l.id === followUp.logId; }), { effectiveness: result.eff }) : null); }
+        setFollowUp(null);
+      }}
+    />}
     {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} onSave={handleDoseSave} onClose={close} />}
     {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} onSave={function(l) { uLog(l); close(); }} onDelete={handleDoseDelete} onClose={close} />}
     {modal && modal.type === "meal" && <MealMod onSave={hMs} onClose={close} prev={meals} />}
