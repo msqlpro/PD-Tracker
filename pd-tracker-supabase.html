@@ -765,12 +765,16 @@ function AppGrid(p) {
   var [wiggle, setWiggle] = useState(false);
   var [dragIdx, setDragIdx] = useState(null);
   var gridRef = React.useRef(null);
-  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false });
+  var initialBtns = buildButtons();
+  var stateRef = React.useRef({ wiggle: false, buttons: initialBtns, dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false });
 
-  // Keep stateRef in sync so event listeners (attached once) can read latest state
+  // Keep stateRef in sync
   useEffect(function() { stateRef.current.wiggle = wiggle; }, [wiggle]);
   useEffect(function() { stateRef.current.buttons = buttons; }, [buttons]);
   useEffect(function() { stateRef.current.dragIdx = dragIdx; }, [dragIdx]);
+
+  // Keep setM fresh in stateRef
+  useEffect(function() { stateRef.current.setM = p.setM; });
 
   var saveOrder = function(btns) {
     try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
@@ -879,8 +883,8 @@ function AppGrid(p) {
           var idx = parseInt(cell.getAttribute("data-bidx"));
           if (!isNaN(idx) && s.buttons[idx]) {
             var btn = s.buttons[idx];
-            if (btn.med) p.setM({ type: "dose", med: btn.med });
-            else p.setM({ type: btn.id });
+            if (btn.med) s.setM({ type: "dose", med: btn.med });
+            else s.setM({ type: btn.id });
           }
         }
       }
@@ -1435,4 +1439,4 @@ function AuthGate() {
 ReactDOM.render(<AuthGate />, document.getElementById("root"));
 </script>
 </body>
-</html>
+</html> listen
