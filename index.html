@@ -758,6 +758,7 @@ var DEF_APP_BUTTONS = [
   { id: "bowel",    emoji: "🚽", label: "Toilet",    grad: "from-amber-600 to-orange-500" },
   { id: "activity", emoji: "🧘", label: "Activity",  grad: "from-pink-600 to-rose-500" },
   { id: "slp",      emoji: "😴", label: "Sleep",     grad: "from-indigo-700 to-slate-600" },
+  { id: "onoff_pie", emoji: "", label: "ON/OFF",    grad: "from-gray-200 to-gray-300", isPie: true },
 ];
 
 function AppGrid(p) {
@@ -868,6 +869,11 @@ function AppGrid(p) {
           if (!isNaN(idx) && s.buttons[idx]) {
             var btn = s.buttons[idx];
             if (btn.med) p.setM({ type: "dose", med: btn.med });
+            else if (btn.isPie) {
+              var lO2 = p.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
+              var stamp = new Date().toISOString().slice(0,16)+":00";
+              if (p.onQuickOo) p.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
+            }
             else p.setM({ type: btn.id });
           }
         }
@@ -898,10 +904,42 @@ function AppGrid(p) {
         var isDragging = dragIdx === idx;
         return (
           <div key={btn.id} data-bidx={idx} className="flex flex-col items-center" style={{ touchAction: wiggle ? "none" : "auto" }}>
+            {btn.isPie ? (function() {
+              var oo = p.oo || []; var lO = p.lO;
+              var dayStart = new Date(new Date().toISOString().slice(0,10)+"T00:00:00").getTime();
+              var dayMs = 86400000;
+              var nowDeg = Math.min(360, ((Date.now() - dayStart) / dayMs) * 360);
+              var sorted = oo.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+              var wedges = [];
+              for (var wi = 0; wi < sorted.length; wi++) {
+                var seg0 = Math.min(360, Math.max(0, ((new Date(sorted[wi].loggedAt).getTime()-dayStart)/dayMs)*360));
+                var seg1 = wi < sorted.length-1 ? Math.min(360,Math.max(0,((new Date(sorted[wi+1].loggedAt).getTime()-dayStart)/dayMs)*360)) : nowDeg;
+                if (seg1 > seg0) wedges.push({state:sorted[wi].state,s:seg0,e:seg1});
+              }
+              var cx=32,cy=32,r=30;
+              var arc = function(s,e) {
+                var toR=Math.PI/180, a=(s-90)*toR, b=(e-90)*toR;
+                var x1=cx+r*Math.cos(a),y1=cy+r*Math.sin(a),x2=cx+r*Math.cos(b),y2=cy+r*Math.sin(b);
+                if(e-s>=359.9) return "M "+cx+" "+(cy-r)+" A "+r+" "+r+" 0 1 1 "+(cx-0.001)+" "+(cy-r)+" Z";
+                return "M "+cx+" "+cy+" L "+x1.toFixed(2)+" "+y1.toFixed(2)+" A "+r+" "+r+" 0 "+(e-s>180?1:0)+" 1 "+x2.toFixed(2)+" "+y2.toFixed(2)+" Z";
+              };
+              var isOn=lO&&lO.state==="on", isOff=lO&&lO.state==="off";
+              var fill=isOn?"#16a34a":isOff?"#dc2626":"#9ca3af";
+              var label=isOn?"ON":isOff?"OFF":"?";
+              return (<div className={"w-16 h-16 rounded-full flex items-center justify-center shadow-lg overflow-hidden " + (wiggle ? "wiggling" : "")}
+                style={{opacity:isDragging?0.45:1,animationDelay:(idx%4*0.05)+"s",transform:isDragging?"scale(1.12)":"",transition:"opacity 0.1s, transform 0.1s",background:"#f3f4f6"}}>
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                  <circle cx={cx} cy={cy} r={r} fill="#e5e7eb" />
+                  {wedges.map(function(w,wi){ return <path key={wi} d={arc(w.s,w.e)} fill={w.state==="on"?"#22c55e":"#ef4444"} />; })}
+                  <circle cx={cx} cy={cy} r="16" fill="white" />
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill={fill} fontSize="10" fontWeight="bold" fontFamily="system-ui">{label}</text>
+                </svg>
+              </div>);
+            })() : (
             <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg " + (wiggle ? "wiggling" : "")}
               style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
               <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.emoji}</span>
-            </div>
+            </div>)}
             <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.label}</span>
           </div>
         );
@@ -933,94 +971,9 @@ function TodayPage(p) {
 
   return (<div className="p-4 pb-28">
 
-    <AppGrid meds={meds} setM={setM} />
+    <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} />
 
-    {(function(){
-      var now = new Date();
-      var dayStart = new Date(td() + "T00:00:00").getTime();
-      var dayMs = 86400000;
-      var nowFrac = Math.min(1, (now.getTime() - dayStart) / dayMs);
-      var nowDeg = nowFrac * 360;
-      var ooSorted = tO.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
-      var wedges = [];
-      if (ooSorted.length > 0) {
-        for (var wi = 0; wi < ooSorted.length; wi++) {
-          var segStart = Math.min(360, Math.max(0, ((new Date(ooSorted[wi].loggedAt).getTime() - dayStart) / dayMs) * 360));
-          var segEnd = wi < ooSorted.length - 1
-            ? Math.min(360, Math.max(0, ((new Date(ooSorted[wi+1].loggedAt).getTime() - dayStart) / dayMs) * 360))
-            : nowDeg;
-          if (segEnd > segStart) wedges.push({ state: ooSorted[wi].state, start: segStart, end: segEnd });
-        }
-      }
-      var cx = 55; var cy = 55; var r = 46;
-      var arcPath = function(startDeg, endDeg) {
-        var toRad = Math.PI / 180;
-        var s = (startDeg - 90) * toRad;
-        var e = (endDeg - 90) * toRad;
-        var x1 = cx + r * Math.cos(s);
-        var y1 = cy + r * Math.sin(s);
-        var x2 = cx + r * Math.cos(e);
-        var y2 = cy + r * Math.sin(e);
-        var large = (endDeg - startDeg) > 180 ? 1 : 0;
-        if ((endDeg - startDeg) >= 359.9) {
-          return "M " + cx + " " + (cy - r) + " A " + r + " " + r + " 0 1 1 " + (cx - 0.001) + " " + (cy - r) + " Z";
-        }
-        return "M " + cx + " " + cy + " L " + x1.toFixed(3) + " " + y1.toFixed(3) + " A " + r + " " + r + " 0 " + large + " 1 " + x2.toFixed(3) + " " + y2.toFixed(3) + " Z";
-      };
-      var isOn = lO && lO.state === "on";
-      var isOff = lO && lO.state === "off";
-      var since = lO ? "since " + ft(lO.loggedAt) : "tap to log";
-      var stateLabel = isOn ? "ON" : isOff ? "OFF" : "?";
-      var stateFill = isOn ? "#16a34a" : isOff ? "#dc2626" : "#9ca3af";
-      return (<div className="flex flex-col items-center mb-3">
-        <button onClick={function(){
-          var newState = (!lO || lO.state === "off") ? "on" : "off";
-          var stamp = now.toISOString().slice(0,16) + ":00";
-          p.onQuickOo({ id: Date.now().toString() + "_oo", state: newState, loggedAt: stamp });
-        }} style={{background:"none",border:"none",padding:0,cursor:"pointer"}}>
-          <svg width="120" height="120" viewBox="0 0 110 110">
-            <circle cx={cx} cy={cy} r={r} fill="#f3f4f6" />
-            {wedges.map(function(w, wi){ return <path key={wi} d={arcPath(w.start, w.end)} fill={w.state === "on" ? "#22c55e" : "#ef4444"} />; })}
-            <circle cx={cx} cy={cy} r="26" fill="white" />
-            <text x={cx} y={cy - 5} textAnchor="middle" dominantBaseline="central" fill={stateFill} fontSize="15" fontWeight="bold" fontFamily="system-ui,sans-serif">{stateLabel}</text>
-            <text x={cx} y={cy + 10} textAnchor="middle" fill="#9ca3af" fontSize="8" fontFamily="system-ui,sans-serif">tap</text>
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="1.5" />
-          </svg>
-        </button>
-        <span className={"text-xs mt-0.5 " + (isOn ? "text-emerald-600" : isOff ? "text-rose-500" : "text-gray-400")}>{since}</span>
-      </div>);
-    })()}
 
-    {(function() {
-      var hasTimeline = tO.length >= 2;
-      var sorted = tO.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
-      var segs = [], onPct = 0;
-      if (hasTimeline) {
-        var dayStart = new Date(td()+"T00:00:00");
-        var pct = function(t) { return Math.min(100, Math.max(0, ((new Date(t) - dayStart) / 86400000) * 100)); };
-        for (var i = 0; i < sorted.length - 1; i++) {
-          segs.push({ state: sorted[i].state, left: pct(sorted[i].loggedAt), width: pct(sorted[i+1].loggedAt) - pct(sorted[i].loggedAt) });
-        }
-        var last = sorted[sorted.length-1];
-        segs.push({ state: last.state, left: pct(last.loggedAt), width: 100 - pct(last.loggedAt) });
-        onPct = Math.round(segs.reduce(function(acc,sg){ return acc + (sg.state==="on" ? sg.width : 0); }, 0));
-      }
-      if (!lO && !hasTimeline) return null;
-      return (<div className={"rounded-xl p-3 shadow-sm mb-3 " + (lO ? (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200") : "bg-white border border-gray-100")}>
-        <div className="flex justify-between items-center mb-1">
-          <span className={"font-bold text-sm " + (lO ? (lO.state === "on" ? "text-emerald-700" : "text-rose-600") : "text-gray-500")}>
-            {lO ? (lO.state === "on" ? "🟢 ON" : "🔴 OFF") : "⚡"}{lO ? <span className="text-xs font-normal text-gray-500 ml-1.5">since {ft(lO.loggedAt)}</span> : null}
-          </span>
-          {hasTimeline && <div className="flex gap-2 text-[10px]"><span className="text-emerald-600 font-semibold">🟢 {onPct}%</span><span className="text-rose-500 font-semibold">🔴 {100-onPct}%</span></div>}
-        </div>
-        {hasTimeline && (<div>
-          <div className="relative w-full h-5 bg-gray-200 rounded-full overflow-hidden">
-            {segs.map(function(s,i){ return <div key={i} className={"absolute h-full " + (s.state==="on" ? "bg-emerald-400" : "bg-rose-400")} style={{ left: s.left+"%", width: s.width+"%" }} />; })}
-          </div>
-          <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
-        </div>)}
-      </div>);
-    })()}
 
     <div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
