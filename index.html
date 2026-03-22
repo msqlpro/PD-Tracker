@@ -1294,7 +1294,31 @@ function TodayPage(p) {
         })()}
       </div>);
     })()}
-    {lO && <div className={"rounded-xl p-2.5 mb-2 " + (lO.state === "on" ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200")}><span className="font-medium text-sm">{lO.state === "on" ? "🟢 ON" : "🔴 OFF"}</span><span className="text-xs text-gray-500 ml-2">since {ft(lO.loggedAt)}</span></div>}
+    {(function(){
+      var isOn = lO && lO.state === "on";
+      var isOff = lO && lO.state === "off";
+      var fill = isOn ? "#22c55e" : isOff ? "#ef4444" : "#e5e7eb";
+      var label = isOn ? "ON" : isOff ? "OFF" : "?";
+      var textFill = lO ? "#fff" : "#9ca3af";
+      var r = 48;
+      var since = lO ? "since " + ft(lO.loggedAt) : "tap to log";
+      return (<div className="flex flex-col items-center mb-3">
+        <button onClick={function(){
+          var newState = (!lO || lO.state === "off") ? "on" : "off";
+          var now = new Date();
+          var stamp = now.toISOString().slice(0,16) + ":00";
+          p.onQuickOo({ id: Date.now().toString() + "_oo", state: newState, loggedAt: stamp });
+        }} style={{background:"none",border:"none",padding:0,cursor:"pointer"}}>
+          <svg width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r={r} fill={fill} />
+            <circle cx="55" cy="55" r={r} fill="none" stroke={lO ? "rgba(0,0,0,0.12)" : "#d1d5db"} strokeWidth="3" />
+            <text x="55" y="50" textAnchor="middle" dominantBaseline="central" fill={textFill} fontSize="20" fontWeight="bold" fontFamily="system-ui,sans-serif">{label}</text>
+            <text x="55" y="72" textAnchor="middle" fill={lO ? "rgba(255,255,255,0.75)" : "#9ca3af"} fontSize="9" fontFamily="system-ui,sans-serif">tap to toggle</text>
+          </svg>
+        </button>
+        <span className={"text-xs mt-0.5 " + (isOn ? "text-emerald-600" : isOff ? "text-rose-500" : "text-gray-400")}>{since}</span>
+      </div>);
+    })()}
     {(function() {
       if (tO.length < 2) return null;
       var ooSorted = tO.slice().sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
@@ -2263,7 +2287,7 @@ function App() {
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")} style={{ fontFamily: "system-ui, sans-serif" }}>
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3"><div className="flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1></div></div>
-    {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} greenTeaTarget={greenTeaTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} />}
+    {tab === "today" && <TodayPage meds={meds} weightGoal={weightGoal} onGoalReached={function(){ setShowGoalPop(true); }} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} greenTeaTarget={greenTeaTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} onQuickOo={aOo} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
