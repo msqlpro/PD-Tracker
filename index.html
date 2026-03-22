@@ -1230,12 +1230,35 @@ function App() {
     async function loadAppleHealth() {
       try {
         var today = td();
-        var [mob, slp, vit] = await Promise.all([
+        var [mob, slpData, vit] = await Promise.all([
           sb.from("apple_health_mobility").select("steps").eq("user_id", CURRENT_UID).eq("date", today).single(),
-          sb.from("apple_health_sleep").select("total_hours,deep_hours,rem_hours").eq("user_id", CURRENT_UID).eq("date", today).single(),
+          sb.from("apple_health_sleep").select("total_hours,deep_hours,rem_hours,bedtime,wake_time").eq("user_id", CURRENT_UID).eq("date", today).single(),
           sb.from("apple_health_vitals").select("resting_heart_rate").eq("user_id", CURRENT_UID).eq("date", today).single()
         ]);
-        setAppleHealth({ steps: mob.data ? mob.data.steps : null, sleep: slp.data ? slp.data : null, heartRate: vit.data ? vit.data.resting_heart_rate : null });
+        setAppleHealth({ steps: mob.data ? mob.data.steps : null, sleep: slpData.data ? slpData.data : null, heartRate: vit.data ? vit.data.resting_heart_rate : null });
+        // Auto-create sleep log entry from Apple Watch data
+        if (slpData.data && slpData.data.total_hours) {
+          var hrs = Number(slpData.data.total_hours);
+          var deepHrs = Number(slpData.data.deep_hours || 0);
+          var deepPct = hrs > 0 ? deepHrs / hrs : 0;
+          var quality = deepPct >= 0.25 ? 5 : deepPct >= 0.18 ? 4 : deepPct >= 0.12 ? 3 : deepPct >= 0.06 ? 2 : 3;
+          if (hrs < 4) quality = 1; else if (hrs < 5.5) quality = Math.min(quality, 2); else if (hrs < 6.5) quality = Math.min(quality, 3);
+          var autoId = "auto_sleep_" + today;
+          var sleepEntry = {
+            id: autoId,
+            hours: Math.round(hrs * 10) / 10,
+            quality: quality,
+            bedtime: slpData.data.bedtime || "22:00",
+            wakeTime: slpData.data.wake_time || "07:00",
+            date: today
+          };
+          sSlp(function(prev) {
+            var exists = prev.find(function(x) { return x.id === autoId; });
+            var updated = exists ? prev.map(function(x) { return x.id === autoId ? sleepEntry : x; }) : prev.concat([sleepEntry]);
+            dbSave(K.sleep, sleepEntry);
+            return updated;
+          });
+        }
       } catch(e) {}
     }
     loadAppleHealth();
