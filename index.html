@@ -752,7 +752,6 @@ var DEF_APP_BUTTONS = [
   { id: "drink",    emoji: "🥤", label: "Drink",     grad: "from-cyan-500 to-sky-500" },
   { id: "ex",       emoji: "🏃", label: "Exercise",  grad: "from-orange-500 to-amber-400" },
   { id: "symstate", emoji: "🩺", label: "Symptoms",  grad: "from-red-500 to-rose-400" },
-  { id: "fast",     emoji: "⏱️", label: "Fasting",   grad: "from-teal-600 to-emerald-500" },
   { id: "weight",   emoji: "⚖️", label: "Weight",    grad: "from-blue-500 to-cyan-400" },
   { id: "mood",     emoji: "😊", label: "Mood",      grad: "from-amber-500 to-yellow-400" },
   { id: "bowel",    emoji: "🚽", label: "Toilet",    grad: "from-amber-600 to-orange-500" },
@@ -1287,7 +1286,31 @@ function App() {
   var aMeal = add(sMeals, K.meals), uMeal = upd(sMeals, K.meals), dMeal = del(sMeals, K.meals);
   var aSlp = function(s) { sSlp(function(prev) { var u = prev.filter(function(x) { return x.id !== s.id; }).concat([s]); dbSave(K.sleep, s); return u; }); };
   var uSlp = upd(sSlp, K.sleep), dSlp = del(sSlp, K.sleep);
-  var hMs = function(meal, delId) { if (delId) { dMeal(delId); return; } if (!meal) return; meals.find(function(m) { return m.id === meal.id; }) ? uMeal(meal) : aMeal(meal); };
+  var hMs = function(meal, delId) {
+    if (delId) { dMeal(delId); return; }
+    if (!meal) return;
+    meals.find(function(m) { return m.id === meal.id; }) ? uMeal(meal) : aMeal(meal);
+    // Auto-calculate fasting: first meal of today + last meal of yesterday
+    var mealDate = (meal.loggedAt || "").slice(0,10);
+    if (mealDate === td()) {
+      var allMeals = meals.concat([meal]);
+      var todayMeals = allMeals.filter(function(m) { return (m.loggedAt||"").slice(0,10) === td(); })
+        .sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
+      if (todayMeals.length === 0) return;
+      var firstToday = todayMeals[0];
+      var yd = (function(){ var d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
+      var ydMeals = allMeals.filter(function(m){ return (m.loggedAt||"").slice(0,10) === yd; })
+        .sort(function(a,b){ return (b.loggedAt||"").localeCompare(a.loggedAt||""); });
+      if (ydMeals.length === 0) return;
+      var lastYd = ydMeals[0];
+      var hrs = Math.round(((new Date(firstToday.loggedAt) - new Date(lastYd.loggedAt)) / 3600000) * 10) / 10;
+      if (hrs <= 0 || hrs > 36) return;
+      var autoId = "auto_fast_" + td();
+      var fastEntry = { id: autoId, startTime: ft(lastYd.loggedAt), endTime: ft(firstToday.loggedAt), hours: hrs, date: td() };
+      var existing = fast.find(function(f){ return f.id === autoId; });
+      if (existing) { uFast(fastEntry); } else { aFast(fastEntry); }
+    }
+  };
   function close() { sModal(null); }
 
   var [reanalyzing, setReanalyzing] = useState(false);
@@ -1372,7 +1395,6 @@ function App() {
     {modal && modal.type === "symstate" && <SymStateMod onSaveSym={function(s) { aSym(s); }} onSaveOo={function(o) { aOo(o); }} onClose={close} />}
     {modal && modal.type === "eSym" && <SymStateMod existingSym={modal.data} onSaveSym={function(s) { uSym(s); }} onDeleteSym={function(id) { dSym(id); close(); }} onSaveOo={function() {}} onDeleteOo={function() {}} onClose={close} />}
     {modal && modal.type === "eOo" && <SymStateMod existingOo={modal.data} onSaveOo={function(o) { uOo(o); }} onDeleteOo={function(id) { dOo(id); close(); }} onSaveSym={function() {}} onDeleteSym={function() {}} onClose={close} />}
-    {modal && modal.type === "fast" && <FastMod onSave={function(f) { aFast(f); close(); }} onClose={close} />}
     {modal && modal.type === "eFast" && <FastMod existing={modal.data} onSave={function(f) { uFast(f); close(); }} onDelete={function(id) { dFast(id); close(); }} onClose={close} />}
     {modal && modal.type === "drink" && <DrinkMod onSave={function(d) { aDrink(d); close(); }} onClose={close} />}
     {modal && modal.type === "eDrink" && <DrinkMod existing={modal.data} onSave={function(d) { uDrink(d); close(); }} onDelete={function(id) { dDrink(id); close(); }} onClose={close} />}
