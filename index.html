@@ -19,7 +19,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 * { -webkit-tap-highlight-color: transparent; }
-body { margin:0; font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
+html, body, #root { height: 100%; margin: 0; }
+body { margin:0; font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: none; overflow: hidden; }
 input, select, textarea, button { font-family: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .animate-spin { animation: spin 1s linear infinite; }
@@ -985,9 +986,9 @@ function TodayPage(p) {
   var waterTarget = p.waterTarget || 2000;
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
 
-  return (<div className="p-4 pb-28">
+  return (<div className="p-4 pb-4">
 
-    <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} />
+    {!p.hideGrid && <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} />}
 
 
 
@@ -1423,13 +1424,16 @@ function App() {
 
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
-  return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
-    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} />}
+  return (<div className={"max-w-md mx-auto h-screen flex flex-col overflow-hidden " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center flex-shrink-0"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span></div>
+    {tab === "today" && (function() { var tO2 = oo.filter(function(o) { return o.loggedAt && isT(o.loggedAt); }); var lO2 = tO2.slice().sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0]; return (<div className={"flex-shrink-0 px-4 pt-3 pb-2 border-b " + (dark ? "bg-gray-900 border-gray-700" : "bg-gray-50 border-gray-200")}><AppGrid meds={meds} setM={sModal} oo={tO2} lO={lO2} onQuickOo={aOo} /></div>); })()}
+    <div className="flex-1 overflow-y-auto pb-20">
+    {tab === "today" && <TodayPage hideGrid={true} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
     {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
+    </div>
     {showOoPopup && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={function() { setShowOoPopup(false); }}>
       <div style={{background:"white",borderRadius:"1.25rem",padding:"1.5rem",width:"min(320px,90vw)",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={function(e) { e.stopPropagation(); }}>
         <div style={{textAlign:"center",marginBottom:"1rem"}}>
