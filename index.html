@@ -129,18 +129,18 @@ var FROM_ROW = {
 async function dbLoad(key) { var t = TBL[key]; if (!t) return []; var { data, error } = await sb.from(t).select("*").eq("user_id", CURRENT_UID); if (error) { console.error("Load " + key, error); return []; } return (data || []).map(FROM_ROW[key]); }
 async function dbSave(key, item) { var t = TBL[key]; if (!t) return; var row = TO_ROW[key](item); var { error } = await sb.from(t).upsert(row); if (error) console.error("Save " + key, error); }
 async function dbDel(key, id) { var t = TBL[key]; if (!t) return; var { error } = await sb.from(t).delete().eq("id", id); if (error) console.error("Del " + key, error); }
-var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes" };
+var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval" };
 async function ld(k, fb) {
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes) {
-    try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); if (data && data.settings) { var s = data.settings; if (k === K.waterTarget) return s.waterTarget || fb; if (k === K.calTarget) return s.calTarget || fb; if (k === K.protTarget) return s.protTarget || fb; if (k === K.medTarget) return s.medTarget || fb; if (k === K.darkMode) return s.darkMode || fb; if (k === K.companionDrinks) return s.companionDrinks || fb; if (k === K.cex) return s.cex || fb; if (k === K.cact) return s.cact || fb; if (k === K.alarms) return s.alarms || fb; if (k === K.alarmTimes) return s.alarmTimes || fb; } } catch(e) {}
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval) {
+    try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); if (data && data.settings) { var s = data.settings; if (k === K.waterTarget) return s.waterTarget || fb; if (k === K.calTarget) return s.calTarget || fb; if (k === K.protTarget) return s.protTarget || fb; if (k === K.medTarget) return s.medTarget || fb; if (k === K.darkMode) return s.darkMode || fb; if (k === K.companionDrinks) return s.companionDrinks || fb; if (k === K.cex) return s.cex || fb; if (k === K.cact) return s.cact || fb; if (k === K.alarms) return s.alarms || fb; if (k === K.alarmTimes) return s.alarmTimes || fb; if (k === K.ooReminderOn) return s.ooReminderOn !== undefined ? s.ooReminderOn : fb; if (k === K.ooReminderInterval) return s.ooReminderInterval || fb; } } catch(e) {}
     return fb;
   }
   if (TBL[k]) return await dbLoad(k);
   return fb;
 }
 async function sv(k, v) {
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes) {
-    try { var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var settings = (existing && existing.settings) || {}; if (k === K.waterTarget) settings.waterTarget = v; else if (k === K.calTarget) settings.calTarget = v; else if (k === K.protTarget) settings.protTarget = v; else if (k === K.medTarget) settings.medTarget = v; else if (k === K.darkMode) settings.darkMode = v; else if (k === K.companionDrinks) settings.companionDrinks = v; else if (k === K.cex) settings.cex = v; else if (k === K.cact) settings.cact = v; else if (k === K.alarms) settings.alarms = v; else if (k === K.alarmTimes) settings.alarmTimes = v; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings }); } catch(e) { console.error("Save setting", e); }
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval) {
+    try { var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var settings = (existing && existing.settings) || {}; if (k === K.waterTarget) settings.waterTarget = v; else if (k === K.calTarget) settings.calTarget = v; else if (k === K.protTarget) settings.protTarget = v; else if (k === K.medTarget) settings.medTarget = v; else if (k === K.darkMode) settings.darkMode = v; else if (k === K.companionDrinks) settings.companionDrinks = v; else if (k === K.cex) settings.cex = v; else if (k === K.cact) settings.cact = v; else if (k === K.alarms) settings.alarms = v; else if (k === K.alarmTimes) settings.alarmTimes = v; else if (k === K.ooReminderOn) settings.ooReminderOn = v; else if (k === K.ooReminderInterval) settings.ooReminderInterval = v; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings }); } catch(e) { console.error("Save setting", e); }
     return;
   }
   if (TBL[k] && Array.isArray(v)) { if (k === K.meds) { await sb.from(TBL[k]).delete().eq("user_id", CURRENT_UID); for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } else { for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } return; }
@@ -483,6 +483,23 @@ function Setup(p) {
           {p.alarmTimesList.length > 1 && <button onClick={function() { p.setAlarmTimesList(p.alarmTimesList.filter(function(_, j) { return j !== i; })); }} className="text-red-400 text-lg">✕</button>}
         </div>); })}
         <button onClick={function() { p.setAlarmTimesList(p.alarmTimesList.concat(["15:00"])); }} className="text-blue-600 text-sm mt-1">+ Add time</button>
+      </div>}
+      <p className="text-xs text-gray-400 mt-2">⚠️ Reminders only work while the app is open.</p>
+    </div>
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">⚡ ON/OFF Check-in Reminder</h3>
+      <button onClick={function() { p.setOoReminderOn(!p.ooReminderOn); }} className={"w-full py-3 rounded-xl font-bold text-sm " + (p.ooReminderOn ? "bg-red-500 text-white" : "bg-green-600 text-white")}>{p.ooReminderOn ? "🔕 Disable ON/OFF Reminders" : "🔔 Enable ON/OFF Reminders"}</button>
+      {p.ooReminderOn && <div className="mt-3">
+        <p className="text-xs font-medium text-gray-600 mb-2">Remind me every:</p>
+        <select value={p.ooReminderInterval} onChange={function(e) { p.setOoReminderInterval(parseFloat(e.target.value)); }} className="w-full border rounded-xl p-2.5 text-sm">
+          <option value={0.5}>30 minutes</option>
+          <option value={1}>1 hour</option>
+          <option value={2}>2 hours</option>
+          <option value={3}>3 hours</option>
+          <option value={4}>4 hours</option>
+          <option value={6}>6 hours</option>
+          <option value={8}>8 hours</option>
+        </select>
       </div>}
       <p className="text-xs text-gray-400 mt-2">⚠️ Reminders only work while the app is open.</p>
     </div>
@@ -1203,6 +1220,9 @@ function App() {
   var [cactList, setCactList] = useState([]);
   var [alarmsOn, setAlarmsOn] = useState(false);
   var [alarmTimesList, setAlarmTimesList] = useState(["08:00","12:00","17:00","22:00"]);
+  var [ooReminderOn, setOoReminderOn] = useState(false);
+  var [ooReminderInterval, setOoReminderInterval] = useState(1);
+  var [showOoPopup, setShowOoPopup] = useState(false);
   var [appleHealth, setAppleHealth] = useState({ steps: null, sleep: null, heartRate: null });
   var [followUp, setFollowUp] = useState(null);
   var [backfilling, setBackfilling] = useState(false);
@@ -1212,7 +1232,7 @@ function App() {
 
   var loadData = useCallback(async function(isInitial) {
     try {
-      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"])]);
+      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"]), ld(K.ooReminderOn, false), ld(K.ooReminderInterval, 1)]);
       var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17], cdMap = r[18], cexList = r[19], cactList = r[20], alarmsOn = r[21], alarmTimesList = r[22];
       var fm = m.length > 0 ? m : DEF_MEDS;
       fm = fm.filter(function(x) { return x && x.name; });
@@ -1220,7 +1240,7 @@ function App() {
       if (isInitial && (m.length === 0 || fm.length !== m.length)) sv(K.meds, fm);
       var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
       if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
-      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); setCompanionDrinks(cdMap || {}); setCexList(cexList || []); setCactList(cactList || []); setAlarmsOn(alarmsOn || false); setAlarmTimesList(alarmTimesList || ["08:00","12:00","17:00","22:00"]);
+      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); setCompanionDrinks(cdMap || {}); setCexList(cexList || []); setCactList(cactList || []); setAlarmsOn(alarmsOn || false); setAlarmTimesList(alarmTimesList || ["08:00","12:00","17:00","22:00"]); setOoReminderOn(r[23] || false); setOoReminderInterval(r[24] || 1);
     } catch (err) {}
     if (isInitial) setReady(true);
   }, []);
@@ -1286,6 +1306,13 @@ function App() {
     var interval = setInterval(check, 30000);
     return function() { clearInterval(interval); };
   }, [alarmsOn, alarmTimesList]);
+
+  useEffect(function() {
+    if (!ooReminderOn) return;
+    var ms = ooReminderInterval * 60 * 60 * 1000;
+    var timer = setInterval(function() { setShowOoPopup(true); }, ms);
+    return function() { clearInterval(timer); };
+  }, [ooReminderOn, ooReminderInterval]);
 
   function add(setter, key) { return function(item) { setter(function(prev) { var items = Array.isArray(item) ? item : [item]; var u = prev.concat(items); items.forEach(function(it) { dbSave(key, it); }); return u; }); }; }
   function upd(setter, key) { return function(item) { setter(function(prev) { var u = prev.map(function(x) { return x.id === item.id ? item : x; }); dbSave(key, item); return u; }); }; }
@@ -1402,7 +1429,29 @@ function App() {
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
+    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
+    {showOoPopup && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={function() { setShowOoPopup(false); }}>
+      <div style={{background:"white",borderRadius:"1.25rem",padding:"1.5rem",width:"min(320px,90vw)",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={function(e) { e.stopPropagation(); }}>
+        <div style={{textAlign:"center",marginBottom:"1rem"}}>
+          <div style={{fontSize:"2.5rem",marginBottom:"0.5rem"}}>⚡</div>
+          <h2 style={{fontSize:"1.1rem",fontWeight:"bold",color:"#1f2937",marginBottom:"0.25rem"}}>How are you feeling?</h2>
+          <p style={{fontSize:"0.85rem",color:"#6b7280"}}>Are you currently ON or OFF?</p>
+        </div>
+        <div style={{display:"flex",gap:"0.75rem",marginBottom:"0.75rem"}}>
+          <button onClick={function() {
+            var entry = { id: Date.now().toString() + "_oo", state: "on", loggedAt: new Date().toISOString() };
+            aOo(entry);
+            setShowOoPopup(false);
+          }} style={{flex:1,padding:"0.875rem",borderRadius:"0.75rem",border:"none",background:"#22c55e",color:"white",fontWeight:"bold",fontSize:"1rem",cursor:"pointer"}}>🟢 ON</button>
+          <button onClick={function() {
+            var entry = { id: Date.now().toString() + "_oo", state: "off", loggedAt: new Date().toISOString() };
+            aOo(entry);
+            setShowOoPopup(false);
+          }} style={{flex:1,padding:"0.875rem",borderRadius:"0.75rem",border:"none",background:"#ef4444",color:"white",fontWeight:"bold",fontSize:"1rem",cursor:"pointer"}}>🔴 OFF</button>
+        </div>
+        <button onClick={function() { setShowOoPopup(false); }} style={{width:"100%",padding:"0.6rem",borderRadius:"0.75rem",border:"1px solid #e5e7eb",background:"transparent",color:"#9ca3af",fontSize:"0.85rem",cursor:"pointer"}}>Skip for now</button>
+      </div>
+    </div>}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
