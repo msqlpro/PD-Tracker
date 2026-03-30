@@ -924,7 +924,15 @@ function AppGrid(p) {
       {buttons.map(function(btn, idx) {
         var isDragging = dragIdx === idx;
         return (
-          <div key={btn.id} data-bidx={idx} className="flex flex-col items-center" style={{ touchAction: wiggle ? "none" : "auto" }}>
+          <div key={btn.id} data-bidx={idx} className="flex flex-col items-center" style={{ touchAction: wiggle ? "none" : "auto" }} onClick={function() {
+            if (wiggle) return;
+            if (btn.med) p.setM({ type: "dose", med: btn.med });
+            else if (btn.isPie) {
+              var lO2 = stateRef.current.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
+              if (stateRef.current.onQuickOo) stateRef.current.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: new Date().toISOString() });
+            }
+            else p.setM({ type: btn.id });
+          }}>
             {btn.isPie ? (function() {
               var oo = p.oo || []; var lO = p.lO;
               var dayStart = new Date(new Date().toISOString().slice(0,10)+"T00:00:00").getTime();
