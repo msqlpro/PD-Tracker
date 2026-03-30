@@ -1501,7 +1501,7 @@ function AuthScreen() {
     try {
       if (mode === "login") { var { error: err } = await sb.auth.signInWithPassword({ email: email, password: password }); if (err) setError(err.message); }
       else if (mode === "signup") { if (password.length < 6) { setError("Password must be at least 6 characters"); setLoading(false); return; } var { error: err } = await sb.auth.signUp({ email: email, password: password, options: { data: { display_name: name } } }); if (err) setError(err.message); else setSuccess("Check your email for a confirmation link!"); }
-      else if (mode === "reset") { var { error: err } = await sb.auth.resetPasswordForEmail(email); if (err) setError(err.message); else setSuccess("Password reset email sent!"); }
+      else if (mode === "reset") { var { error: err } = await sb.auth.resetPasswordForEmail(email, { redirectTo: "https://msqlpro.github.io/PD-Tracker/" }); if (err) setError(err.message); else setSuccess("Password reset email sent!"); }
     } catch (e) { setError(e.message); }
     setLoading(false);
   };
