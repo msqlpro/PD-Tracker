@@ -26,8 +26,7 @@ input, select, textarea, button { font-family: inherit; }
 .animate-spin { animation: spin 1s linear infinite; }
 @keyframes wiggle { 0% { transform: rotate(-2.5deg) scale(1.03); } 100% { transform: rotate(2.5deg) scale(1.03); } }
 .wiggling { animation: wiggle 0.18s ease-in-out infinite alternate; }
-.app-shell { display: flex; flex-direction: column; height: 100dvh; height: 100vh; max-width: 28rem; margin: 0 auto; position: relative; }
-.app-scroll { flex: 1 1 0; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+.sticky-grid { position: sticky; top: 0; z-index: 20; }
 </style>
 </head>
 <body>
@@ -989,9 +988,11 @@ function TodayPage(p) {
   var waterTarget = p.waterTarget || 2000;
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
 
-  return (<div className="p-4 pb-4">
-
-    {!p.hideGrid && <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} />}
+  return (<div className="pb-28">
+    <div className={"sticky-grid px-4 pt-3 pb-2 border-b " + (p.dark ? "bg-gray-900 border-gray-700" : "bg-gray-50 border-gray-200")}>
+      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} />
+    </div>
+    <div className="p-4 pt-3">
 
 
 
@@ -1084,6 +1085,7 @@ function TodayPage(p) {
         return null;
       });
     })()}
+  </div>
   </div>);
 }
 
@@ -1427,11 +1429,9 @@ function App() {
 
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
-  return (<div className={"app-shell " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
-    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center flex-shrink-0"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span></div>
-    {tab === "today" && (function() { var tO2 = oo.filter(function(o) { return o.loggedAt && isT(o.loggedAt); }); var lO2 = tO2.slice().sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0]; return (<div className={"flex-shrink-0 px-4 pt-3 pb-2 border-b " + (dark ? "bg-gray-900 border-gray-700" : "bg-gray-50 border-gray-200")}><AppGrid meds={meds} setM={sModal} oo={tO2} lO={lO2} onQuickOo={aOo} /></div>); })()}
-    <div className="app-scroll">
-    {tab === "today" && <TodayPage hideGrid={true} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} />}
+  return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span></div>
+    {tab === "today" && <TodayPage dark={dark} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
@@ -1459,7 +1459,7 @@ function App() {
         <button onClick={function() { setShowOoPopup(false); }} style={{width:"100%",padding:"0.6rem",borderRadius:"0.75rem",border:"1px solid #e5e7eb",background:"transparent",color:"#9ca3af",fontSize:"0.85rem",cursor:"pointer"}}>Skip for now</button>
       </div>
     </div>}
-    <div className={"border-t flex justify-around py-2 pb-6 flex-shrink-0 z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
+    <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
     {followUp && <DoseFollowUpMod medName={followUp.medName} minutesAfter={followUp.minutesAfter} onDismiss={function() { setFollowUp(null); }} onSave={function(result) { var stamp = new Date().toISOString(); if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); } if (result.eff && followUp.logId) { var existing = logs.find(function(l) { return l.id === followUp.logId; }); if (existing) { uLog(Object.assign({}, existing, { effectiveness: result.eff })); } } setFollowUp(null); }} />}
