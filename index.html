@@ -902,10 +902,60 @@ function AppGrid(p) {
     grid.addEventListener("touchmove", handleTouchMove, { passive: true });
     grid.addEventListener("touchend", handleTouchEnd, { passive: true });
 
+    var handleMouseDown = function(e) {
+      var s = stateRef.current;
+      s.startX = e.clientX;
+      s.startY = e.clientY;
+      s.tapped = true;
+      var cell = e.target.closest ? e.target.closest("[data-bidx]") : null;
+      var idx = cell ? parseInt(cell.getAttribute("data-bidx")) : null;
+      if (idx === null || isNaN(idx)) return;
+      if (s.wiggle) { s.dragIdx = idx; setDragIdx(idx); return; }
+      s.longTimer = setTimeout(function() { s.wiggle = true; s.dragIdx = idx; setWiggle(true); setDragIdx(idx); }, 500);
+    };
+
+    var handleMouseUp = function(e) {
+      var s = stateRef.current;
+      clearTimeout(s.longTimer);
+      if (s.wiggle) { setDragIdx(null); s.dragIdx = null; saveOrder(s.buttons); return; }
+      if (s.tapped) {
+        var cell = e.target.closest ? e.target.closest("[data-bidx]") : null;
+        if (cell) {
+          var idx = parseInt(cell.getAttribute("data-bidx"));
+          if (!isNaN(idx) && s.buttons[idx]) {
+            var btn = s.buttons[idx];
+            if (btn.med) p.setM({ type: "dose", med: btn.med });
+            else if (btn.isPie) {
+              var lO2 = p.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
+              var stamp = new Date().toISOString().slice(0,16)+":00";
+              if (p.onQuickOo) p.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
+            }
+            else p.setM({ type: btn.id });
+          }
+        }
+      }
+      s.tapped = false;
+    };
+
+    var handleMouseMove = function(e) {
+      var s = stateRef.current;
+      if (!s.tapped) return;
+      var dx = Math.abs(e.clientX - s.startX);
+      var dy = Math.abs(e.clientY - s.startY);
+      if (!s.wiggle) { if (dx > 8 || dy > 8) { clearTimeout(s.longTimer); s.tapped = false; } }
+    };
+
+    grid.addEventListener("mousedown", handleMouseDown);
+    grid.addEventListener("mouseup", handleMouseUp);
+    grid.addEventListener("mousemove", handleMouseMove);
+
     return function() {
       grid.removeEventListener("touchstart", handleTouchStart);
       grid.removeEventListener("touchmove", handleTouchMove);
       grid.removeEventListener("touchend", handleTouchEnd);
+      grid.removeEventListener("mousedown", handleMouseDown);
+      grid.removeEventListener("mouseup", handleMouseUp);
+      grid.removeEventListener("mousemove", handleMouseMove);
     };
   }, []);
 
