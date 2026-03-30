@@ -147,12 +147,12 @@ async function sv(k, v) {
   if (TBL[k] && Array.isArray(v)) { if (k === K.meds) { await sb.from(TBL[k]).delete().eq("user_id", CURRENT_UID); for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } else { for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } return; }
 }
 
-function td() { return new Date().toISOString().slice(0, 10); }
+function td() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function nw() { return new Date().toTimeString().slice(0, 5); }
 function ft(iso) { try { return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
 function isT(iso) { return iso && iso.slice(0, 10) === td(); }
-function dAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
-function dateOf(iso) { return iso ? iso.slice(0, 10) : td(); }
+function dAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function dateOf(iso) { if (!iso) return td(); if (iso.length === 10) return iso; try { var d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); } catch(e) { return iso.slice(0,10); } }
 
 var SYMS = [
   { id: "tremor", l: "Tremor", e: "🫨" }, { id: "stiffness", l: "Stiffness", e: "🦿" },
