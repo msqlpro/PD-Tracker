@@ -800,14 +800,11 @@ function AppGrid(p) {
   var [wiggle, setWiggle] = useState(false);
   var [dragIdx, setDragIdx] = useState(null);
   var gridRef = React.useRef(null);
-  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false, lO: null, setM: null, onQuickOo: null });
+  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false });
 
   useEffect(function() { stateRef.current.wiggle = wiggle; }, [wiggle]);
   useEffect(function() { stateRef.current.buttons = buttons; }, [buttons]);
   useEffect(function() { stateRef.current.dragIdx = dragIdx; }, [dragIdx]);
-  stateRef.current.lO = p.lO;
-  stateRef.current.setM = p.setM;
-  stateRef.current.onQuickOo = p.onQuickOo;
 
   var saveOrder = function(btns) {
     try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
@@ -888,46 +885,27 @@ function AppGrid(p) {
           var idx = parseInt(cell.getAttribute("data-bidx"));
           if (!isNaN(idx) && s.buttons[idx]) {
             var btn = s.buttons[idx];
-            if (btn.med) s.setM({ type: "dose", med: btn.med });
+            if (btn.med) p.setM({ type: "dose", med: btn.med });
             else if (btn.isPie) {
-              var lO2 = s.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
-              var stamp = new Date().toISOString();
-              if (s.onQuickOo) s.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
+              var lO2 = p.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
+              var stamp = new Date().toISOString().slice(0,16)+":00";
+              if (p.onQuickOo) p.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
             }
-            else s.setM({ type: btn.id });
+            else p.setM({ type: btn.id });
           }
         }
       }
       s.tapped = false;
     };
 
-    var handleMouseDown = function(e) {
-      var s = stateRef.current;
-      s.startX = e.clientX;
-      s.startY = e.clientY;
-      var cell = e.target.closest ? e.target.closest("[data-bidx]") : null;
-      var idx = cell ? parseInt(cell.getAttribute("data-bidx")) : null;
-      if (idx === null || isNaN(idx)) return;
-      s.longTimer = setTimeout(function() { s.wiggle = true; s.dragIdx = idx; setWiggle(true); setDragIdx(idx); }, 800);
-    };
-
-    var handleMouseUp = function() {
-      clearTimeout(stateRef.current.longTimer);
-      if (stateRef.current.wiggle) { setDragIdx(null); stateRef.current.dragIdx = null; saveOrder(stateRef.current.buttons); }
-    };
-
     grid.addEventListener("touchstart", handleTouchStart, { passive: true });
     grid.addEventListener("touchmove", handleTouchMove, { passive: true });
     grid.addEventListener("touchend", handleTouchEnd, { passive: true });
-    grid.addEventListener("mousedown", handleMouseDown);
-    grid.addEventListener("mouseup", handleMouseUp);
 
     return function() {
       grid.removeEventListener("touchstart", handleTouchStart);
       grid.removeEventListener("touchmove", handleTouchMove);
       grid.removeEventListener("touchend", handleTouchEnd);
-      grid.removeEventListener("mousedown", handleMouseDown);
-      grid.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
 
@@ -941,22 +919,8 @@ function AppGrid(p) {
     <div ref={gridRef} className="grid grid-cols-4 gap-x-3 gap-y-4" style={{ touchAction: wiggle ? "none" : "auto" }}>
       {buttons.map(function(btn, idx) {
         var isDragging = dragIdx === idx;
-        var handleClick = function() {
-          var s = stateRef.current;
-          if ('ontouchstart' in window) return; // mobile handled by touchend
-          clearTimeout(s.longTimer);
-          if (s.wiggle) return;
-          if (btn.med) s.setM({ type: "dose", med: btn.med });
-          else if (btn.isPie) {
-            var lO2 = s.lO;
-            var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
-            var stamp = new Date().toISOString();
-            if (s.onQuickOo) s.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
-          }
-          else s.setM({ type: btn.id });
-        };
         return (
-          <div key={btn.id} data-bidx={idx} className="flex flex-col items-center" style={{ touchAction: wiggle ? "none" : "auto", cursor: "pointer" }} onClick={handleClick}>
+          <div key={btn.id} data-bidx={idx} className="flex flex-col items-center" style={{ touchAction: wiggle ? "none" : "auto" }}>
             {btn.isPie ? (function() {
               var oo = p.oo || []; var lO = p.lO;
               var dayStart = new Date(new Date().toISOString().slice(0,10)+"T00:00:00").getTime();
@@ -980,8 +944,8 @@ function AppGrid(p) {
               var fill=isOn?"#16a34a":isOff?"#dc2626":"#9ca3af";
               var label=isOn?"ON":isOff?"OFF":"?";
               return (<div className={"w-16 h-16 rounded-full flex items-center justify-center shadow-lg overflow-hidden " + (wiggle ? "wiggling" : "")}
-                style={{opacity:isDragging?0.45:1,animationDelay:(idx%4*0.05)+"s",transform:isDragging?"scale(1.12)":"",transition:"opacity 0.1s, transform 0.1s",background:"#f3f4f6",pointerEvents:"none"}}>
-                <svg width="64" height="64" viewBox="0 0 64 64" style={{pointerEvents:"none"}}>
+                style={{opacity:isDragging?0.45:1,animationDelay:(idx%4*0.05)+"s",transform:isDragging?"scale(1.12)":"",transition:"opacity 0.1s, transform 0.1s",background:"#f3f4f6"}}>
+                <svg width="64" height="64" viewBox="0 0 64 64">
                   <circle cx={cx} cy={cy} r={r} fill="#e5e7eb" />
                   {wedges.map(function(w,wi){ return <path key={wi} d={arc(w.s,w.e)} fill={w.state==="on"?"#22c55e":"#ef4444"} />; })}
                   <circle cx={cx} cy={cy} r="16" fill="white" />
@@ -990,10 +954,10 @@ function AppGrid(p) {
               </div>);
             })() : (
             <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg " + (wiggle ? "wiggling" : "")}
-              style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s", pointerEvents: "none" }}>
-              <span style={{ fontSize: "1.75rem", lineHeight: 1, pointerEvents: "none" }}>{btn.emoji}</span>
+              style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
+              <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.emoji}</span>
             </div>)}
-            <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem", pointerEvents: "none" }}>{btn.label}</span>
+            <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.label}</span>
           </div>
         );
       })}
