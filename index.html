@@ -25,6 +25,7 @@ input, select, textarea, button { font-family: inherit; }
 .animate-spin { animation: spin 1s linear infinite; }
 @keyframes wiggle { 0% { transform: rotate(-2.5deg) scale(1.03); } 100% { transform: rotate(2.5deg) scale(1.03); } }
 .wiggling { animation: wiggle 0.18s ease-in-out infinite alternate; }
+.sticky-grid { position: sticky; top: 0; z-index: 20; background: #f9fafb; }
 </style>
 </head>
 <body>
@@ -986,10 +987,11 @@ function TodayPage(p) {
   var waterTarget = p.waterTarget || 2000;
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
 
-  return (<div className="p-4 pb-28">
-
-    <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} />
-
+  return (<div className="pb-28">
+    <div className="sticky-grid px-4 pt-4 pb-2">
+      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} />
+    </div>
+    <div className="px-4">
 
 
     <div className="grid grid-cols-3 gap-2 mb-2">
@@ -1081,6 +1083,7 @@ function TodayPage(p) {
         return null;
       });
     })()}
+    </div>
   </div>);
 }
 
