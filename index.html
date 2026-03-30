@@ -805,9 +805,9 @@ function AppGrid(p) {
   useEffect(function() { stateRef.current.wiggle = wiggle; }, [wiggle]);
   useEffect(function() { stateRef.current.buttons = buttons; }, [buttons]);
   useEffect(function() { stateRef.current.dragIdx = dragIdx; }, [dragIdx]);
-  useEffect(function() { stateRef.current.lO = p.lO; }, [p.lO]);
-  useEffect(function() { stateRef.current.setM = p.setM; }, [p.setM]);
-  useEffect(function() { stateRef.current.onQuickOo = p.onQuickOo; }, [p.onQuickOo]);
+  stateRef.current.lO = p.lO;
+  stateRef.current.setM = p.setM;
+  stateRef.current.onQuickOo = p.onQuickOo;
 
   var saveOrder = function(btns) {
     try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
