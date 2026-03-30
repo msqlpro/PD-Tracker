@@ -1010,6 +1010,11 @@ function TodayPage(p) {
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{dn.fibre}g</div><div className="text-[10px] text-gray-500">Fibre</div></div>
     </div>
+    <div className="grid grid-cols-3 gap-2 mb-2">
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-pink-600">{totalCalsIn}</div><div className="text-[10px] text-gray-500">Cal In</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-orange-500">-{calBurned}</div><div className="text-[10px] text-gray-500">Burned</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-700">{drinkCaff}<span className="text-[10px] font-normal">mg</span></div><div className="text-[10px] text-gray-500">Caffeine</div></div>
+    </div>
     {(function() {
       var lastDose = tL.slice().sort(function(a, b) { return (b.takenAt || "").localeCompare(a.takenAt || ""); })[0];
       if (!lastDose) return null;
@@ -1027,11 +1032,6 @@ function TodayPage(p) {
         <div className={"text-sm font-bold " + (urgent ? "text-orange-600" : "text-indigo-600")}>{display}</div>
       </div>);
     })()}
-    <div className="grid grid-cols-3 gap-2 mb-2">
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-pink-600">{totalCalsIn}</div><div className="text-[10px] text-gray-500">Cal In</div></div>
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-orange-500">-{calBurned}</div><div className="text-[10px] text-gray-500">Burned</div></div>
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-700">{drinkCaff}<span className="text-[10px] font-normal">mg</span></div><div className="text-[10px] text-gray-500">Caffeine</div></div>
-    </div>
     <div className="grid grid-cols-2 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2.5 shadow-sm"><div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-cyan-700">💧</span><span className="text-[10px] text-gray-400">{waterPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className={"h-full rounded-full " + (waterPct >= 100 ? "bg-cyan-500" : "bg-cyan-300")} style={{ width: waterPct + "%" }} /></div><div className="text-[10px] text-gray-500 mt-1">{waterMl}ml / {waterTarget}ml</div></div>
       {(function() { var ct = p.calTarget || 2000; var calPct = Math.min(100, Math.round((netCal / ct) * 100)); var over = netCal > ct; return (<div className="bg-white rounded-xl p-2.5 shadow-sm"><div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-amber-700">🔥</span><span className="text-[10px] text-gray-400">{calPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className={"h-full rounded-full " + (over ? "bg-red-500" : "bg-amber-400")} style={{ width: Math.min(calPct, 100) + "%" }} /></div><div className={"text-[10px] mt-1 " + (over ? "text-red-600" : "text-gray-500")}>{netCal} / {ct} kcal</div></div>); })()}
