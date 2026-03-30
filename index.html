@@ -801,11 +801,14 @@ function AppGrid(p) {
   var [wiggle, setWiggle] = useState(false);
   var [dragIdx, setDragIdx] = useState(null);
   var gridRef = React.useRef(null);
-  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false });
+  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false, lO: null, onQuickOo: null, setM: null });
 
   useEffect(function() { stateRef.current.wiggle = wiggle; }, [wiggle]);
   useEffect(function() { stateRef.current.buttons = buttons; }, [buttons]);
   useEffect(function() { stateRef.current.dragIdx = dragIdx; }, [dragIdx]);
+  stateRef.current.lO = p.lO;
+  stateRef.current.onQuickOo = p.onQuickOo;
+  stateRef.current.setM = p.setM;
 
   var saveOrder = function(btns) {
     try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
@@ -886,13 +889,13 @@ function AppGrid(p) {
           var idx = parseInt(cell.getAttribute("data-bidx"));
           if (!isNaN(idx) && s.buttons[idx]) {
             var btn = s.buttons[idx];
-            if (btn.med) p.setM({ type: "dose", med: btn.med });
+            if (btn.med) s.setM({ type: "dose", med: btn.med });
             else if (btn.isPie) {
-              var lO2 = p.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
-              var stamp = new Date().toISOString().slice(0,16)+":00";
-              if (p.onQuickOo) p.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
+              var lO2 = s.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
+              var stamp = new Date().toISOString();
+              if (s.onQuickOo) s.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
             }
-            else p.setM({ type: btn.id });
+            else s.setM({ type: btn.id });
           }
         }
       }
