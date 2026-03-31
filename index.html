@@ -320,16 +320,25 @@ function ExMod(p) {
   </Mod>);
 }
 
+function calcSlpHours(bt, wt) {
+  try {
+    var bp = bt.split(":"), wp = wt.split(":");
+    var bMins = parseInt(bp[0]) * 60 + parseInt(bp[1]);
+    var wMins = parseInt(wp[0]) * 60 + parseInt(wp[1]);
+    if (wMins <= bMins) wMins += 24 * 60;
+    return Math.round((wMins - bMins) / 60 * 10) / 10;
+  } catch(e) { return 7; }
+}
 function SlpMod(p) {
   var ex = p.existing, isEdit = !!ex;
-  var [h, sH] = useState(isEdit ? ex.hours : 7);
   var [q, sQ] = useState(isEdit ? ex.quality : 3);
   var [bt, sBt] = useState(isEdit ? (ex.bedtime || "22:00") : "22:00");
   var [wt, sWt] = useState(isEdit ? (ex.wakeTime || "06:00") : "06:00");
+  var h = calcSlpHours(bt, wt);
   return (<Mod onClose={p.onClose}>
     <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">😴 Sleep</h3><button onClick={p.onClose} style={{fontSize:"1.75rem",lineHeight:1,width:"44px",height:"44px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:"#f3f4f6",border:"none",cursor:"pointer",color:"#6b7280",flexShrink:0}}>×</button></div>
     <div className="grid grid-cols-2 gap-3 mb-3"><label><span className="text-sm font-medium">Bed</span><input type="time" value={bt} onChange={function(e) { sBt(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label><span className="text-sm font-medium">Wake</span><input type="time" value={wt} onChange={function(e) { sWt(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
-    <div className="block mb-3"><span className="text-sm font-medium">Hours: {h}</span><input type="range" min={0} max={12} step={0.5} value={h} onChange={function(e) { sH(parseFloat(e.target.value)); }} className="w-full mt-1" style={{ accentColor: "#4f46e5" }} /></div>
+    <div className="block mb-3"><span className="text-sm font-medium">Hours slept: <strong>{h}h</strong></span></div>
     <div className="block mb-4"><span className="text-sm font-medium">Quality: {["", "😫", "😕", "😐", "😊", "😁"][q]}</span><input type="range" min={1} max={5} value={q} onChange={function(e) { sQ(parseInt(e.target.value)); }} className="w-full mt-1" style={{ accentColor: "#4f46e5" }} /></div>
     <SaveDel canDel={isEdit} color="bg-indigo-600" label={isEdit ? "Update" : "Save"} onDel={function() { p.onDelete(ex.id); }} onSave={function() { p.onSave({ id: isEdit ? ex.id : Date.now().toString(), hours: h, quality: q, bedtime: bt, wakeTime: wt, date: isEdit ? (ex.date || td()) : td() }); p.onClose(); }} />
   </Mod>);
