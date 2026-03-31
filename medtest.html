@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PD Tracker — Medication Button Diagnostics</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 16px; max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+  .sub { font-size: 12px; color: #666; margin-bottom: 20px; }
+  .section { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 6px; }
+  .row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: #fff; border: 0.5px solid #ddd; border-radius: 8px; margin-bottom: 6px; }
+  .badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 6px; min-width: 52px; text-align: center; flex-shrink: 0; margin-top: 1px; }
+  .idle { background: #eee; color: #666; }
+  .running { background: #dbeafe; color: #1e40af; }
+  .pass { background: #dcfce7; color: #166534; }
+  .fail { background: #fee2e2; color: #991b1b; }
+  .warn { background: #fef3c7; color: #92400e; }
+  .label { font-size: 13px; font-weight: 500; }
+  .detail { font-size: 11px; color: #666; margin-top: 3px; font-family: monospace; word-break: break-all; }
+  .detail.err { color: #b91c1c; }
+  button#run { display: block; width: 100%; padding: 12px; background: #4f46e5; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 20px; }
+  button#run:disabled { opacity: 0.5; cursor: default; }
+  .summary { display: none; gap: 16px; font-size: 13px; font-weight: 600; padding: 12px; background: #fff; border-radius: 8px; border: 0.5px solid #ddd; margin-top: 12px; }
+  .logbox { background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: 11px; border-radius: 8px; padding: 10px 12px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin-top: 12px; display: none; }
+  .back { display: inline-block; font-size: 12px; color: #4f46e5; text-decoration: none; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">← Back to PD Tracker</a>
+<h1>💊 Medication button diagnostics</h1>
+<p class="sub">Tests the full save/load chain for medication dose logging</p>
+
+<button id="run" onclick="runAll()">Run all tests</button>
+
+<div class="section">Auth</div>
+<div class="row"><span class="badge idle" id="b0">idle</span><div><div class="label">Supabase client initialises</div><div class="detail" id="d0"></div></div></div>
+<div class="row"><span class="badge idle" id="b1">idle</span><div><div class="label">getSession() returns a valid session</div><div class="detail" id="d1"></div></div></div>
+<div class="row"><span class="badge idle" id="b2">idle</span><div><div class="label">CURRENT_UID is set (not null)</div><div class="detail" id="d2"></div></div></div>
+
+<div class="section">Medications table</div>
+<div class="row"><span class="badge idle" id="b3">idle</span><div><div class="label">SELECT from medications succeeds</div><div class="detail" id="d3"></div></div></div>
+<div class="row"><span class="badge idle" id="b4">idle</span><div><div class="label">At least one medication exists</div><div class="detail" id="d4"></div></div></div>
+
+<div class="section">med_logs — full insert / read / delete cycle</div>
+<div class="row"><span class="badge idle" id="b5">idle</span><div><div class="label">UPSERT test row into med_logs</div><div class="detail" id="d5"></div></div></div>
+<div class="row"><span class="badge idle" id="b6">idle</span><div><div class="label">SELECT test row back from med_logs</div><div class="detail" id="d6"></div></div></div>
+<div class="row"><span class="badge idle" id="b7">idle</span><div><div class="label">Fields match (id, med_id, med_name, taken_at, dose)</div><div class="detail" id="d7"></div></div></div>
+<div class="row"><span class="badge idle" id="b8">idle</span><div><div class="label">DELETE test row (clean up)</div><div class="detail" id="d8"></div></div></div>
+
+<div class="section">Row mapping</div>
+<div class="row"><span class="badge idle" id="b9">idle</span><div><div class="label">TO_ROW produces correct snake_case columns</div><div class="detail" id="d9"></div></div></div>
+<div class="row"><span class="badge idle" id="b10">idle</span><div><div class="label">FROM_ROW restores camelCase fields correctly</div><div class="detail" id="d10"></div></div></div>
+
+<div class="section">RLS / permissions</div>
+<div class="row"><span class="badge idle" id="b11">idle</span><div><div class="label">SELECT on med_logs filtered by user_id (RLS check)</div><div class="detail" id="d11"></div></div></div>
+
+<div class="summary" id="summary"></div>
+<div class="logbox" id="logbox"></div>
+
+<script>
+const SURL = "https://dbhsxzbqkwuisvvvukxq.supabase.co";
+const SKEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHN4emJxa3d1aXN2dnZ1a3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDgzMTIsImV4cCI6MjA4NzI4NDMxMn0.HBrCVs8SxYP1LXHGyNB3sNdYcMkcyjcygx8B_HSmYck";
+
+let sb, uid, rawLog = [];
+const TEST_ID = "diag_" + Date.now();
+
+function lg(msg) {
+  rawLog.push(msg);
+  const b = document.getElementById("logbox");
+  b.style.display = "block";
+  b.textContent = rawLog.join("\n");
+  b.scrollTop = b.scrollHeight;
+}
+
+function set(i, status, detail, isErr) {
+  const b = document.getElementById("b" + i);
+  b.className = "badge " + status;
+  b.textContent = status === "running" ? "…" : status;
+  const d = document.getElementById("d" + i);
+  if (detail !== undefined) {
+    d.textContent = detail;
+    d.className = "detail" + (isErr ? " err" : "");
+  }
+}
+
+const TO_ROW = (d, u) => ({ id: d.id, user_id: u, med_id: d.medId, med_name: d.medName, dose: d.dose || "", taken_at: d.takenAt, effectiveness: d.effectiveness || 0 });
+const FROM_ROW = (r) => ({ id: r.id, medId: r.med_id, medName: r.med_name, dose: r.dose, takenAt: r.taken_at, effectiveness: r.effectiveness || 0 });
+
+async function runAll() {
+  document.getElementById("run").disabled = true;
+  rawLog = [];
+  document.getElementById("logbox").textContent = "";
+  document.getElementById("logbox").style.display = "none";
+  for (let i = 0; i <= 11; i++) set(i, "idle", "");
+  let p = 0, w = 0, f = 0;
+
+  // T0
+  set(0, "running");
+  try {
+    sb = window.supabase.createClient(SURL, SKEY);
+    lg("T0: client OK"); set(0, "pass", "Client created"); p++;
+  } catch(e) { lg("T0 FAIL: " + e.message); set(0, "fail", e.message, true); f++; done(p,w,f); return; }
+
+  // T1
+  set(1, "running");
+  let session = null;
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error) throw error;
+    session = data.session;
+    if (!session) throw new Error("No active session — not logged in to PD Tracker");
+    lg("T1: session OK user=" + session.user.email);
+    set(1, "pass", session.user.email); p++;
+  } catch(e) {
+    lg("T1 FAIL: " + e.message);
+    set(1, "fail", e.message, true); f++;
+    done(p,w,f); return;
+  }
+
+  // T2
+  set(2, "running");
+  uid = session.user.id;
+  if (uid) { lg("T2: uid=" + uid); set(2, "pass", uid.slice(0,8) + "…"); p++; }
+  else { set(2, "fail", "uid is null", true); f++; }
+
+  // T3
+  set(3, "running");
+  let meds = [];
+  try {
+    const { data, error } = await sb.from("medications").select("*").eq("user_id", uid);
+    if (error) throw error;
+    meds = data || [];
+    lg("T3: meds count=" + meds.length);
+    set(3, "pass", meds.length + " rows"); p++;
+  } catch(e) { lg("T3 FAIL: " + e.message); set(3, "fail", e.message, true); f++; }
+
+  // T4
+  set(4, "running");
+  if (meds.length > 0) {
+    lg("T4: first=" + JSON.stringify(meds[0]));
+    set(4, "pass", '"' + meds[0].name + '"'); p++;
+  } else {
+    set(4, "warn", "No medications — add one in Settings"); w++;
+    lg("T4 WARN: no meds");
+  }
+
+  const testMed = meds[0] || { id: "dummy", name: "TestMed" };
+  const testItem = { id: TEST_ID, medId: testMed.id, medName: testMed.name, dose: "DIAG TEST — safe to delete", takenAt: new Date().toISOString(), effectiveness: 0 };
+  const testRow = TO_ROW(testItem, uid);
+
+  // T5
+  set(5, "running");
+  try {
+    const { error } = await sb.from("med_logs").upsert(testRow);
+    if (error) throw error;
+    lg("T5: upsert OK"); set(5, "pass", "Inserted"); p++;
+  } catch(e) { lg("T5 FAIL: " + e.message); set(5, "fail", e.message, true); f++; }
+
+  // T6
+  set(6, "running");
+  let rb = null;
+  try {
+    const { data, error } = await sb.from("med_logs").select("*").eq("id", TEST_ID).eq("user_id", uid);
+    if (error) throw error;
+    rb = (data || [])[0] || null;
+    if (!rb) throw new Error("Row not found after insert");
+    lg("T6: read back OK"); set(6, "pass", "Row found"); p++;
+  } catch(e) { lg("T6 FAIL: " + e.message); set(6, "fail", e.message, true); f++; }
+
+  // T7
+  set(7, "running");
+  if (rb) {
+    const res = FROM_ROW(rb);
+    const checks = [["id", res.id === testItem.id], ["medId", res.medId === testItem.medId], ["medName", res.medName === testItem.medName], ["dose", res.dose === testItem.dose]];
+    const bad = checks.filter(c => !c[1]).map(c => c[0]);
+    if (!bad.length) { lg("T7: fields match"); set(7, "pass", "All fields correct"); p++; }
+    else { lg("T7 FAIL: " + bad.join(",")); set(7, "fail", "Mismatch: " + bad.join(", "), true); f++; }
+  } else { set(7, "fail", "No row to check (T6 failed)", true); f++; }
+
+  // T8
+  set(8, "running");
+  try {
+    const { error } = await sb.from("med_logs").delete().eq("id", TEST_ID);
+    if (error) throw error;
+    lg("T8: delete OK"); set(8, "pass", "Cleaned up"); p++;
+  } catch(e) { lg("T8 FAIL: " + e.message); set(8, "fail", e.message, true); f++; }
+
+  // T9
+  set(9, "running");
+  const s9 = { id:"x", medId:"m1", medName:"Madopar", dose:"25/100", takenAt:"2025-01-01T08:00:00", effectiveness:3 };
+  const r9 = TO_ROW(s9, uid);
+  const exp9 = ["id","user_id","med_id","med_name","dose","taken_at","effectiveness"];
+  const miss9 = exp9.filter(k => !(k in r9));
+  const ext9 = Object.keys(r9).filter(k => !exp9.includes(k));
+  if (!miss9.length && !ext9.length) { lg("T9: TO_ROW OK keys=" + Object.keys(r9).join(",")); set(9, "pass", "All 7 columns correct"); p++; }
+  else { const msg = (miss9.length?"missing:"+miss9.join(","):"") + (ext9.length?" extra:"+ext9.join(","):""); lg("T9 FAIL: " + msg); set(9, "fail", msg.trim(), true); f++; }
+
+  // T10
+  set(10, "running");
+  const r10 = { id:"x", med_id:"m1", med_name:"Madopar", dose:"25/100", taken_at:"2025-01-01T08:00:00", effectiveness:3 };
+  const res10 = FROM_ROW(r10);
+  const exp10 = { id:"x", medId:"m1", medName:"Madopar", dose:"25/100", takenAt:"2025-01-01T08:00:00", effectiveness:3 };
+  const diffs10 = Object.keys(exp10).filter(k => res10[k] !== exp10[k]);
+  if (!diffs10.length) { lg("T10: FROM_ROW OK"); set(10, "pass", "All fields restored"); p++; }
+  else { lg("T10 FAIL: " + diffs10.join(",")); set(10, "fail", "Mismatch: " + diffs10.join(", "), true); f++; }
+
+  // T11
+  set(11, "running");
+  try {
+    const { data: all, error } = await sb.from("med_logs").select("id").limit(5);
+    if (error) throw error;
+    lg("T11: RLS sample count=" + (all||[]).length);
+    set(11, "pass", (all||[]).length + " rows visible"); p++;
+  } catch(e) { lg("T11 WARN: " + e.message); set(11, "warn", e.message); w++; }
+
+  done(p, w, f);
+}
+
+function done(p, w, f) {
+  const s = document.getElementById("summary");
+  s.style.display = "flex";
+  s.innerHTML =
+    '<span style="color:#166534">' + p + ' passed</span>' +
+    (w ? '<span style="color:#92400e">' + w + ' warnings</span>' : '') +
+    (f ? '<span style="color:#991b1b">' + f + ' failed</span>' : '');
+  document.getElementById("run").disabled = false;
+}
+</script>
+</body>
+</html>
