@@ -820,6 +820,16 @@ function InsightsPage(p) {
 
 // ── AppGrid — iOS-style icon grid with long-press wiggle + drag to reorder ──
 var APP_BTN_ORDER_KEY = "pd_appgrid_order";
+// Clean up any removed button IDs from saved order
+(function() {
+  try {
+    var saved = JSON.parse(localStorage.getItem(APP_BTN_ORDER_KEY) || "null");
+    if (saved && Array.isArray(saved)) {
+      var cleaned = saved.filter(function(id) { return id !== "symstate"; });
+      if (cleaned.length !== saved.length) localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(cleaned));
+    }
+  } catch(e) {}
+})();
 var DEF_APP_BUTTONS = [
   { id: "meal",     emoji: "🍽️", label: "Meal",      grad: "from-emerald-500 to-teal-500" },
   { id: "drink",    emoji: "🥤", label: "Drink",     grad: "from-cyan-500 to-sky-500" },
