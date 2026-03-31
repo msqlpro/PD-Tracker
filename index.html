@@ -223,7 +223,7 @@ function CompanionDrinkPicker(p) {
 
 function MedPickerMod(p) {
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 Log Medication</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 Log Medication</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     {(!p.meds || p.meds.length === 0) ? (
       <p className="text-gray-500 text-sm text-center py-6">No medications set up yet. Add them in Settings.</p>
     ) : (
@@ -249,7 +249,7 @@ function DoseMod(p) {
   var [dose, setDose] = useState(isEdit ? (ex.dose || "") : (med.dose || ""));
   var cd = p.companionDrink || null;
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 {med.name}</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 {med.name}</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="flex gap-3 mb-3">
       <label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
       <label className="flex-1"><span className="text-sm font-medium">Time taken</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
@@ -282,7 +282,7 @@ function MealMod(p) {
   var fin = mt || (aiResult ? aiResult.totals : null) || { protein: 0, carbs: 0, fibre: 0, calories: 0, sugar: 0 };
   var seen = {}, up = []; prev.forEach(function(m) { if (!seen[m.description]) { seen[m.description] = true; up.push(m); } }); up = up.slice(0, 10);
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">{edit ? "✏️ Edit Meal" : "🍽️ Log Meal"}</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">{edit ? "✏️ Edit Meal" : "🍽️ Log Meal"}</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     {!edit && up.length > 0 && <button onClick={function() { setSp(!sp); }} className="text-sm text-blue-600 mb-3 block">📋 {sp ? "Hide" : "Copy from"} previous meals</button>}
     {sp && <div className="bg-gray-50 rounded-lg p-2 mb-3 max-h-40 overflow-y-auto">{up.map(function(m) { return <button key={m.id} onClick={function() { setDesc(m.description); if (m.foodBreakdown && m.foodBreakdown.length) { setAi({ foods: m.foodBreakdown, totals: { protein: m.protein, carbs: m.carbs, fibre: m.fibre, calories: m.calories || 0, sugar: m.sugar } }); } else { setAi(null); } setMt({ protein: m.protein, carbs: m.carbs, fibre: m.fibre, calories: m.calories || 0, sugar: m.sugar }); setSp(false); }} className="w-full text-left p-2 text-sm hover:bg-blue-50 rounded">{m.description}<span className="block text-xs text-gray-400">P:{m.protein}g C:{m.carbs}g F:{m.fibre}g Cal:{m.calories || 0}kcal</span></button>; })}</div>}
     <label className="block mb-3"><span className="text-sm font-medium">What did you eat?</span><textarea value={desc} onChange={function(e) { setDesc(e.target.value); setAi(null); setMt(null); setErr(null); }} placeholder="e.g. 2 eggs, chicken, 50g nuts, kefir..." className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm resize-none" rows={2} /></label>
@@ -311,7 +311,7 @@ function ExMod(p) {
   var all = DEF_EX.concat(cex);
   var isOther = isEdit ? all.indexOf(ex.type) === -1 : type === "Other";
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🏃 {isEdit ? "Edit" : "Log"} Exercise</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🏃 {isEdit ? "Edit" : "Log"} Exercise</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { setDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { setTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
     <div className="flex flex-wrap gap-1.5 mb-2">{all.map(function(t) { return <button key={t} onClick={function() { setType(t); }} className={"px-3 py-1.5 rounded-full text-xs font-medium " + (type === t ? "bg-blue-600 text-white" : "bg-white border")}>{t}</button>; })}<button onClick={function() { setType("Other"); }} className={"px-3 py-1.5 rounded-full text-xs font-medium " + (type === "Other" || isOther ? "bg-blue-600 text-white" : "bg-white border")}>Other</button></div>
     {(type === "Other" || isOther) && <input value={custom || (isEdit && isOther ? ex.type : "")} onChange={function(e) { setCust(e.target.value); }} placeholder="Name" className="w-full border rounded-lg p-2 text-sm mb-2" />}
@@ -327,7 +327,7 @@ function SlpMod(p) {
   var [bt, sBt] = useState(isEdit ? (ex.bedtime || "22:00") : "22:00");
   var [wt, sWt] = useState(isEdit ? (ex.wakeTime || "06:00") : "06:00");
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">😴 Sleep</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">😴 Sleep</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="grid grid-cols-2 gap-3 mb-3"><label><span className="text-sm font-medium">Bed</span><input type="time" value={bt} onChange={function(e) { sBt(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label><span className="text-sm font-medium">Wake</span><input type="time" value={wt} onChange={function(e) { sWt(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
     <div className="block mb-3"><span className="text-sm font-medium">Hours: {h}</span><input type="range" min={0} max={12} step={0.5} value={h} onChange={function(e) { sH(parseFloat(e.target.value)); }} className="w-full mt-1" style={{ accentColor: "#4f46e5" }} /></div>
     <div className="block mb-4"><span className="text-sm font-medium">Quality: {["", "😫", "😕", "😐", "😊", "😁"][q]}</span><input type="range" min={1} max={5} value={q} onChange={function(e) { sQ(parseInt(e.target.value)); }} className="w-full mt-1" style={{ accentColor: "#4f46e5" }} /></div>
@@ -348,7 +348,7 @@ function DrinkMod(p) {
   var caff = info ? Math.round(info.caffeine * ratio) : 0;
   var cals = info ? Math.round(info.cals * ratio) : 0;
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🥤 {isEdit ? "Edit" : "Log"} Drink</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🥤 {isEdit ? "Edit" : "Log"} Drink</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
     <div className="flex flex-wrap gap-1.5 mb-3">{DRINKS.map(function(d) { return <button key={d.id} onClick={function() { sSel(d.id); setCust(""); }} className={"px-3 py-2 rounded-full text-sm font-medium " + (sel === d.id ? "bg-cyan-600 text-white" : "bg-gray-100")}>{d.e} {d.l}</button>; })}<button onClick={function() { sSel("other"); }} className={"px-3 py-2 rounded-full text-sm font-medium " + (sel === "other" ? "bg-cyan-600 text-white" : "bg-gray-100")}>Other</button></div>
     {sel === "other" && <input value={custom} onChange={function(e) { setCust(e.target.value); }} placeholder="Drink name" className="w-full border rounded-xl p-3 text-sm mb-3" />}
@@ -367,7 +367,7 @@ function FastMod(p) {
   var [end, sEnd] = useState(isEdit ? (ex.endTime || "10:30") : "10:30");
   var hrs = calcFastHrs(start, end);
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">⏱️ {isEdit ? "Edit" : "Log"} Fast</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">⏱️ {isEdit ? "Edit" : "Log"} Fast</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="grid grid-cols-2 gap-3 mb-4"><label><span className="text-sm font-medium">Last ate</span><input type="time" value={start} onChange={function(e) { sStart(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label><span className="text-sm font-medium">Broke fast</span><input type="time" value={end} onChange={function(e) { sEnd(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
     <div className={"rounded-xl p-4 mb-4 text-center " + (hrs >= 14 ? "bg-green-50 border border-green-200" : hrs >= 12 ? "bg-amber-50 border border-amber-200" : "bg-red-50 border border-red-200")}><div className={"text-3xl font-bold " + (hrs >= 14 ? "text-green-600" : hrs >= 12 ? "text-amber-600" : "text-red-500")}>{hrs}h</div><div className="text-sm text-gray-500 mt-1">{hrs >= 14 ? "✅ Target met!" : hrs >= 12 ? "⚠️ Close to 14h target" : "Below 14h target"}</div></div>
     <SaveDel canDel={isEdit} color="bg-teal-600" label={isEdit ? "Update" : "Save Fast"} onDel={function() { p.onDelete(ex.id); }} onSave={function() { p.onSave({ id: isEdit ? ex.id : Date.now().toString(), startTime: start, endTime: end, hours: hrs, date: isEdit ? (ex.date || td()) : td() }); p.onClose(); }} />
@@ -380,7 +380,7 @@ function WeightMod(p) {
   var [note, sNote] = useState(isEdit ? (ex.note || "") : "");
   var [date, sDate] = useState(isEdit ? (ex.date || td()) : td());
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">⚖️ {isEdit ? "Edit" : "Log"} Weight</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">⚖️ {isEdit ? "Edit" : "Log"} Weight</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <label className="block mb-3"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
     <label className="block mb-3"><span className="text-sm font-medium">Weight (kg)</span><input type="number" step="0.1" min="0" value={wt} onChange={function(e) { sWt(e.target.value); }} placeholder="e.g. 82.5" className="mt-1 w-full p-3 border rounded-xl text-sm text-lg font-bold" /></label>
     {p.history && p.history.length > 0 && (function() { var sorted = p.history.slice().sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); }); var latest = sorted[0]; var current = parseFloat(wt); var hasVal = !isNaN(current) && current > 0; var diff = hasVal ? (current - latest.weight).toFixed(1) : null; return (<div className="bg-gray-50 rounded-xl p-3 mb-3"><span className="text-xs text-gray-400">Last: </span><span className="text-sm font-bold">{latest.weight}kg</span>{hasVal && diff !== null && <span className={"text-sm font-bold ml-3 " + (parseFloat(diff) < 0 ? "text-green-600" : parseFloat(diff) > 0 ? "text-red-500" : "text-gray-600")}>{parseFloat(diff) > 0 ? "+" : ""}{diff}kg</span>}</div>); })()}
@@ -395,7 +395,7 @@ function MoodMod(p) {
   var [note, sNote] = useState(isEdit ? (ex.note || "") : "");
   var [date, sDate] = useState(isEdit ? (ex.date || td()) : td());
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">😊 {isEdit ? "Edit" : "Log"} Mood</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">😊 {isEdit ? "Edit" : "Log"} Mood</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <label className="block mb-3"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
     <div className="mb-4"><span className="text-sm font-medium">How are you feeling? {MOOD_EMOJI[level]} {MOOD_LABELS[level]}</span><div className="flex gap-2 mt-3">{[1, 2, 3, 4, 5].map(function(n) { return <button key={n} onClick={function() { sLevel(n); }} className={"flex-1 py-3 rounded-xl text-center text-lg " + (n === level ? "ring-2 ring-offset-1 ring-blue-500 scale-110" : "bg-gray-100")} style={{ transition: "transform 0.15s" }}>{MOOD_EMOJI[n]}<div className={"text-[9px] mt-0.5 " + (n === level ? "font-bold" : "text-gray-500")}>{MOOD_LABELS[n]}</div></button>; })}</div></div>
     <textarea value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Notes (optional)" className="w-full border rounded-xl p-3 text-sm mb-3 resize-none" rows={2} />
@@ -411,7 +411,7 @@ function BowelMod(p) {
   var [date, sDate] = useState(isEdit ? dateOf(ex.loggedAt) : td());
   var [strain, sStrain] = useState(isEdit ? (ex.strain || false) : false);
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🚽 {isEdit ? "Edit" : "Log"} Bowel / Urine</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🚽 {isEdit ? "Edit" : "Log"} Bowel / Urine</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
     <div className="flex gap-2 mb-3">
       <button onClick={function() { setType("bowel"); }} className={"flex-1 py-3 rounded-xl text-sm font-bold " + (type === "bowel" ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-500")}>💩 Bowel Movement</button>
@@ -435,7 +435,7 @@ function ActivityMod(p) {
   var all = DEF_ACT.concat(cact);
   var isOther = isEdit ? all.indexOf(ex.type) === -1 : type === "Other";
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🧘 {isEdit ? "Edit" : "Log"} Activity</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🧘 {isEdit ? "Edit" : "Log"} Activity</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
     <div className="flex flex-wrap gap-1.5 mb-3">{all.map(function(t) { return <button key={t} onClick={function() { setType(t); }} className={"px-3 py-1.5 rounded-full text-xs font-medium " + (type === t ? "bg-pink-600 text-white" : "bg-gray-100")}>{t}</button>; })}<button onClick={function() { setType("Other"); }} className={"px-3 py-1.5 rounded-full text-xs font-medium " + (type === "Other" || isOther ? "bg-pink-600 text-white" : "bg-gray-100")}>Other</button></div>
     {(type === "Other" || isOther) && <input value={custom || (isEdit && isOther ? ex.type : "")} onChange={function(e) { setCust(e.target.value); }} placeholder="Activity name" className="w-full border rounded-lg p-2 text-sm mb-3" />}
@@ -455,7 +455,7 @@ function SymStateMod(p) {
   var [date, sDate] = useState(isEdit ? dateOf((exSym || exOo).loggedAt) : td());
   var [ooState, sOoState] = useState(isEditOo ? exOo.state : null);
   return (<Mod onClose={p.onClose}>
-    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🩺 {isEdit ? "Edit" : "Log"} Symptom / State</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🩺 {isEdit ? "Edit" : "Log"} Symptom / State</h3><button onClick={p.onClose} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button></div>
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
     {!isEditSym && <div className="mb-4"><span className="text-sm font-medium block mb-2">⚡ State {!isEditOo && <span className="text-gray-400 font-normal">(optional)</span>}</span><div className="flex gap-2"><button onClick={function() { sOoState(ooState === "on" ? null : "on"); }} className={"flex-1 py-2.5 rounded-xl font-bold text-sm " + (ooState === "on" ? "bg-green-500 text-white" : "bg-gray-100")}>🟢 ON</button><button onClick={function() { sOoState(ooState === "off" ? null : "off"); }} className={"flex-1 py-2.5 rounded-xl font-bold text-sm " + (ooState === "off" ? "bg-red-500 text-white" : "bg-gray-100")}>🔴 OFF</button></div></div>}
     {!isEditOo && <div className="mb-3"><span className="text-sm font-medium block mb-2">🩺 Symptoms {!isEditSym && <span className="text-gray-400 font-normal">(optional)</span>}</span><div className="flex flex-wrap gap-2">{SYMS.map(function(s) { return <button key={s.id} onClick={function() { if (isEditSym) { sSel([s.id]); } else { sSel(function(prev) { return prev.indexOf(s.id) >= 0 ? prev.filter(function(x) { return x !== s.id; }) : prev.concat([s.id]); }); } }} className={"px-3 py-2 rounded-full text-sm font-medium " + (sel.indexOf(s.id) >= 0 ? "bg-red-500 text-white" : "bg-gray-100")}>{s.e} {s.l}</button>; })}</div></div>}
@@ -1234,7 +1234,7 @@ function DoseFollowUpMod(p) {
   return (<Mod onClose={p.onDismiss}>
     <div className="flex justify-between items-center mb-3">
       <h3 className="text-base font-bold">💊 {p.medName} — {label} check-in</h3>
-      <button onClick={p.onDismiss} className="text-gray-400 text-2xl">×</button>
+      <button onClick={p.onDismiss} className="text-gray-400 text-4xl leading-none p-2 -mr-2">×</button>
     </div>
     <p className="text-xs text-gray-500 mb-4">You took {p.medName} {label} ago. How is it going?</p>
     <div className="mb-4">
