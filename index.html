@@ -221,6 +221,34 @@ function CompanionDrinkPicker(p) {
   </div>);
 }
 
+function MedPickerMod(p) {
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={p.onClose}>
+      <div className="bg-white w-full max-w-lg rounded-t-3xl p-5 pb-8" onClick={function(e) { e.stopPropagation(); }}>
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold">💊 Log Medication</h3>
+          <button onClick={p.onClose} className="text-gray-400 text-2xl leading-none">×</button>
+        </div>
+        {(!p.meds || p.meds.length === 0) ? (
+          <p className="text-gray-500 text-sm text-center py-6">No medications set up yet. Add them in Settings.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {p.meds.map(function(m) {
+              return (
+                <button key={m.id} onClick={function() { p.onSelect(m); }}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-2xl p-4 text-left shadow-md active:scale-95 transition-transform">
+                  <div className="font-bold text-base">💊 {m.name}</div>
+                  {m.dose ? <div className="text-indigo-200 text-sm mt-0.5">{m.dose}</div> : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DoseMod(p) {
   var med = p.med, ex = p.existing, isEdit = !!ex;
   var [time, sTime] = useState(isEdit ? ft(ex.takenAt) : nw());
@@ -781,10 +809,8 @@ var DEF_APP_BUTTONS = [
 
 function AppGrid(p) {
   var buildButtons = function() {
-    var medBtns = (p.meds || []).map(function(m) {
-      return { id: "dose_" + m.id, emoji: "💊", label: m.name, grad: "from-indigo-600 to-blue-500", med: m };
-    });
-    var all = medBtns.concat(DEF_APP_BUTTONS);
+    var medBtn = { id: "med_picker", emoji: "💊", label: "Medication", grad: "from-indigo-600 to-blue-500", isMedPicker: true };
+    var all = [medBtn].concat(DEF_APP_BUTTONS);
     try {
       var saved = JSON.parse(localStorage.getItem(APP_BTN_ORDER_KEY) || "null");
       if (saved && Array.isArray(saved)) {
@@ -816,13 +842,9 @@ function AppGrid(p) {
 
   useEffect(function() {
     setButtons(function(prev) {
-      var medBtns = (p.meds || []).map(function(m) {
-        return { id: "dose_" + m.id, emoji: "💊", label: m.name, grad: "from-indigo-600 to-blue-500", med: m };
-      });
-      var all = medBtns.concat(DEF_APP_BUTTONS);
-      // Keep existing order, add any new buttons at the front, remove deleted ones
+      var medBtn = { id: "med_picker", emoji: "💊", label: "Medication", grad: "from-indigo-600 to-blue-500", isMedPicker: true };
+      var all = [medBtn].concat(DEF_APP_BUTTONS);
       var updated = prev.filter(function(b) { return all.find(function(x) { return x.id === b.id; }); });
-      // Update med references (dose/times may have changed)
       updated = updated.map(function(b) { var fresh = all.find(function(x) { return x.id === b.id; }); return fresh || b; });
       all.forEach(function(b) { if (!updated.find(function(x) { return x.id === b.id; })) updated.unshift(b); });
       return updated;
@@ -904,7 +926,7 @@ function AppGrid(p) {
           var idx = parseInt(cell.getAttribute("data-bidx"));
           if (!isNaN(idx) && s.buttons[idx]) {
             var btn = s.buttons[idx];
-            if (btn.med) s.setM({ type: "dose", med: btn.med });
+            if (btn.isMedPicker) s.setM({ type: "medPicker" });
             else if (btn.isPie) {
               var lO2 = s.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
               var stamp = new Date().toISOString();
@@ -941,7 +963,7 @@ function AppGrid(p) {
         return (
           <div key={btn.id} data-bidx={idx} className="flex flex-col items-center" style={{ touchAction: wiggle ? "none" : "auto" }} onClick={function() {
             if (wiggle) return;
-            if (btn.med) p.setM({ type: "dose", med: btn.med });
+            if (btn.isMedPicker) p.setM({ type: "medPicker" });
             else if (btn.isPie) {
               var lO2 = stateRef.current.lO; var newState = (!lO2 || lO2.state === "off") ? "on" : "off";
               if (stateRef.current.onQuickOo) stateRef.current.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: new Date().toISOString() });
@@ -1503,6 +1525,7 @@ function App() {
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
     {followUp && <DoseFollowUpMod medName={followUp.medName} minutesAfter={followUp.minutesAfter} onDismiss={function() { setFollowUp(null); }} onSave={function(result) { var stamp = new Date().toISOString(); if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); } if (result.eff && followUp.logId) { var existing = logs.find(function(l) { return l.id === followUp.logId; }); if (existing) { uLog(Object.assign({}, existing, { effectiveness: result.eff })); } } setFollowUp(null); }} />}
+    {modal && modal.type === "medPicker" && <MedPickerMod meds={meds} onSelect={function(m) { setModal({ type: "dose", med: m }); }} onClose={close} />}
     {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} onSave={handleDoseSave} onClose={close} />}
     {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} onSave={function(l) { uLog(l); close(); }} onDelete={handleDoseDelete} onClose={close} />}
     {modal && modal.type === "meal" && <MealMod onSave={hMs} onClose={close} prev={meals} />}
