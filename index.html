@@ -248,6 +248,24 @@ function DoseMod(p) {
   var [date, sDate] = useState(isEdit ? dateOf(ex.takenAt) : td());
   var [dose, setDose] = useState(isEdit ? (ex.dose || "") : (med.dose || ""));
   var cd = p.companionDrink || null;
+  var meals = p.meals || [];
+
+  var proteinWarning = (function() {
+    if (isEdit) return null;
+    try {
+      var doseMs = new Date(date + "T" + time + ":00").getTime();
+      var recent = meals.filter(function(m) {
+        var mMs = new Date(m.loggedAt).getTime();
+        var diffMins = (doseMs - mMs) / 60000;
+        return diffMins >= 0 && diffMins <= 60 && (m.protein || 0) >= 30;
+      });
+      if (!recent.length) return null;
+      var worst = recent.reduce(function(a, b) { return (b.protein || 0) > (a.protein || 0) ? b : a; });
+      var minsAgo = Math.round((doseMs - new Date(worst.loggedAt).getTime()) / 60000);
+      return { protein: Math.round(worst.protein), minsAgo: minsAgo, desc: worst.description };
+    } catch(e) { return null; }
+  })();
+
   return (<Mod onClose={p.onClose}>
     <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 {med.name}</h3><button onClick={p.onClose} style={{fontSize:"1.75rem",lineHeight:1,width:"44px",height:"44px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:"#f3f4f6",border:"none",cursor:"pointer",color:"#6b7280",flexShrink:0}}>×</button></div>
     <div className="flex gap-3 mb-3">
@@ -255,6 +273,12 @@ function DoseMod(p) {
       <label className="flex-1"><span className="text-sm font-medium">Time taken</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
     </div>
     <label className="block mb-3"><span className="text-sm font-medium">Dose / amount</span><input type="text" value={dose} onChange={function(e) { setDose(e.target.value); }} placeholder="e.g. 25/100, 1 tablet" className="mt-1 w-full p-3 border rounded-xl text-sm" /></label>
+    {proteinWarning && (<div style={{background:"#fff7ed",border:"2px solid #f97316",borderRadius:"12px",padding:"12px 14px",marginBottom:"14px"}}>
+      <div style={{fontWeight:600,fontSize:"14px",color:"#9a3412",marginBottom:"4px"}}>⚠️ High protein meal recently</div>
+      <div style={{fontSize:"13px",color:"#c2410c"}}>{proteinWarning.protein}g protein · {proteinWarning.minsAgo} mins ago</div>
+      <div style={{fontSize:"12px",color:"#ea580c",marginTop:"3px",fontStyle:"italic"}}>{proteinWarning.desc}</div>
+      <div style={{fontSize:"12px",color:"#9a3412",marginTop:"6px"}}>High protein can block Levodopa absorption. Consider waiting if possible.</div>
+    </div>)}
     {cd && !isEdit && (<div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 mb-4 flex items-center gap-3">
       <span className="text-xl">{cd.emoji}</span>
       <div><div className="text-sm font-semibold text-cyan-800">Companion drink will be logged</div><div className="text-xs text-cyan-600">{cd.name} · {cd.volume}ml{cd.caffeine ? " · ☕" + cd.caffeine + "mg" : ""}</div></div>
@@ -1528,8 +1552,8 @@ function App() {
     </div>
     {followUp && <DoseFollowUpMod medName={followUp.medName} minutesAfter={followUp.minutesAfter} onDismiss={function() { setFollowUp(null); }} onSave={function(result) { var stamp = new Date().toISOString(); if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); } if (result.eff && followUp.logId) { var existing = logs.find(function(l) { return l.id === followUp.logId; }); if (existing) { uLog(Object.assign({}, existing, { effectiveness: result.eff })); } } setFollowUp(null); }} />}
     {modal && modal.type === "medPicker" && <MedPickerMod meds={meds} onSelect={function(m) { sModal({ type: "dose", med: m }); }} onClose={close} />}
-    {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} onSave={handleDoseSave} onClose={close} />}
-    {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} onSave={function(l) { uLog(l); close(); }} onDelete={handleDoseDelete} onClose={close} />}
+    {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} meals={meals} onSave={handleDoseSave} onClose={close} />}
+    {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} meals={meals} onSave={function(l) { uLog(l); close(); }} onDelete={handleDoseDelete} onClose={close} />}
     {modal && modal.type === "meal" && <MealMod onSave={hMs} onClose={close} prev={meals} />}
     {modal && modal.type === "eMeal" && <MealMod onSave={hMs} onClose={close} edit={modal.meal} prev={meals} />}
     {modal && modal.type === "ex" && <ExMod cexList={cexList} onSaveCex={function(v) { setCexList(v); sv(K.cex, v); }} onSave={function(e) { aEx(e); close(); }} onClose={close} />}
