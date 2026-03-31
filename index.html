@@ -222,31 +222,24 @@ function CompanionDrinkPicker(p) {
 }
 
 function MedPickerMod(p) {
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={p.onClose}>
-      <div className="bg-white w-full max-w-lg rounded-t-3xl p-5 pb-8" onClick={function(e) { e.stopPropagation(); }}>
-        <div className="flex justify-between items-center mb-5">
-          <h3 className="text-lg font-bold">💊 Log Medication</h3>
-          <button onClick={p.onClose} className="text-gray-400 text-2xl leading-none">×</button>
-        </div>
-        {(!p.meds || p.meds.length === 0) ? (
-          <p className="text-gray-500 text-sm text-center py-6">No medications set up yet. Add them in Settings.</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {p.meds.map(function(m) {
-              return (
-                <button key={m.id} onClick={function() { p.onSelect(m); }}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-2xl p-4 text-left shadow-md active:scale-95 transition-transform">
-                  <div className="font-bold text-base">💊 {m.name}</div>
-                  {m.dose ? <div className="text-indigo-200 text-sm mt-0.5">{m.dose}</div> : null}
-                </button>
-              );
-            })}
-          </div>
-        )}
+  return (<Mod onClose={p.onClose}>
+    <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 Log Medication</h3><button onClick={p.onClose} className="text-gray-400 text-2xl">×</button></div>
+    {(!p.meds || p.meds.length === 0) ? (
+      <p className="text-gray-500 text-sm text-center py-6">No medications set up yet. Add them in Settings.</p>
+    ) : (
+      <div className="flex flex-col gap-3 pb-2">
+        {p.meds.map(function(m) {
+          return (
+            <button key={m.id} onClick={function() { p.onSelect(m); }}
+              className="w-full bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-2xl p-4 text-left shadow-md">
+              <div className="font-bold text-base">💊 {m.name}</div>
+              {m.dose ? <div className="text-indigo-200 text-sm mt-0.5">{m.dose}</div> : null}
+            </button>
+          );
+        })}
       </div>
-    </div>
-  );
+    )}
+  </Mod>);
 }
 
 function DoseMod(p) {
