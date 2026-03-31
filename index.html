@@ -1348,126 +1348,6 @@ function DoseFollowUpMod(p) {
   </Mod>);
 }
 
-async function parseVoiceLog(transcript, medNames) {
-  try {
-    var medsStr = medNames.length ? medNames.join(", ") : "Sinemet";
-    var symsStr = SYMS.map(function(s) { return s.id + " (" + s.l + ")"; }).join(", ");
-    var prompt = "You are a Parkinson disease logging assistant. Parse this voice transcript into a structured log entry and return ONLY valid JSON (no markdown, no backticks).\n\nTranscript: \"" + transcript + "\"\n\nKnown medications: " + medsStr + "\nSymptom IDs: " + symsStr + "\n\nReturn one of these formats depending on what was said:\n\nMedication: {\"type\":\"med\",\"medName\":\"name\",\"dose\":\"amount or empty string\"}\nSymptom: {\"type\":\"sym\",\"symptomId\":\"id from list\",\"severity\":3,\"notes\":\"extra context or empty\"}\nMeal: {\"type\":\"meal\",\"description\":\"what was eaten\"}\nMood: {\"type\":\"mood\",\"level\":3}\nON state: {\"type\":\"onoff\",\"state\":\"on\"}\nOFF state: {\"type\":\"onoff\",\"state\":\"off\"}\nUnknown: {\"type\":\"unknown\",\"message\":\"brief explanation\"}\n\nRules: match med names loosely, shaking=tremor stiff=stiffness slow=slowness frozen=freezing dizzy=balance tired=fatigue ache=pain foggy=brain_fog worried=anxiety jerky=dyskinesia, mild/slight=1-2 moderate=3 bad/severe=4-5, default severity 3, return unknown if unclear";
-    var response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 300, messages: [{ role: "user", content: prompt }] })
-    });
-    var data = await response.json();
-    var text = (data.content || []).map(function(b) { return b.text || ""; }).join("");
-    return JSON.parse(text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim());
-  } catch(e) { return { type: "unknown", message: "Parse error" }; }
-}
-
-function VoiceLogger(p) {
-  var [state, setState] = useState("idle"); // idle | listening | parsing | confirm | error
-  var [transcript, setTranscript] = useState("");
-  var [parsed, setParsed] = useState(null);
-  var [errMsg, setErrMsg] = useState("");
-  var recRef = React.useRef(null);
-
-  var startListening = function() {
-    var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRec) { setErrMsg("Speech recognition not supported on this browser"); setState("error"); return; }
-    if (!ANTHROPIC_API_KEY) { setErrMsg("No API key set — add one in Settings"); setState("error"); return; }
-    var rec = new SpeechRec();
-    rec.lang = "en-GB";
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    recRef.current = rec;
-    rec.onresult = async function(e) {
-      var text = e.results[0][0].transcript;
-      setTranscript(text);
-      setState("parsing");
-      var medNames = (p.meds || []).map(function(m) { return m.name; });
-      var result = await parseVoiceLog(text, medNames);
-      setParsed(result);
-      setState(result.type === "unknown" ? "error" : "confirm");
-      if (result.type === "unknown") setErrMsg(result.message || "Could not understand — try again");
-    };
-    rec.onerror = function(e) { setErrMsg("Mic error: " + e.error); setState("error"); };
-    rec.onend = function() { if (state === "listening") setState("idle"); };
-    setState("listening");
-    rec.start();
-  };
-
-  var stopListening = function() {
-    if (recRef.current) { try { recRef.current.stop(); } catch(e) {} }
-    setState("idle");
-  };
-
-  var confirm = function() {
-    if (!parsed) return;
-    var stamp = new Date().toISOString();
-    if (parsed.type === "med") {
-      var med = (p.meds || []).find(function(m) { return m.name.toLowerCase() === parsed.medName.toLowerCase(); }) || { id: "voice_med", name: parsed.medName };
-      p.onLog({ _type: "med", item: { id: Date.now().toString() + "_v", medId: med.id, medName: med.name, dose: parsed.dose || med.dose || "", takenAt: stamp, effectiveness: 0 } });
-    } else if (parsed.type === "sym") {
-      p.onLog({ _type: "sym", item: { id: Date.now().toString() + "_v", symptomId: parsed.symptomId, severity: parsed.severity || 3, notes: parsed.notes || "", loggedAt: stamp } });
-    } else if (parsed.type === "meal") {
-      p.onLog({ _type: "meal", item: { id: Date.now().toString() + "_v", description: parsed.description, loggedAt: stamp, protein: 0, carbs: 0, fibre: 0, calories: 0, sugar: 0, foodBreakdown: [] } });
-    } else if (parsed.type === "mood") {
-      p.onLog({ _type: "mood", item: { id: Date.now().toString() + "_v", level: parsed.level || 3, note: "", date: stamp.slice(0,10) } });
-    } else if (parsed.type === "onoff") {
-      p.onLog({ _type: "onoff", item: { id: Date.now().toString() + "_v", state: parsed.state, loggedAt: stamp } });
-    }
-    setState("idle"); setTranscript(""); setParsed(null);
-  };
-
-  var reset = function() { setState("idle"); setTranscript(""); setParsed(null); setErrMsg(""); };
-
-  var CONFIRM_ICONS = { med: "💊", sym: "🫨", meal: "🍽️", mood: "😊", onoff: "🔄" };
-  var SEV_LABELS = ["","Mild","Low","Moderate","High","Severe"];
-  var symLabel = parsed && parsed.type === "sym" ? (SYMS.find(function(s) { return s.id === parsed.symptomId; }) || {}) : {};
-
-  var confirmText = "";
-  if (parsed) {
-    if (parsed.type === "med") confirmText = "Log " + parsed.medName + (parsed.dose ? " · " + parsed.dose : "") + " now";
-    else if (parsed.type === "sym") confirmText = "Log " + (symLabel.e || "") + " " + (symLabel.l || parsed.symptomId) + " · severity " + (parsed.severity || 3) + "/5" + (parsed.notes ? " · " + parsed.notes : "");
-    else if (parsed.type === "meal") confirmText = "Log meal: " + parsed.description;
-    else if (parsed.type === "mood") confirmText = "Log mood: " + (["","😫","😕","😐","😊","😁"][parsed.level || 3]) + " (" + (["","Awful","Low","OK","Good","Great"][parsed.level || 3]) + ")";
-    else if (parsed.type === "onoff") confirmText = "Log state: " + parsed.state.toUpperCase();
-  }
-
-  return (
-    <div>
-      <button onClick={state === "listening" ? stopListening : startListening}
-        style={{position:"fixed",bottom:"88px",right:"16px",width:"58px",height:"58px",borderRadius:"50%",border:"none",cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(0,0,0,0.2)",
-          background: state === "listening" ? "#dc2626" : state === "parsing" ? "#d97706" : "#4f46e5",
-          animation: state === "listening" ? "pulse-mic 1.2s infinite" : "none"}}>
-        <span style={{fontSize:"24px"}}>{state === "parsing" ? "⏳" : state === "listening" ? "⏹️" : "🎤"}</span>
-      </button>
-      {(state === "confirm" || state === "error" || state === "parsing") && (
-        <div style={{position:"fixed",bottom:"160px",right:"16px",left:"16px",zIndex:55,background:"#fff",borderRadius:"16px",padding:"16px",boxShadow:"0 4px 24px rgba(0,0,0,0.18)",border:"1.5px solid #e5e7eb",maxWidth:"420px",margin:"0 auto"}}>
-          {transcript && <div style={{fontSize:"12px",color:"#9ca3af",marginBottom:"8px",fontStyle:"italic"}}>"{transcript}"</div>}
-          {state === "parsing" && <div style={{fontSize:"14px",color:"#d97706",fontWeight:500}}>⏳ Understanding...</div>}
-          {state === "confirm" && parsed && (
-            <div>
-              <div style={{fontSize:"14px",fontWeight:600,color:"#1f2937",marginBottom:"12px"}}>{CONFIRM_ICONS[parsed.type] || "📝"} {confirmText}</div>
-              <div style={{display:"flex",gap:"8px"}}>
-                <button onClick={reset} style={{flex:1,padding:"12px",borderRadius:"10px",border:"1.5px solid #e5e7eb",background:"#f9fafb",fontWeight:600,fontSize:"14px",cursor:"pointer",color:"#6b7280"}}>✕ Cancel</button>
-                <button onClick={confirm} style={{flex:2,padding:"12px",borderRadius:"10px",border:"none",background:"#4f46e5",color:"#fff",fontWeight:700,fontSize:"14px",cursor:"pointer"}}>✓ Log it</button>
-              </div>
-            </div>
-          )}
-          {state === "error" && (
-            <div>
-              <div style={{fontSize:"14px",color:"#dc2626",marginBottom:"10px"}}>⚠️ {errMsg}</div>
-              <button onClick={reset} style={{width:"100%",padding:"10px",borderRadius:"10px",border:"none",background:"#fee2e2",color:"#dc2626",fontWeight:600,cursor:"pointer"}}>Try again</button>
-            </div>
-          )}
-        </div>
-      )}
-      <style>{`@keyframes pulse-mic { 0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0.5)} 50%{box-shadow:0 0 0 12px rgba(220,38,38,0)} }`}</style>
-    </div>
-  );
-}
-
 function App() {
   var [tab, sTab] = useState("today");
   var [meds, sMeds] = useState([]);
@@ -1501,7 +1381,6 @@ function App() {
   var [appleHealth, setAppleHealth] = useState({ steps: null, sleep: null, heartRate: null });
   var [followUp, setFollowUp] = useState(null);
   var [showQuickSym, setShowQuickSym] = useState(false);
-  var [showVoice, setShowVoice] = useState(true);
   var [backfilling, setBackfilling] = useState(false);
   var [backfillProgress, setBackfillProgress] = useState("");
   var [backfillDone, setBackfillDone] = useState("");
@@ -1729,14 +1608,6 @@ function App() {
         <button onClick={function() { setShowOoPopup(false); }} style={{width:"100%",padding:"0.6rem",borderRadius:"0.75rem",border:"1px solid #e5e7eb",background:"transparent",color:"#9ca3af",fontSize:"0.85rem",cursor:"pointer"}}>Skip for now</button>
       </div>
     </div>}
-    {showVoice && <VoiceLogger meds={meds} onLog={function(e) {
-      var stamp = new Date().toISOString();
-      if (e._type === "med") { aLog(e.item); }
-      else if (e._type === "sym") { aSym(e.item); }
-      else if (e._type === "meal") { hMs(e.item); }
-      else if (e._type === "mood") { aMood(e.item); }
-      else if (e._type === "onoff") { aOo(e.item); }
-    }} />}
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
