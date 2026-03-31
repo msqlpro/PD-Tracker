@@ -814,6 +814,21 @@ function AppGrid(p) {
     try { localStorage.setItem(APP_BTN_ORDER_KEY, JSON.stringify(btns.map(function(b) { return b.id; }))); } catch(e) {}
   };
 
+  useEffect(function() {
+    setButtons(function(prev) {
+      var medBtns = (p.meds || []).map(function(m) {
+        return { id: "dose_" + m.id, emoji: "💊", label: m.name, grad: "from-indigo-600 to-blue-500", med: m };
+      });
+      var all = medBtns.concat(DEF_APP_BUTTONS);
+      // Keep existing order, add any new buttons at the front, remove deleted ones
+      var updated = prev.filter(function(b) { return all.find(function(x) { return x.id === b.id; }); });
+      // Update med references (dose/times may have changed)
+      updated = updated.map(function(b) { var fresh = all.find(function(x) { return x.id === b.id; }); return fresh || b; });
+      all.forEach(function(b) { if (!updated.find(function(x) { return x.id === b.id; })) updated.unshift(b); });
+      return updated;
+    });
+  }, [p.meds]);
+
   var exitWiggle = function() {
     setWiggle(false);
     setDragIdx(null);
