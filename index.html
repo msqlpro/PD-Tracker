@@ -454,7 +454,7 @@ function SymStateMod(p) {
 function Setup(p) {
   var meds = p.meds, setMeds = p.setMeds;
   var companionDrinks = p.companionDrinks || {};
-  var [n, sN] = useState(""); var [d, sD] = useState(""); var [ts, sTs] = useState(["08:00"]);
+  var [n, sN] = useState(""); var [d, sD] = useState(""); var [ts, sTs] = useState([]);
   var wt = p.waterTarget || 2000;
   var [impJson, sImpJson] = useState("");
   var [impStatus, sImpStatus] = useState("");
@@ -510,9 +510,9 @@ function Setup(p) {
       <input value={n} onChange={function(e) { sN(e.target.value); }} placeholder="Medication name" className="w-full border rounded-xl p-3 text-sm mb-2" />
       <input value={d} onChange={function(e) { sD(e.target.value); }} placeholder="Dose (e.g. 100mg)" className="w-full border rounded-xl p-3 text-sm mb-2" />
       <span className="text-sm font-medium">Times:</span>
-      {ts.map(function(t, i) { return (<div key={i} className="flex gap-2 mt-1"><input type="time" value={t} onChange={function(e) { sTs(function(prev) { return prev.map(function(x, j) { return j === i ? e.target.value : x; }); }); }} className="flex-1 border rounded-lg p-2 text-sm" />{ts.length > 1 && <button onClick={function() { sTs(function(prev) { return prev.filter(function(_, j) { return j !== i; }); }); }} className="text-red-400">✕</button>}</div>); })}
+      {ts.map(function(t, i) { return (<div key={i} className="flex gap-2 mt-1"><input type="time" value={t} onChange={function(e) { sTs(function(prev) { return prev.map(function(x, j) { return j === i ? e.target.value : x; }); }); }} className="flex-1 border rounded-lg p-2 text-sm" /><button onClick={function() { sTs(function(prev) { return prev.filter(function(_, j) { return j !== i; }); }); }} className="text-red-400">✕</button></div>); })}
       <button onClick={function() { sTs(function(prev) { return prev.concat(["12:00"]); }); }} className="text-blue-600 text-sm mt-1">+ time</button>
-      <button onClick={function() { if (!n.trim()) return; var nm = { id: Date.now().toString(), name: n, dose: d, times: ts }; setMeds(function(prev) { var u = prev.concat([nm]); dbSave("meds", nm); return u; }); sN(""); sD(""); sTs(["08:00"]); }} className="w-full mt-3 py-3 bg-blue-600 text-white rounded-xl font-bold">Add</button>
+      <button onClick={function() { if (!n.trim()) return; var nm = { id: Date.now().toString(), name: n, dose: d, times: ts }; setMeds(function(prev) { var u = prev.concat([nm]); dbSave("meds", nm); return u; }); sN(""); sD(""); sTs([]); }} className="w-full mt-3 py-3 bg-blue-600 text-white rounded-xl font-bold">Add</button>
     </div>
     {meds.map(function(m) {
       return (<div key={m.id} className="bg-white rounded-2xl p-4 shadow-sm mb-3 border border-gray-100">
