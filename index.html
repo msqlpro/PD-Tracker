@@ -1512,29 +1512,27 @@ function App() {
       var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
       if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
       sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); setCompanionDrinks(cdMap || {}); setCexList(cexList || []); setCactList(cactList || []); setAlarmsOn(alarmsOn || false); setAlarmTimesList(alarmTimesList || ["08:00","12:00","17:00","22:00"]); setOoReminderOn(r[23] || false); setOoReminderInterval(r[24] || 1);
+      if (isInitial) {
+        var now = Date.now();
+        var twoHours = 2 * 60 * 60 * 1000;
+        var unrated = l.filter(function(x) {
+          if ((x.effectiveness || 0) > 0) return false;
+          var t = new Date(x.takenAt).getTime();
+          return (now - t) > 0 && (now - t) <= twoHours;
+        });
+        if (unrated.length > 0) {
+          var newest = unrated.reduce(function(a, b) {
+            return new Date(a.takenAt) > new Date(b.takenAt) ? a : b;
+          });
+          var minsAgo = Math.round((now - new Date(newest.takenAt).getTime()) / 60000);
+          setFollowUp({ medName: newest.medName, logId: newest.id, minutesAfter: minsAgo });
+        }
+      }
     } catch (err) {}
     if (isInitial) setReady(true);
   }, []);
 
   useEffect(function() { loadData(true); }, []);
-
-  useEffect(function() {
-    if (!ready) return;
-    var now = Date.now();
-    var twoHours = 2 * 60 * 60 * 1000;
-    var unrated = logs.filter(function(l) {
-      if ((l.effectiveness || 0) > 0) return false;
-      var t = new Date(l.takenAt).getTime();
-      return (now - t) > 0 && (now - t) <= twoHours;
-    });
-    if (unrated.length > 0) {
-      var newest = unrated.reduce(function(a, b) {
-        return new Date(a.takenAt) > new Date(b.takenAt) ? a : b;
-      });
-      var minsAgo = Math.round((now - new Date(newest.takenAt).getTime()) / 60000);
-      setFollowUp({ medName: newest.medName, logId: newest.id, minutesAfter: minsAgo });
-    }
-  }, [ready]);
   useEffect(function() {
     async function loadAppleHealth() {
       try {
