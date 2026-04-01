@@ -1323,7 +1323,7 @@ function ReportPage(p) {
 function DoseFollowUpMod(p) {
   var [eff, sEff] = useState(0);
   var [ooState, sOoState] = useState(null);
-  var label = p.minutesAfter === 30 ? "30 min" : "60 min";
+  var label = p.minutesAfter < 5 ? "just now" : p.minutesAfter + " min";
   return (<Mod onClose={p.onDismiss}>
     <div className="flex justify-between items-center mb-3">
       <h3 className="text-base font-bold">💊 {p.medName} — {label} check-in</h3>
@@ -1517,6 +1517,24 @@ function App() {
   }, []);
 
   useEffect(function() { loadData(true); }, []);
+
+  useEffect(function() {
+    if (!ready) return;
+    var now = Date.now();
+    var twoHours = 2 * 60 * 60 * 1000;
+    var unrated = logs.filter(function(l) {
+      if ((l.effectiveness || 0) > 0) return false;
+      var t = new Date(l.takenAt).getTime();
+      return (now - t) > 0 && (now - t) <= twoHours;
+    });
+    if (unrated.length > 0) {
+      var newest = unrated.reduce(function(a, b) {
+        return new Date(a.takenAt) > new Date(b.takenAt) ? a : b;
+      });
+      var minsAgo = Math.round((now - new Date(newest.takenAt).getTime()) / 60000);
+      setFollowUp({ medName: newest.medName, logId: newest.id, minutesAfter: minsAgo });
+    }
+  }, [ready]);
   useEffect(function() {
     async function loadAppleHealth() {
       try {
