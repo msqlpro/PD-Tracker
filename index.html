@@ -1630,7 +1630,7 @@ function App() {
     // Auto-calculate fasting: first meal of today + last meal of yesterday
     var mealDate = (meal.loggedAt || "").slice(0,10);
     if (mealDate === td()) {
-      var allMeals = meals.concat([meal]);
+      var allMeals = meals.filter(function(m) { return m.id !== meal.id; }).concat([meal]);
       var todayMeals = allMeals.filter(function(m) { return (m.loggedAt||"").slice(0,10) === td(); })
         .sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
       if (todayMeals.length === 0) return;
