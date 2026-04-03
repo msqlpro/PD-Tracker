@@ -1078,9 +1078,9 @@ function AppGrid(p) {
               var isOn=lO&&lO.state==="on", isOff=lO&&lO.state==="off";
               var fill=isOn?"#16a34a":isOff?"#dc2626":"#9ca3af";
               var label=isOn?"ON":isOff?"OFF":"?";
-              return (<div className={"w-16 h-16 rounded-full flex items-center justify-center shadow-lg overflow-hidden " + (wiggle ? "wiggling" : "")}
+              return (<div className={"w-14 h-14 rounded-full flex items-center justify-center shadow-lg overflow-hidden " + (wiggle ? "wiggling" : "")}
                 style={{opacity:isDragging?0.45:1,animationDelay:(idx%4*0.05)+"s",transform:isDragging?"scale(1.12)":"",transition:"opacity 0.1s, transform 0.1s",background:"#f3f4f6"}}>
-                <svg width="64" height="64" viewBox="0 0 64 64">
+                <svg width="56" height="56" viewBox="0 0 64 64">
                   <circle cx={cx} cy={cy} r={r} fill="#e5e7eb" />
                   {wedges.map(function(w,wi){ return <path key={wi} d={arc(w.s,w.e)} fill={w.state==="on"?"#22c55e":"#ef4444"} />; })}
                   <circle cx={cx} cy={cy} r="16" fill="white" />
@@ -1088,9 +1088,9 @@ function AppGrid(p) {
                 </svg>
               </div>);
             })() : (
-            <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg " + (wiggle ? "wiggling" : "")}
+            <div className={"w-14 h-14 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg " + (wiggle ? "wiggling" : "")}
               style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
-              <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.emoji}</span>
+              <span style={{ fontSize: "1.4rem", lineHeight: 1 }}>{btn.emoji}</span>
             </div>)}
             <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.label}</span>
           </div>
@@ -1711,7 +1711,7 @@ function App() {
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
-    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 py-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="flex items-center gap-2"><span className="text-xs text-indigo-300">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span><button onClick={function() { window.location.reload(true); }} title="Refresh app" style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:"50%",width:"32px",height:"32px",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"0.9rem",color:"white",flexShrink:0}}>🔄</button></div></div>
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 py-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="flex items-center gap-2"><span className="text-xs text-indigo-300">Updated 11:58</span><button onClick={function() { window.location.reload(true); }} title="Refresh app" style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:"50%",width:"32px",height:"32px",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"0.9rem",color:"white",flexShrink:0}}>🔄</button></div></div>
     {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
