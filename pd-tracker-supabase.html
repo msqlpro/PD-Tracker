@@ -997,11 +997,13 @@ function TodayPage(p) {
       </div>);
     })()}
 
-    <div className="grid grid-cols-3 gap-2 mb-2">
+    <div className="grid grid-cols-4 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{dn.fibre}g</div><div className="text-[10px] text-gray-500">Fibre</div></div>
+      <div className={"rounded-xl p-2 text-center shadow-sm " + (dn.sugar > 50 ? "bg-red-50" : dn.sugar > 30 ? "bg-amber-50" : "bg-white")}><div className={"text-lg font-bold " + (dn.sugar > 50 ? "text-red-600" : dn.sugar > 30 ? "text-amber-500" : "text-purple-600")}>{dn.sugar}g</div><div className="text-[10px] text-gray-500">Sugar</div></div>
     </div>
+    {dn.sugar > 30 && tMl.length > 0 && <div className={"rounded-xl p-3 mb-2 flex items-start gap-2 " + (dn.sugar > 50 ? "bg-red-100 border border-red-200" : "bg-amber-50 border border-amber-200")}><span className="text-lg">{dn.sugar > 50 ? "🔴" : "🟡"}</span><div><div className={"text-xs font-bold " + (dn.sugar > 50 ? "text-red-700" : "text-amber-700")}>{dn.sugar > 50 ? "High sugar day" : "Sugar above NHS limit"}</div><div className={"text-[10px] mt-0.5 " + (dn.sugar > 50 ? "text-red-600" : "text-amber-600")}>{dn.sugar}g logged · NHS limit 30g · {dn.sugar > 50 ? "Consider avoiding further sugary foods today" : "Watch refined sugars for rest of day"}</div></div></div>}
     <div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-pink-600">{totalCalsIn}</div><div className="text-[10px] text-gray-500">Cal In</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-orange-500">-{calBurned}</div><div className="text-[10px] text-gray-500">Burned</div></div>
