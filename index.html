@@ -98,7 +98,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v16 Apr 22:04";
+var BUILD_VERSION = "v16 Apr 22:22";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -953,6 +953,181 @@ function Spark(p) {
   </svg>);
 }
 
+// ── DailyTimeline (Step 7) ──
+// Horizontal 24-hour timeline with 4 rows: Meals, Meds, ON/OFF, Symptoms.
+// Tap markers for tooltips. Day navigator with ‹ › arrows.
+// Auto-generated insight line at bottom detects high-protein-meal→OFF patterns,
+// long Sinemet gaps, ON-duration after dose, etc.
+function DailyTimeline(p) {
+  var [offset, setOffset] = useState(0); // 0 = today, -1 = yesterday...
+  var [sel, setSel] = useState(null); // selected marker for tooltip
+  var targetDate = dAgo(-offset >= 0 ? -offset : -offset); // dAgo(n) returns n days ago
+  // Simpler: compute target date directly
+  var target = new Date();
+  target.setDate(target.getDate() + offset);
+  target.setHours(0,0,0,0);
+  var targetStr = target.getFullYear() + "-" + String(target.getMonth()+1).padStart(2,"0") + "-" + String(target.getDate()).padStart(2,"0");
+
+  // Filter data to target day
+  var isDay = function(iso) {
+    if (!iso) return false;
+    var d = new Date(iso);
+    return d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth() && d.getDate() === target.getDate();
+  };
+  var dayMeals = (p.meals || []).filter(function(m) { return isDay(m.loggedAt); }).sort(function(a,b){return a.loggedAt.localeCompare(b.loggedAt);});
+  var dayLogs = (p.logs || []).filter(function(l) { return isDay(l.takenAt); }).sort(function(a,b){return a.takenAt.localeCompare(b.takenAt);});
+  var dayOo = (p.oo || []).filter(function(o) { return isDay(o.loggedAt); }).sort(function(a,b){return a.loggedAt.localeCompare(b.loggedAt);});
+  var daySym = (p.sym || []).filter(function(s) { return isDay(s.loggedAt); }).sort(function(a,b){return a.loggedAt.localeCompare(b.loggedAt);});
+
+  // Convert time to percent of 24h
+  var pct = function(iso) {
+    var d = new Date(iso);
+    var mins = d.getHours() * 60 + d.getMinutes();
+    return (mins / 1440) * 100;
+  };
+
+  // Build ON/OFF bands: each pair of consecutive states defines a band
+  var bands = [];
+  for (var i = 0; i < dayOo.length; i++) {
+    var start = pct(dayOo[i].loggedAt);
+    var end = (i < dayOo.length - 1) ? pct(dayOo[i+1].loggedAt) : (offset === 0 ? pct(new Date().toISOString()) : 100);
+    bands.push({ state: dayOo[i].state, start: start, end: end, from: dayOo[i].loggedAt });
+  }
+
+  // Meal colour by protein load
+  var mealColor = function(m) {
+    var p = m.protein || 0;
+    if (p < 15) return "#10b981";
+    if (p <= 30) return "#f59e0b";
+    return "#ef4444";
+  };
+
+  // Med icon + colour
+  var isStack = function(l) { return (l.medId && (l.medId.indexOf("supplement_stack_") === 0 || l.medId.indexOf("magnesium_night_") === 0)) || /vitamin|magnes|coq|cod liver|multivit|b12|creatine/i.test(l.medName || ""); };
+  var medIcon = function(l) { return isStack(l) ? "🧺" : "💊"; };
+  var medColor = function(l) { return isStack(l) ? "#10b981" : "#4f46e5"; };
+  // Deduplicate stack items logged at same minute (so 6 simultaneous logs → 1 marker)
+  var medMarkers = [];
+  var seenKey = {};
+  dayLogs.forEach(function(l) {
+    var t = l.takenAt.substring(0, 16); // minute granularity
+    var k = t + "_" + (isStack(l) ? "stack" : "single_" + (l.medName || ""));
+    if (seenKey[k]) { seenKey[k].count += 1; return; }
+    var m = { time: l.takenAt, name: l.medName, icon: medIcon(l), color: medColor(l), count: 1, isStack: isStack(l) };
+    seenKey[k] = m;
+    medMarkers.push(m);
+  });
+
+  // Auto-insight
+  var insight = (function() {
+    if (dayMeals.length === 0 && dayLogs.length === 0) return "No data logged for this day yet.";
+    // Pattern 1: high-protein meal (>30g) followed by OFF state within 90 min
+    var hiMeal = dayMeals.find(function(m) { return (m.protein || 0) > 30; });
+    if (hiMeal) {
+      var mealTime = new Date(hiMeal.loggedAt).getTime();
+      var offLater = dayOo.find(function(o) { var dt = new Date(o.loggedAt).getTime() - mealTime; return o.state === "off" && dt > 0 && dt < 90 * 60000; });
+      if (offLater) return "⚠️ OFF at " + ft(offLater.loggedAt) + " came within 90 min of a " + Math.round(hiMeal.protein) + "g protein meal at " + ft(hiMeal.loggedAt) + ".";
+    }
+    // Pattern 2: long gap between Sinemet doses
+    var sinemetDoses = dayLogs.filter(function(l) { return !isStack(l) && /sinemet|levodopa|co-?careldopa|madopar/i.test(l.medName || ""); });
+    if (sinemetDoses.length >= 2) {
+      var maxGap = 0, gapIdx = -1;
+      for (var i = 1; i < sinemetDoses.length; i++) {
+        var gap = (new Date(sinemetDoses[i].takenAt).getTime() - new Date(sinemetDoses[i-1].takenAt).getTime()) / 60000;
+        if (gap > maxGap) { maxGap = gap; gapIdx = i; }
+      }
+      if (maxGap > 360) return "⏱️ Longest gap between Sinemet doses today: " + Math.round(maxGap/60) + "h (" + ft(sinemetDoses[gapIdx-1].takenAt) + " → " + ft(sinemetDoses[gapIdx].takenAt) + ").";
+    }
+    // Pattern 3: ON state duration
+    var onMins = 0, offMins = 0;
+    bands.forEach(function(b) { var mins = ((b.end - b.start) / 100) * 1440; if (b.state === "on") onMins += mins; else if (b.state === "off") offMins += mins; });
+    if (onMins > 0 || offMins > 0) {
+      var totalMins = onMins + offMins;
+      var pctOn = Math.round((onMins / totalMins) * 100);
+      return "📊 " + pctOn + "% ON today (" + Math.round(onMins/60) + "h ON · " + Math.round(offMins/60) + "h OFF).";
+    }
+    // Default
+    return "✅ " + dayMeals.length + " meals · " + dayLogs.length + " med logs · " + daySym.length + " symptoms.";
+  })();
+
+  // Day summary stats
+  var totalProt = Math.round(dayMeals.reduce(function(s,m){return s + (m.protein||0);}, 0));
+  var totalFib = Math.round(dayMeals.reduce(function(s,m){return s + (m.fibre||0);}, 0));
+  var totalCal = Math.round(dayMeals.reduce(function(s,m){return s + (m.calories||0);}, 0));
+
+  var dayLabel = offset === 0 ? "Today" : offset === -1 ? "Yesterday" : target.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+
+  return (<div className="bg-white rounded-2xl shadow-sm p-3 mb-4">
+    <div className="flex justify-between items-center mb-2">
+      <span className="font-bold text-sm text-gray-800">🗓️ Daily Timeline</span>
+      <div className="flex items-center gap-1">
+        <button onClick={function(){ setOffset(offset - 1); setSel(null); }} className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-600 text-sm">‹</button>
+        <span className="text-xs font-semibold text-gray-700 min-w-[80px] text-center">{dayLabel}</span>
+        <button onClick={function(){ if (offset < 0) { setOffset(offset + 1); setSel(null); } }} disabled={offset >= 0} className={"w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm " + (offset >= 0 ? "bg-gray-50 text-gray-300" : "bg-white text-gray-600")}>›</button>
+      </div>
+    </div>
+
+    <div className="text-[10px] text-gray-500 mb-3 flex flex-wrap gap-x-3 gap-y-1">
+      <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 align-middle"></span> &lt;15g</span>
+      <span><span className="inline-block w-2 h-2 rounded-full bg-amber-500 align-middle"></span> 15-30g</span>
+      <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle"></span> &gt;30g protein</span>
+      <span>💊 Sinemet · 🧺 Stack</span>
+      <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500 align-middle"></span>ON <span className="inline-block w-2 h-2 rounded-sm bg-red-500 align-middle ml-1"></span>OFF</span>
+    </div>
+
+    {/* Timeline rows */}
+    {[
+      { key: "meals", label: "🍽️", items: dayMeals, render: function(m, idx) {
+        return <div key={idx} onClick={function(){ setSel({ title: "Meal at " + ft(m.loggedAt), lines: [m.description, "P:" + Math.round(m.protein||0) + "g · C:" + Math.round(m.carbs||0) + "g · F:" + Math.round(m.fibre||0) + "g · " + Math.round(m.calories||0) + "kcal"] }); }}
+          style={{ position:"absolute", left:"calc(" + pct(m.loggedAt) + "% - 8px)", top:"50%", transform:"translateY(-50%)", width:"16px", height:"16px", borderRadius:"50%", background: mealColor(m), boxShadow:"0 1px 3px rgba(0,0,0,0.2)", cursor:"pointer" }} />;
+      }},
+      { key: "meds", label: "💊", items: medMarkers, render: function(m, idx) {
+        return <div key={idx} onClick={function(){ setSel({ title: (m.isStack ? "Supplement Stack" : m.name) + " at " + ft(m.time), lines: [m.isStack ? "Multi-item supplement stack" : m.name, m.count > 1 ? "(" + m.count + " items logged)" : ""] }); }}
+          style={{ position:"absolute", left:"calc(" + pct(m.time) + "% - 10px)", top:"50%", transform:"translateY(-50%)", width:"20px", height:"20px", borderRadius:"50%", background:m.color, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"10px", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", cursor:"pointer" }}>{m.icon}</div>;
+      }},
+      { key: "state", label: "⚡", items: bands, render: function(b, idx) {
+        return <div key={idx} onClick={function(){ setSel({ title: b.state.toUpperCase() + " from " + ft(b.from), lines: [Math.round(((b.end - b.start)/100) * 1440) + " minutes"] }); }}
+          style={{ position:"absolute", left:b.start + "%", width:(b.end - b.start) + "%", top:"8px", bottom:"8px", background: b.state === "on" ? "#22c55e" : "#ef4444", opacity:0.75, borderRadius:"4px", cursor:"pointer" }} />;
+      }},
+      { key: "sym", label: "🫨", items: daySym, render: function(s, idx) {
+        return <div key={idx} onClick={function(){ setSel({ title: (s.symptomId || "Symptom") + " at " + ft(s.loggedAt), lines: ["Severity: " + (s.severity || "—") + "/5", s.note || ""] }); }}
+          style={{ position:"absolute", left:"calc(" + pct(s.loggedAt) + "% - 8px)", top:"50%", transform:"translateY(-50%)", width:"16px", height:"16px", borderRadius:"50%", background:"#f97316", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"9px", cursor:"pointer" }}>🫨</div>;
+      }}
+    ].map(function(row) {
+      return (<div key={row.key} className="grid gap-2 mb-1" style={{gridTemplateColumns:"32px 1fr"}}>
+        <div className="text-sm text-center leading-none pt-2">{row.label}</div>
+        <div style={{position:"relative", height:"32px", background:"#f9fafb", borderRadius:"6px"}}>
+          <div style={{position:"absolute", inset:0, display:"flex", pointerEvents:"none"}}>
+            {[0,1,2,3,4,5,6,7].map(function(i){ return <div key={i} style={{flex:1, borderLeft: i>0 ? "1px dashed #e5e7eb" : "none"}} />; })}
+          </div>
+          {row.items.length > 0 ? row.items.map(row.render) : <span style={{position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)", fontSize:"9px", color:"#d1d5db"}}>none logged</span>}
+        </div>
+      </div>);
+    })}
+
+    {/* Hour labels */}
+    <div className="grid gap-2" style={{gridTemplateColumns:"32px 1fr"}}>
+      <div></div>
+      <div className="flex text-[9px] text-gray-400">
+        {[0,3,6,9,12,15,18,21,24].map(function(h){ return <span key={h} style={{flex: h===0||h===24 ? "0 0 0" : 1, textAlign: h===0 ? "left" : h===24 ? "right" : "center"}}>{h}</span>; })}
+      </div>
+    </div>
+
+    {/* Selected marker tooltip */}
+    {sel && (<div className="mt-3 p-2.5 bg-gray-900 text-white rounded-lg text-xs relative">
+      <button onClick={function(){ setSel(null); }} className="absolute top-1 right-2 text-gray-400">✕</button>
+      <div className="font-bold mb-0.5 pr-4">{sel.title}</div>
+      {sel.lines.map(function(l, i){ return l ? <div key={i} className="text-gray-300">{l}</div> : null; })}
+    </div>)}
+
+    {/* Day summary + auto-insight */}
+    <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600 leading-relaxed">
+      <div><strong className="text-gray-800">📝 Summary:</strong> {dayMeals.length} meals · {totalProt}g protein · {totalFib}g fibre · {totalCal} kcal</div>
+      <div className="mt-1">{insight}</div>
+    </div>
+  </div>);
+}
+
 // ── InsightsPage ──
 function InsightsPage(p) {
   var DAYS = 30;
@@ -1100,6 +1275,7 @@ function InsightsPage(p) {
 
   return (<div className="p-4 pb-28">
     <h2 className="text-xl font-bold mb-4">📈 Insights</h2>
+    <DailyTimeline meals={p.meals} logs={p.logs} oo={p.oo} sym={p.sym} />
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3">
         <div className="text-white font-bold text-sm">💬 Ask About Your Data</div>
