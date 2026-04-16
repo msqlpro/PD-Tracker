@@ -1834,8 +1834,21 @@ function App() {
       if (isInitial) {
         var now = Date.now();
         var twoHours = 2 * 60 * 60 * 1000;
+        // Skip follow-ups for supplements/vitamins/stack items — follow-up is for
+        // real PD meds like Sinemet where effectiveness matters, not multivitamins.
+        var isSupplement = function(log) {
+          if (!log) return false;
+          if (log.id && log.id.indexOf("backfill_") === 0) return true;
+          if (log.medId && log.medId.indexOf("supplement_stack_") === 0) return true;
+          if (log.medId && log.medId.indexOf("magnesium_night_") === 0) return true;
+          var n = (log.medName || "").toLowerCase();
+          var suppWords = ["vitamin","coq","cod liver","multivitamin","magnesium","b12","methylcobalamin","creatine","omega","fish oil","supplement"];
+          for (var i = 0; i < suppWords.length; i++) { if (n.indexOf(suppWords[i]) >= 0) return true; }
+          return false;
+        };
         var unrated = l.filter(function(x) {
           if ((x.effectiveness || 0) > 0) return false;
+          if (isSupplement(x)) return false;
           var t = new Date(x.takenAt).getTime();
           return (now - t) > 0 && (now - t) <= twoHours;
         });
@@ -2006,15 +2019,28 @@ function App() {
     setBackfillDone("Done! " + ok + " of " + toBackfill.length + " meals now have food breakdown data.");
   };
 
+  var isSupplementName = function(medName, medId) {
+    if (medId && medId.indexOf("supplement_stack_") === 0) return true;
+    if (medId && medId.indexOf("magnesium_night_") === 0) return true;
+    var n = (medName || "").toLowerCase();
+    var suppWords = ["vitamin","coq","cod liver","multivitamin","magnesium","b12","methylcobalamin","creatine","omega","fish oil","supplement"];
+    for (var i = 0; i < suppWords.length; i++) { if (n.indexOf(suppWords[i]) >= 0) return true; }
+    return false;
+  };
+
   var handleDoseSave = function(logItem, companionLogId) {
     aLog(logItem);
     if (companionLogId) {
       var cd = companionDrinks[logItem.medId];
       if (cd) { aDrink({ id: "cd_" + companionLogId, drinkId: cd.drinkId, name: cd.name, emoji: cd.emoji || "🥤", volume: cd.volume, caffeine: cd.caffeine || 0, calories: cd.calories || 0, note: "Auto-logged with " + logItem.medName, loggedAt: logItem.takenAt, companionForLogId: companionLogId }); }
     }
-    var medName = logItem.medName; var logId = logItem.id;
-    setTimeout(function() { setFollowUp({ medName: medName, logId: logId, minutesAfter: 30 }); }, 30 * 60 * 1000);
-    setTimeout(function() { setFollowUp({ medName: medName, logId: logId, minutesAfter: 60 }); }, 60 * 60 * 1000);
+    // Only schedule effectiveness follow-ups for real PD meds (Sinemet etc),
+    // not supplements/vitamins where the question isn't meaningful.
+    if (!isSupplementName(logItem.medName, logItem.medId)) {
+      var medName = logItem.medName; var logId = logItem.id;
+      setTimeout(function() { setFollowUp({ medName: medName, logId: logId, minutesAfter: 30 }); }, 30 * 60 * 1000);
+      setTimeout(function() { setFollowUp({ medName: medName, logId: logId, minutesAfter: 60 }); }, 60 * 60 * 1000);
+    }
     close();
   };
 
