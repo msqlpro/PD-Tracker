@@ -98,7 +98,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v16 Apr 21:58";
+var BUILD_VERSION = "v16 Apr 22:02";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -828,7 +828,21 @@ function Setup(p) {
       <p className="text-xs text-gray-500 mb-3">Fires once a day at the set time. Suppresses if you've already logged a bowel movement today. Also shows a banner on Today tab after reminder time.</p>
       <button onClick={function() {
         if (p.bowelReminderOn) { p.setBowelReminderOn(false); }
-        else { if ("Notification" in window) { Notification.requestPermission().then(function(perm) { if (perm === "granted") { p.setBowelReminderOn(true); alert("Bowel reminder enabled!"); } else { alert("Please allow notifications in your browser settings."); } }); } else { p.setBowelReminderOn(true); alert("Notifications not supported on this device — banner still works."); } }
+        else {
+          // Always enable — the banner works regardless of notification permission.
+          // Just try to request notifications as a bonus.
+          p.setBowelReminderOn(true);
+          if ("Notification" in window) {
+            Notification.requestPermission().then(function(perm) {
+              if (perm === "granted") { alert("Bowel reminder enabled with notifications!"); }
+              else { alert("Bowel reminder enabled. Notifications aren't available on this device, but the banner on Today tab will still remind you."); }
+            }).catch(function() {
+              alert("Bowel reminder enabled. Banner on Today tab will remind you.");
+            });
+          } else {
+            alert("Bowel reminder enabled. Banner on Today tab will remind you.");
+          }
+        }
       }} className={"w-full py-3 rounded-xl font-bold text-sm " + (p.bowelReminderOn ? "bg-red-500 text-white" : "bg-green-600 text-white")}>{p.bowelReminderOn ? "🔕 Disable Bowel Reminder" : "🔔 Enable Bowel Reminder"}</button>
       {p.bowelReminderOn && <div className="mt-3">
         <p className="text-xs font-medium text-gray-600 mb-2">Remind at:</p>
