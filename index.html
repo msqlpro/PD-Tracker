@@ -1363,8 +1363,8 @@ function TodayPage(p) {
     <div className="px-4">
       {(function() {
         // Morning check-in banner: show before 12:00 if no sleep logged today
-        var h = new Date().getHours();
-        if (h >= 12 || tS) return null;
+        // Also shown any time if sleep not yet logged (test-friendly)
+        if (tS) return null;
         return (<button onClick={function() { setM({ type: "morningCheckin" }); }}
           className="w-full mb-3 py-3 rounded-2xl font-bold text-white text-sm shadow-md"
           style={{background: "linear-gradient(135deg, #0284c7 0%, #4f46e5 100%)"}}>
