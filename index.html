@@ -70,6 +70,18 @@ async function analyzeMealPhoto(base64Data) {
   } catch (e) { return null; }
 }
 
+async function analyzeDrinkWithAI(description, volume) {
+  try {
+    var response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 800, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyse this drink and return ONLY valid JSON (no markdown, no backticks).\nDrink: "' + description + '"\nVolume: ' + volume + 'ml\nReturn: {"items":[{"item":"name","emoji":"emoji","per":"portion","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}}\nRules:\n- All values in grams (integers) except calories (kcal) and caffeine (mg)\n- Calculate for the exact volume specified\n- UK English spelling\n- Use real nutritional data\n- Never round small values down to 0 (use 1 if tiny)\n- For multi-ingredient drinks (smoothies, lattes, cocktails) break down each component\n- Use an appropriate emoji per item' }] })
+    });
+    var data = await response.json();
+    var text = (data.content || []).map(function(b) { return b.text || ""; }).join("");
+    return JSON.parse(text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim());
+  } catch (e) { return null; }
+}
+
 async function generateReport(period, data) {
   try {
     var summary = "PARKINSON'S DISEASE TRACKING DATA — " + period.toUpperCase() + " REPORT\n";
@@ -98,7 +110,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v16 Apr 22:22";
+var BUILD_VERSION = "v17 Apr27 09:30 — drink analyse + nutrition";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -110,7 +122,7 @@ var TO_ROW = {
   sym: function(d) { return { id: d.id, user_id: CURRENT_UID, symptom_id: d.symptomId, severity: d.severity, notes: d.notes || "", logged_at: d.loggedAt }; },
   onoff: function(d) { return { id: d.id, user_id: CURRENT_UID, state: d.state, logged_at: d.loggedAt }; },
   fast: function(d) { return { id: d.id, user_id: CURRENT_UID, start_time: d.startTime, end_time: d.endTime, hours: d.hours, date: d.date }; },
-  drinks: function(d) { return { id: d.id, user_id: CURRENT_UID, drink_id: d.drinkId, name: d.name, emoji: d.emoji || "🥤", volume: d.volume || 0, caffeine: d.caffeine || 0, calories: d.calories || 0, note: d.note || "", logged_at: d.loggedAt }; },
+  drinks: function(d) { return { id: d.id, user_id: CURRENT_UID, drink_id: d.drinkId, name: d.name, emoji: d.emoji || "🥤", volume: d.volume || 0, caffeine: d.caffeine || 0, calories: d.calories || 0, sugar: d.sugar || 0, carbs: d.carbs || 0, protein: d.protein || 0, fibre: d.fibre || 0, description: d.description || "", drink_breakdown: d.drinkBreakdown || null, note: d.note || "", logged_at: d.loggedAt }; },
   weight: function(d) { return { id: d.id, user_id: CURRENT_UID, weight: d.weight, unit: d.unit || "kg", note: d.note || "", date: d.date }; },
   mood: function(d) { return { id: d.id, user_id: CURRENT_UID, level: d.level, note: d.note || "", date: d.date }; },
   bowel: function(d) { return { id: d.id, user_id: CURRENT_UID, strain: d.strain || false, note: (d.type === "urine" ? "type:urine|" : "type:bowel|") + (d.note || ""), logged_at: d.loggedAt }; },
@@ -125,7 +137,7 @@ var FROM_ROW = {
   sym: function(r) { return { id: r.id, symptomId: r.symptom_id, severity: r.severity, notes: r.notes, loggedAt: r.logged_at }; },
   onoff: function(r) { return { id: r.id, state: r.state, loggedAt: r.logged_at }; },
   fast: function(r) { return { id: r.id, startTime: r.start_time, endTime: r.end_time, hours: Number(r.hours), date: r.date }; },
-  drinks: function(r) { return { id: r.id, drinkId: r.drink_id, name: r.name, emoji: r.emoji, volume: r.volume, caffeine: r.caffeine, calories: r.calories, note: r.note, loggedAt: r.logged_at }; },
+  drinks: function(r) { return { id: r.id, drinkId: r.drink_id, name: r.name, emoji: r.emoji, volume: r.volume, caffeine: r.caffeine, calories: r.calories, sugar: r.sugar || 0, carbs: r.carbs || 0, protein: r.protein || 0, fibre: r.fibre || 0, description: r.description || "", drinkBreakdown: r.drink_breakdown || null, note: r.note, loggedAt: r.logged_at }; },
   weight: function(r) { return { id: r.id, weight: Number(r.weight), unit: r.unit, note: r.note, date: r.date }; },
   mood: function(r) { return { id: r.id, level: r.level, note: r.note, date: r.date }; },
   bowel: function(r) { var raw = r.note || ""; var type = raw.startsWith("type:urine|") ? "urine" : "bowel"; var note = raw.replace(/^type:(bowel|urine)\|/, ""); return { id: r.id, strain: r.strain, type: type, note: note, loggedAt: r.logged_at }; },
@@ -167,17 +179,17 @@ var SYMS = [
 ];
 var DEF_EX = ["Walking", "Cycling", "Swimming", "Stretching", "Yoga", "Strength", "Dancing", "Spinning", "Boxing", "Running"];
 var DRINKS = [
-  { id: "water", l: "Water", e: "💧", caffeine: 0, cals: 0 },
-  { id: "black_coffee", l: "Black Coffee", e: "☕", caffeine: 95, cals: 2 },
-  { id: "white_coffee", l: "White Coffee", e: "☕", caffeine: 95, cals: 20 },
-  { id: "tea", l: "Tea", e: "🍵", caffeine: 47, cals: 1 },
-  { id: "green_tea", l: "Green Tea", e: "🍃", caffeine: 28, cals: 1 },
-  { id: "decaf", l: "Decaf Coffee", e: "☕", caffeine: 3, cals: 2 },
-  { id: "herbal", l: "Herbal Tea", e: "🌿", caffeine: 0, cals: 1 },
-  { id: "juice", l: "Juice", e: "🧃", caffeine: 0, cals: 45 },
-  { id: "smoothie", l: "Smoothie", e: "🥤", caffeine: 0, cals: 80 },
-  { id: "milk", l: "Milk", e: "🥛", caffeine: 0, cals: 42 },
-  { id: "kefir", l: "Kefir", e: "🥛", caffeine: 0, cals: 60 }
+  { id: "water", l: "Water", e: "💧", caffeine: 0, cals: 0, sugar: 0, carbs: 0, protein: 0 },
+  { id: "black_coffee", l: "Black Coffee", e: "☕", caffeine: 95, cals: 2, sugar: 0, carbs: 0, protein: 0 },
+  { id: "white_coffee", l: "White Coffee", e: "☕", caffeine: 95, cals: 20, sugar: 2, carbs: 2, protein: 1 },
+  { id: "tea", l: "Tea", e: "🍵", caffeine: 47, cals: 1, sugar: 0, carbs: 0, protein: 0 },
+  { id: "green_tea", l: "Green Tea", e: "🍃", caffeine: 28, cals: 1, sugar: 0, carbs: 0, protein: 0 },
+  { id: "decaf", l: "Decaf Coffee", e: "☕", caffeine: 3, cals: 2, sugar: 0, carbs: 0, protein: 0 },
+  { id: "herbal", l: "Herbal Tea", e: "🌿", caffeine: 0, cals: 1, sugar: 0, carbs: 0, protein: 0 },
+  { id: "juice", l: "Juice", e: "🧃", caffeine: 0, cals: 110, sugar: 24, carbs: 26, protein: 1 },
+  { id: "smoothie", l: "Smoothie", e: "🥤", caffeine: 0, cals: 175, sugar: 25, carbs: 35, protein: 3 },
+  { id: "milk", l: "Milk", e: "🥛", caffeine: 0, cals: 120, sugar: 12, carbs: 12, protein: 8 },
+  { id: "kefir", l: "Kefir", e: "🥛", caffeine: 0, cals: 110, sugar: 10, carbs: 12, protein: 9 }
 ];
 var MOOD_EMOJI = ["", "😫", "😕", "😐", "😊", "😁"];
 var MOOD_LABELS = ["", "Awful", "Low", "OK", "Good", "Great"];
@@ -500,19 +512,84 @@ function DrinkMod(p) {
   var [time, sTime] = useState(isEdit ? ft(ex.loggedAt) : nw());
   var [date, sDate] = useState(isEdit ? dateOf(ex.loggedAt) : td());
   var [note, sNote] = useState(isEdit ? (ex.note || "") : "");
+  var [desc, setDesc] = useState(isEdit ? (ex.description || "") : "");
+  var [aiResult, setAi] = useState(isEdit && ex.drinkBreakdown && ex.drinkBreakdown.length ? { items: ex.drinkBreakdown, totals: { protein: ex.protein || 0, carbs: ex.carbs || 0, fibre: ex.fibre || 0, calories: ex.calories || 0, sugar: ex.sugar || 0, caffeine: ex.caffeine || 0 } } : null);
+  var [loading, setLoad] = useState(false);
+  var [aiErr, setAiErr] = useState(null);
+  var [me, setMe] = useState(false);
+  var [mt, setMt] = useState(isEdit ? { protein: ex.protein || 0, carbs: ex.carbs || 0, fibre: ex.fibre || 0, calories: ex.calories || 0, sugar: ex.sugar || 0, caffeine: ex.caffeine || 0 } : null);
+  var [saveErr, setSaveErr] = useState(null);
   var info = DRINKS.find(function(d) { return d.id === sel; });
   var ratio = vol / 250;
-  var caff = info ? Math.round(info.caffeine * ratio) : 0;
-  var cals = info ? Math.round(info.cals * ratio) : 0;
+  var presetCaff = info ? Math.round(info.caffeine * ratio) : 0;
+  var presetCals = info ? Math.round(info.cals * ratio) : 0;
+  var presetSugar = info ? Math.round(info.sugar * ratio) : 0;
+  var presetCarbs = info ? Math.round(info.carbs * ratio) : 0;
+  var presetProt = info ? Math.round(info.protein * ratio) : 0;
+
+  // Final values: AI/manual override > preset
+  var fin = mt || (aiResult ? aiResult.totals : null) || { protein: presetProt, carbs: presetCarbs, fibre: 0, calories: presetCals, sugar: presetSugar, caffeine: presetCaff };
+
+  var analyze = async function() {
+    var query = desc.trim() || (info ? info.l : (sel === "other" ? custom : ""));
+    if (!query) { setAiErr("Pick a drink type or describe what you drank first."); return; }
+    setLoad(true); setAiErr(null);
+    var r = await analyzeDrinkWithAI(query, vol);
+    if (r) { setAi(r); if (!me) setMt(null); }
+    else setAiErr("Analysis failed. Try again or adjust totals manually.");
+    setLoad(false);
+  };
+
   return (<Mod onClose={p.onClose}>
     <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">🥤 {isEdit ? "Edit" : "Log"} Drink</h3><button onClick={p.onClose} style={{fontSize:"1.75rem",lineHeight:1,width:"44px",height:"44px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:"#f3f4f6",border:"none",cursor:"pointer",color:"#6b7280",flexShrink:0}}>×</button></div>
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-sm font-medium">Date</span><input type="date" value={date} onChange={function(e) { sDate(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label><label className="flex-1"><span className="text-sm font-medium">Time</span><input type="time" value={time} onChange={function(e) { sTime(e.target.value); }} className="mt-1 w-full p-3 border rounded-xl text-sm" /></label></div>
-    <div className="flex flex-wrap gap-1.5 mb-3">{DRINKS.map(function(d) { return <button key={d.id} onClick={function() { sSel(d.id); setCust(""); }} className={"px-3 py-2 rounded-full text-sm font-medium " + (sel === d.id ? "bg-cyan-600 text-white" : "bg-gray-100")}>{d.e} {d.l}</button>; })}<button onClick={function() { sSel("other"); }} className={"px-3 py-2 rounded-full text-sm font-medium " + (sel === "other" ? "bg-cyan-600 text-white" : "bg-gray-100")}>Other</button></div>
+    <div className="flex flex-wrap gap-1.5 mb-3">{DRINKS.map(function(d) { return <button key={d.id} onClick={function() { sSel(d.id); setCust(""); setAi(null); setMt(null); }} className={"px-3 py-2 rounded-full text-sm font-medium " + (sel === d.id ? "bg-cyan-600 text-white" : "bg-gray-100")}>{d.e} {d.l}</button>; })}<button onClick={function() { sSel("other"); setAi(null); setMt(null); }} className={"px-3 py-2 rounded-full text-sm font-medium " + (sel === "other" ? "bg-cyan-600 text-white" : "bg-gray-100")}>Other</button></div>
     {sel === "other" && <input value={custom} onChange={function(e) { setCust(e.target.value); }} placeholder="Drink name" className="w-full border rounded-xl p-3 text-sm mb-3" />}
-    <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-xs text-gray-500">Volume (ml)</span><input type="number" min={1} step={50} value={vol} onChange={function(e) { sVol(parseInt(e.target.value) || 0); }} className="w-full border rounded-lg p-2 text-sm" /></label><div className="flex gap-1.5 items-end pb-1">{["100","200","250","330","500","568"].map(function(v) { return <button key={v} onClick={function() { sVol(parseInt(v)); }} className={"text-[10px] px-1.5 py-1 rounded " + (vol === parseInt(v) ? "bg-cyan-100 text-cyan-700 font-bold" : "text-gray-400")}>{v === "568" ? "1pt" : v}</button>; })}</div></div>
-    {info && <div className="flex gap-4 mb-3 text-sm">{info.caffeine > 0 && <span className="text-amber-700">☕ {caff}mg caffeine</span>}<span className="text-pink-600">🔥 {cals}kcal</span></div>}
+    <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-xs text-gray-500">Volume (ml)</span><input type="number" min={1} step={50} value={vol} onChange={function(e) { sVol(parseInt(e.target.value) || 0); setAi(null); setMt(null); }} className="w-full border rounded-lg p-2 text-sm" /></label><div className="flex gap-1.5 items-end pb-1">{["100","200","250","330","500","568"].map(function(v) { return <button key={v} onClick={function() { sVol(parseInt(v)); setAi(null); setMt(null); }} className={"text-[10px] px-1.5 py-1 rounded " + (vol === parseInt(v) ? "bg-cyan-100 text-cyan-700 font-bold" : "text-gray-400")}>{v === "568" ? "1pt" : v}</button>; })}</div></div>
+
+    <label className="block mb-3"><span className="text-sm font-medium">Describe (optional, for accurate analysis)</span><textarea value={desc} onChange={function(e) { setDesc(e.target.value); setAi(null); setMt(null); setAiErr(null); }} placeholder="e.g. iced caramel oat latte / banana berry smoothie / G&T with tonic..." className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm resize-none" rows={2} /></label>
+
+    <div className="mb-3">
+      <button onClick={analyze} disabled={(!sel && !desc.trim()) || loading} className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2">{loading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />Analysing...</> : <>✨ Analyse Nutrition</>}</button>
+    </div>
+    {aiErr && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl mb-3">{aiErr}</div>}
+
+    {aiResult && aiResult.items && aiResult.items.length > 0 && (<div className="mb-3 bg-green-50 rounded-xl p-3 border border-green-200">
+      <span className="text-sm font-semibold text-gray-700 block mb-2">✨ AI Nutrition Breakdown:</span>
+      <div className="space-y-0.5">{aiResult.items.map(function(it, i) { return (<div key={i} className="flex items-center justify-between text-xs py-0.5"><span className="text-gray-700 truncate mr-2">{it.emoji} <span className="capitalize font-medium">{it.item}</span><span className="text-gray-400 ml-1">({it.per})</span></span><span className="flex gap-1.5 shrink-0"><span className="text-pink-600">Cal:{it.calories}</span><span className="text-purple-600">S:{it.sugar||0}</span>{it.caffeine ? <span className="text-amber-600">☕{it.caffeine}</span> : null}</span></div>); })}</div>
+      <div className="flex flex-wrap gap-2 mt-1.5 pt-1.5 border-t border-green-200 text-xs"><span className="font-bold text-gray-600">Total:</span><span className="text-pink-700 font-semibold">Cal:{(mt||aiResult.totals).calories}kcal</span><span className="text-purple-700 font-semibold">Sugar:{(mt||aiResult.totals).sugar||0}g</span><span className="text-amber-700 font-semibold">Carbs:{(mt||aiResult.totals).carbs||0}g</span><span className="text-red-700 font-semibold">Prot:{(mt||aiResult.totals).protein||0}g</span>{(mt||aiResult.totals).caffeine ? <span className="text-orange-700 font-semibold">☕{(mt||aiResult.totals).caffeine}mg</span> : null}</div>
+    </div>)}
+
+    {!aiResult && info && <div className="flex flex-wrap gap-3 mb-3 text-sm bg-gray-50 rounded-xl p-3"><span className="text-pink-600">🔥 {presetCals}kcal</span>{presetSugar > 0 && <span className="text-purple-600">🍬 {presetSugar}g sugar</span>}{presetCarbs > 0 && <span className="text-amber-600">🌾 {presetCarbs}g carbs</span>}{presetProt > 0 && <span className="text-red-600">💪 {presetProt}g protein</span>}{info.caffeine > 0 && <span className="text-amber-700">☕ {presetCaff}mg caffeine</span>}</div>}
+
+    <button onClick={function() { setMe(!me); if (!me && !mt) setMt(Object.assign({}, fin)); }} className="text-sm text-blue-600 mb-2">{me ? "▲ Hide manual" : "✏️ Adjust totals"}</button>
+    {me && mt && <div className="grid grid-cols-3 gap-2 mb-3">{[["calories","Cal"],["sugar","Sugar"],["caffeine","Caff"],["carbs","Carbs"],["protein","Prot"],["fibre","Fibre"]].map(function(pair) { var k = pair[0]; return <label key={k} className="text-center"><span className="text-xs text-gray-500">{pair[1]}</span><input type="number" min={0} value={mt[k] || 0} onChange={function(e) { setMt(function(prev) { var n = Object.assign({}, prev); n[k] = parseInt(e.target.value) || 0; return n; }); }} className="w-full border rounded-lg p-2 text-center text-sm" /></label>; })}</div>}
+
     <textarea value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Notes (e.g. with milk, iced...)" className="w-full border rounded-xl p-3 text-sm mb-3 resize-none" rows={1} />
-    <SaveDel canDel={isEdit} color="bg-cyan-600" label={isEdit ? "Update" : "Save"} onDel={function() { p.onDelete(ex.id); }} onSave={function() { if (!sel) return; var name = sel === "other" ? custom : (info ? info.l : sel); if (!name) return; p.onSave({ id: isEdit ? ex.id : Date.now().toString(), drinkId: sel, name: name, emoji: info ? info.e : "🥤", volume: vol, caffeine: caff, calories: cals, note: note, loggedAt: new Date(date + "T" + time).toISOString() }); p.onClose(); }} />
+    {saveErr && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl mb-3">{saveErr}</div>}
+    <SaveDel canDel={isEdit} color="bg-cyan-600" label={isEdit ? "Update" : "Save"} onDel={function() { p.onDelete(ex.id); }} onSave={function() {
+      if (!sel && !desc.trim()) { setSaveErr("Pick a drink type or add a description first."); return; }
+      var name = sel === "other" ? (custom || desc.split(/\s+/).slice(0,4).join(" ") || "Drink") : (info ? info.l : (desc.split(/\s+/).slice(0,4).join(" ") || "Drink"));
+      if (!name) { setSaveErr("Please enter a drink name."); return; }
+      p.onSave({
+        id: isEdit ? ex.id : Date.now().toString(),
+        drinkId: sel || "other",
+        name: name,
+        emoji: info ? info.e : "🥤",
+        volume: vol,
+        caffeine: fin.caffeine || 0,
+        calories: fin.calories || 0,
+        sugar: fin.sugar || 0,
+        carbs: fin.carbs || 0,
+        protein: fin.protein || 0,
+        fibre: fin.fibre || 0,
+        description: desc,
+        drinkBreakdown: aiResult ? aiResult.items : null,
+        note: note,
+        loggedAt: new Date(date + "T" + time).toISOString()
+      });
+      p.onClose();
+    }} />
   </Mod>);
 }
 
@@ -1620,9 +1697,13 @@ function TodayPage(p) {
   var tDr = drinks.filter(function(d) { return d.loggedAt && isT(d.loggedAt); });
   var lO = tO.slice().sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0];
   var dn = tMl.reduce(function(a, m) { return { protein: a.protein + (m.protein || 0), carbs: a.carbs + (m.carbs || 0), fibre: a.fibre + (m.fibre || 0), calories: a.calories + (m.calories || 0), sugar: a.sugar + (m.sugar || 0) }; }, { protein: 0, carbs: 0, fibre: 0, calories: 0, sugar: 0 });
-  var drinkCals = tDr.reduce(function(s, d) { return s + (d.calories || 0); }, 0);
+  var dnDrink = tDr.reduce(function(a, d) { return { protein: a.protein + (d.protein || 0), carbs: a.carbs + (d.carbs || 0), fibre: a.fibre + (d.fibre || 0), calories: a.calories + (d.calories || 0), sugar: a.sugar + (d.sugar || 0) }; }, { protein: 0, carbs: 0, fibre: 0, calories: 0, sugar: 0 });
+  var drinkCals = dnDrink.calories;
   var drinkCaff = tDr.reduce(function(s, d) { return s + (d.caffeine || 0); }, 0);
   var totalCalsIn = dn.calories + drinkCals;
+  var totalSugar = dn.sugar + dnDrink.sugar;
+  var totalCarbs = dn.carbs + dnDrink.carbs;
+  var totalProtein = dn.protein + dnDrink.protein;
   var calBurned = tE.reduce(function(s, e) { var rate = e.intensity === "vigorous" ? 10 : e.intensity === "moderate" ? 7 : 4; return s + ((e.duration || 0) * rate); }, 0);
   var netCal = totalCalsIn - calBurned;
   var hydrateDrinks = ["water", "herbal", "green_tea", "tea", "decaf"];
@@ -1841,7 +1922,7 @@ function TodayPage(p) {
         if (it._t === "sym") { var st = SYMS.find(function(t) { return t.id === i.symptomId; }); return <button key={i.id} onClick={function() { setM({ type: "eSym", data: i }); }} className="w-full bg-red-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{st ? st.e : ""} {st ? st.l : i.symptomId}</span><span className="text-xs text-gray-400">{ft(i.loggedAt)}</span></div></button>; }
         if (it._t === "oo") return <button key={i.id} onClick={function() { setM({ type: "eOo", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.state === "on" ? "bg-green-50" : "bg-red-50")}>{i.state === "on" ? "🟢 ON" : "🔴 OFF"} <span className="text-gray-400 text-xs">{ft(i.loggedAt)}</span></button>;
         if (it._t === "fast") return <button key={i.id} onClick={function() { setM({ type: "eFast", data: i }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><span>⏱️ {i.hours}h fast</span><span className="text-xs text-gray-400 ml-2">{i.startTime}→{i.endTime}</span></button>;
-        if (it._t === "drink") return <button key={i.id} onClick={function() { setM({ type: "eDrink", data: i }); }} className="w-full bg-cyan-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{i.emoji || "🥤"} {i.name}</span><span className="text-xs text-gray-400">{ft(i.loggedAt)}</span></div><div className="text-xs text-gray-600">{i.volume}ml{i.caffeine ? " · ☕" + i.caffeine + "mg" : ""}{i.calories ? " · " + i.calories + "kcal" : ""}</div></button>;
+        if (it._t === "drink") return <button key={i.id} onClick={function() { setM({ type: "eDrink", data: i }); }} className="w-full bg-cyan-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{i.emoji || "🥤"} {i.name}</span><span className="text-xs text-gray-400">{ft(i.loggedAt)}</span></div><div className="text-xs text-gray-600">{i.volume}ml{i.caffeine ? " · ☕" + i.caffeine + "mg" : ""}{i.calories ? " · " + i.calories + "kcal" : ""}{i.sugar ? " · 🍬" + i.sugar + "g" : ""}</div></button>;
         if (it._t === "weight") return <button key={i.id} onClick={function() { setM({ type: "eWeight", data: i }); }} className="w-full bg-violet-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><span>⚖️ {i.weight}kg</span></button>;
         if (it._t === "mood") return <button key={i.id} onClick={function() { setM({ type: "eMood", data: i }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><span>{MOOD_EMOJI[i.level]} {MOOD_LABELS[i.level]}</span></button>;
         if (it._t === "bowel") return <button key={i.id} onClick={function() { setM({ type: "eBowel", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}><span>{i.type === "urine" ? "💛 Urine" : "💩 Bowel" + (i.strain ? " ⚠️" : "")}</span><span className="text-xs text-gray-400 ml-2">{ft(i.loggedAt)}</span></button>;
@@ -1893,7 +1974,7 @@ function HistoryPage(p) {
           if (it._t === "sym") { var st = SYMS.find(function(t) { return t.id === it.symptomId; }); return <button key={it.id} onClick={function() { setM({ type: "eSym", data: it }); }} className="w-full bg-red-50 rounded-xl p-2.5 mb-1 text-left text-sm">{st ? st.e : ""} {st ? st.l : it.symptomId} · Sev:{it.severity}/5<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>; }
           if (it._t === "oo") return <button key={it.id} onClick={function() { setM({ type: "eOo", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.state === "on" ? "bg-green-50" : "bg-red-50")}>{it.state === "on" ? "🟢 ON" : "🔴 OFF"}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           if (it._t === "fast") return <button key={it.id} onClick={function() { setM({ type: "eFast", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.hours >= 14 ? "bg-teal-50" : "bg-amber-50")}>⏱️ Fast: {it.hours}h ({it.startTime}→{it.endTime}) <span className={"text-xs float-right " + (it.hours >= 14 ? "text-teal-600" : "text-amber-600")}>{it.hours >= 14 ? "✅" : "⚠️"}</span></button>;
-          if (it._t === "drink") return <button key={it.id} onClick={function() { setM({ type: "eDrink", data: it }); }} className="w-full bg-cyan-50 rounded-xl p-2.5 mb-1 text-left text-sm">{it.emoji || "🥤"} {it.name} · {it.volume}ml{it.caffeine ? " · ☕" + it.caffeine + "mg" : ""}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
+          if (it._t === "drink") return <button key={it.id} onClick={function() { setM({ type: "eDrink", data: it }); }} className="w-full bg-cyan-50 rounded-xl p-2.5 mb-1 text-left text-sm">{it.emoji || "🥤"} {it.name} · {it.volume}ml{it.caffeine ? " · ☕" + it.caffeine + "mg" : ""}{it.calories ? " · " + it.calories + "kcal" : ""}{it.sugar ? " · 🍬" + it.sugar + "g" : ""}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           if (it._t === "weight") return <button key={it.id} onClick={function() { setM({ type: "eWeight", data: it }); }} className="w-full bg-violet-50 rounded-xl p-2.5 mb-1 text-left text-sm">⚖️ {it.weight}kg{it.note ? " · " + it.note : ""}</button>;
           if (it._t === "mood") return <button key={it.id} onClick={function() { setM({ type: "eMood", data: it }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1 text-left text-sm">{MOOD_EMOJI[it.level]} {MOOD_LABELS[it.level]} ({it.level}/5)</button>;
           if (it._t === "bowel") return <button key={it.id} onClick={function() { setM({ type: "eBowel", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}>{it.type === "urine" ? "💛 Urine" : "💩 Bowel" + (it.strain ? " ⚠️" : "")}{it.note ? " · " + it.note : ""}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
