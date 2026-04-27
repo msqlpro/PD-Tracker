@@ -110,7 +110,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v18 Apr27 10:25 — modal safe area fix";
+var BUILD_VERSION = "v19 Apr27 — Wee quick-log button";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -146,18 +146,18 @@ var FROM_ROW = {
 async function dbLoad(key) { var t = TBL[key]; if (!t) return []; var { data, error } = await sb.from(t).select("*").eq("user_id", CURRENT_UID); if (error) { console.error("Load " + key, error); return []; } return (data || []).map(FROM_ROW[key]); }
 async function dbSave(key, item) { var t = TBL[key]; if (!t) return; var row = TO_ROW[key](item); var { error } = await sb.from(t).upsert(row); if (error) console.error("Save " + key, error); }
 async function dbDel(key, id) { var t = TBL[key]; if (!t) return; var { error } = await sb.from(t).delete().eq("id", id); if (error) console.error("Del " + key, error); }
-var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval", bowelReminderOn: "bowelReminderOn", bowelReminderTime: "bowelReminderTime" };
+var K = { meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval", bowelReminderOn: "bowelReminderOn", bowelReminderTime: "bowelReminderTime", weeBtnOn: "weeBtnOn" };
 async function ld(k, fb) {
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime) {
-    try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); if (data && data.settings) { var s = data.settings; if (k === K.waterTarget) return s.waterTarget || fb; if (k === K.calTarget) return s.calTarget || fb; if (k === K.protTarget) return s.protTarget || fb; if (k === K.medTarget) return s.medTarget || fb; if (k === K.darkMode) return s.darkMode || fb; if (k === K.companionDrinks) return s.companionDrinks || fb; if (k === K.cex) return s.cex || fb; if (k === K.cact) return s.cact || fb; if (k === K.alarms) return s.alarms || fb; if (k === K.alarmTimes) return s.alarmTimes || fb; if (k === K.ooReminderOn) return s.ooReminderOn !== undefined ? s.ooReminderOn : fb; if (k === K.ooReminderInterval) return s.ooReminderInterval || fb; if (k === K.bowelReminderOn) return s.bowelReminderOn !== undefined ? s.bowelReminderOn : fb; if (k === K.bowelReminderTime) return s.bowelReminderTime || fb; } } catch(e) {}
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime || k === K.weeBtnOn) {
+    try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); if (data && data.settings) { var s = data.settings; if (k === K.waterTarget) return s.waterTarget || fb; if (k === K.calTarget) return s.calTarget || fb; if (k === K.protTarget) return s.protTarget || fb; if (k === K.medTarget) return s.medTarget || fb; if (k === K.darkMode) return s.darkMode || fb; if (k === K.companionDrinks) return s.companionDrinks || fb; if (k === K.cex) return s.cex || fb; if (k === K.cact) return s.cact || fb; if (k === K.alarms) return s.alarms || fb; if (k === K.alarmTimes) return s.alarmTimes || fb; if (k === K.ooReminderOn) return s.ooReminderOn !== undefined ? s.ooReminderOn : fb; if (k === K.ooReminderInterval) return s.ooReminderInterval || fb; if (k === K.bowelReminderOn) return s.bowelReminderOn !== undefined ? s.bowelReminderOn : fb; if (k === K.bowelReminderTime) return s.bowelReminderTime || fb; if (k === K.weeBtnOn) return s.weeBtnOn !== undefined ? s.weeBtnOn : fb; } } catch(e) {}
     return fb;
   }
   if (TBL[k]) return await dbLoad(k);
   return fb;
 }
 async function sv(k, v) {
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime) {
-    try { var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var settings = (existing && existing.settings) || {}; if (k === K.waterTarget) settings.waterTarget = v; else if (k === K.calTarget) settings.calTarget = v; else if (k === K.protTarget) settings.protTarget = v; else if (k === K.medTarget) settings.medTarget = v; else if (k === K.darkMode) settings.darkMode = v; else if (k === K.companionDrinks) settings.companionDrinks = v; else if (k === K.cex) settings.cex = v; else if (k === K.cact) settings.cact = v; else if (k === K.alarms) settings.alarms = v; else if (k === K.alarmTimes) settings.alarmTimes = v; else if (k === K.ooReminderOn) settings.ooReminderOn = v; else if (k === K.ooReminderInterval) settings.ooReminderInterval = v; else if (k === K.bowelReminderOn) settings.bowelReminderOn = v; else if (k === K.bowelReminderTime) settings.bowelReminderTime = v; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings }); } catch(e) { console.error("Save setting", e); }
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime || k === K.weeBtnOn) {
+    try { var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var settings = (existing && existing.settings) || {}; if (k === K.waterTarget) settings.waterTarget = v; else if (k === K.calTarget) settings.calTarget = v; else if (k === K.protTarget) settings.protTarget = v; else if (k === K.medTarget) settings.medTarget = v; else if (k === K.darkMode) settings.darkMode = v; else if (k === K.companionDrinks) settings.companionDrinks = v; else if (k === K.cex) settings.cex = v; else if (k === K.cact) settings.cact = v; else if (k === K.alarms) settings.alarms = v; else if (k === K.alarmTimes) settings.alarmTimes = v; else if (k === K.ooReminderOn) settings.ooReminderOn = v; else if (k === K.ooReminderInterval) settings.ooReminderInterval = v; else if (k === K.bowelReminderOn) settings.bowelReminderOn = v; else if (k === K.bowelReminderTime) settings.bowelReminderTime = v; else if (k === K.weeBtnOn) settings.weeBtnOn = v; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings }); } catch(e) { console.error("Save setting", e); }
     return;
   }
   if (TBL[k] && Array.isArray(v)) { if (k === K.meds) { await sb.from(TBL[k]).delete().eq("user_id", CURRENT_UID); for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } else { for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } return; }
@@ -927,6 +927,17 @@ function Setup(p) {
       </div>}
       <p className="text-xs text-gray-400 mt-2">⚠️ Notifications only work while the app is open. Banner shows regardless.</p>
     </div>
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <div className="flex justify-between items-center">
+        <div className="flex-1 pr-3">
+          <h3 className="font-bold text-gray-700">💦 Wee Quick-Log Button</h3>
+          <p className="text-xs text-gray-500 mt-1">Show a "Wee" button on the dashboard. Tap once to instantly log a urination — no modal. Today's count appears as a badge on the button.</p>
+        </div>
+        <button onClick={function() { p.setWeeBtnOn(!p.weeBtnOn); }} className={"w-14 h-8 rounded-full relative transition-colors flex-shrink-0 " + (p.weeBtnOn ? "bg-amber-500" : "bg-gray-300")}>
+          <div className={"w-6 h-6 bg-white rounded-full absolute top-1 transition-transform " + (p.weeBtnOn ? "translate-x-7" : "translate-x-1")} />
+        </button>
+      </div>
+    </div>
     <h3 className="font-bold text-gray-700 mb-3">💊 Medications</h3>
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <input value={n} onChange={function(e) { sN(e.target.value); }} placeholder="Medication name (e.g. Sinemet, or Supplement Stack)" className="w-full border rounded-xl p-3 text-sm mb-2" />
@@ -1423,6 +1434,7 @@ var DEF_APP_BUTTONS = [
   { id: "weight",   emoji: "⚖️", label: "Weight",    grad: "from-blue-500 to-cyan-400" },
   { id: "mood",     emoji: "😊", label: "Mood",      grad: "from-amber-500 to-yellow-400" },
   { id: "bowel",    emoji: "🚽", label: "Toilet",    grad: "from-amber-600 to-orange-500" },
+  { id: "wee",      emoji: "💦", label: "Wee",       grad: "from-yellow-400 to-amber-500", isWee: true },
   { id: "activity", emoji: "🧘", label: "Activity",  grad: "from-pink-600 to-rose-500" },
   { id: "slp",      emoji: "😴", label: "Sleep",     grad: "from-indigo-700 to-slate-600" },
   { id: "onoff_pie", emoji: "", label: "ON/OFF",    grad: "from-gray-200 to-gray-300", isPie: true },
@@ -1480,6 +1492,7 @@ function AppGrid(p) {
   var buildButtons = function() {
     var medBtn = { id: "med_picker", emoji: "💊", label: "Medication", grad: "from-indigo-600 to-blue-500", isMedPicker: true };
     var all = [medBtn].concat(DEF_APP_BUTTONS);
+    if (!p.weeEnabled) all = all.filter(function(b) { return b.id !== "wee"; });
     try {
       var saved = JSON.parse(localStorage.getItem(APP_BTN_ORDER_KEY) || "null");
       if (saved && Array.isArray(saved)) {
@@ -1496,7 +1509,7 @@ function AppGrid(p) {
   var [wiggle, setWiggle] = useState(false);
   var [dragIdx, setDragIdx] = useState(null);
   var gridRef = React.useRef(null);
-  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false, lO: null, onQuickOo: null, onQuickSym: null, setM: null });
+  var stateRef = React.useRef({ wiggle: false, buttons: [], dragIdx: null, longTimer: null, startX: 0, startY: 0, tapped: false, lO: null, onQuickOo: null, onQuickSym: null, onQuickWee: null, setM: null });
 
   useEffect(function() { stateRef.current.wiggle = wiggle; }, [wiggle]);
   useEffect(function() { stateRef.current.buttons = buttons; }, [buttons]);
@@ -1504,6 +1517,7 @@ function AppGrid(p) {
   stateRef.current.lO = p.lO;
   stateRef.current.onQuickOo = p.onQuickOo;
   stateRef.current.onQuickSym = p.onQuickSym;
+  stateRef.current.onQuickWee = p.onQuickWee;
   stateRef.current.setM = p.setM;
 
   var saveOrder = function(btns) {
@@ -1514,12 +1528,13 @@ function AppGrid(p) {
     setButtons(function(prev) {
       var medBtn = { id: "med_picker", emoji: "💊", label: "Medication", grad: "from-indigo-600 to-blue-500", isMedPicker: true };
       var all = [medBtn].concat(DEF_APP_BUTTONS);
+      if (!p.weeEnabled) all = all.filter(function(b) { return b.id !== "wee"; });
       var updated = prev.filter(function(b) { return all.find(function(x) { return x.id === b.id; }); });
       updated = updated.map(function(b) { var fresh = all.find(function(x) { return x.id === b.id; }); return fresh || b; });
       all.forEach(function(b) { if (!updated.find(function(x) { return x.id === b.id; })) updated.unshift(b); });
       return updated;
     });
-  }, [p.meds]);
+  }, [p.meds, p.weeEnabled]);
 
   var exitWiggle = function() {
     setWiggle(false);
@@ -1603,6 +1618,7 @@ function AppGrid(p) {
               if (s.onQuickOo) s.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: stamp });
             }
             else if (btn.isQuickSym) { if (s.onQuickSym) s.onQuickSym(); }
+            else if (btn.isWee) { if (s.onQuickWee) s.onQuickWee(); }
             else s.setM({ type: btn.id });
           }
         }
@@ -1640,6 +1656,7 @@ function AppGrid(p) {
               if (stateRef.current.onQuickOo) stateRef.current.onQuickOo({ id: Date.now().toString()+"_oo", state: newState, loggedAt: new Date().toISOString() });
             }
             else if (btn.isQuickSym) { if (stateRef.current.onQuickSym) stateRef.current.onQuickSym(); }
+            else if (btn.isWee) { if (stateRef.current.onQuickWee) stateRef.current.onQuickWee(); }
             else p.setM({ type: btn.id });
           }}>
             {btn.isPie ? (function() {
@@ -1674,9 +1691,12 @@ function AppGrid(p) {
                 </svg>
               </div>);
             })() : (
-            <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg " + (wiggle ? "wiggling" : "")}
+            <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg relative " + (wiggle ? "wiggling" : "")}
               style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
               <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.emoji}</span>
+              {btn.isWee && p.weeCount > 0 && (
+                <span style={{position:"absolute",top:"-4px",right:"-4px",background:"#fff",color:"#b45309",fontSize:"11px",fontWeight:700,minWidth:"20px",height:"20px",borderRadius:"10px",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.2)",border:"1.5px solid #fbbf24"}}>{p.weeCount}</span>
+              )}
             </div>)}
             <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.label}</span>
           </div>
@@ -1711,9 +1731,11 @@ function TodayPage(p) {
   var waterTarget = p.waterTarget || 2000;
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
 
+  var todayWeeCount = (bowel || []).filter(function(b) { return b.loggedAt && isT(b.loggedAt) && b.type === "urine"; }).length;
+
   return (<div className="pb-28">
     <div className="sticky-grid px-4 pt-4 pb-2">
-      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} />
+      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} />
     </div>
     <div className="px-4">
       {(function() {
@@ -2196,6 +2218,7 @@ function App() {
   var [ooReminderInterval, setOoReminderInterval] = useState(1);
   var [bowelReminderOn, setBowelReminderOn] = useState(false);
   var [bowelReminderTime, setBowelReminderTime] = useState("08:30");
+  var [weeBtnOn, setWeeBtnOn] = useState(true);
   var [showOoPopup, setShowOoPopup] = useState(false);
   var [appleHealth, setAppleHealth] = useState({ steps: null, sleep: null, heartRate: null });
   var [followUp, setFollowUp] = useState(null);
@@ -2208,7 +2231,7 @@ function App() {
 
   var loadData = useCallback(async function(isInitial) {
     try {
-      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"]), ld(K.ooReminderOn, false), ld(K.ooReminderInterval, 1), ld(K.bowelReminderOn, false), ld(K.bowelReminderTime, "08:30")]);
+      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"]), ld(K.ooReminderOn, false), ld(K.ooReminderInterval, 1), ld(K.bowelReminderOn, false), ld(K.bowelReminderTime, "08:30"), ld(K.weeBtnOn, true)]);
       var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17], cdMap = r[18], cexList = r[19], cactList = r[20], alarmsOn = r[21], alarmTimesList = r[22];
       var fm = m.length > 0 ? m : DEF_MEDS;
       fm = fm.filter(function(x) { return x && x.name; });
@@ -2216,7 +2239,7 @@ function App() {
       if (isInitial && (m.length === 0 || fm.length !== m.length)) sv(K.meds, fm);
       var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
       if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
-      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); setCompanionDrinks(cdMap || {}); setCexList(cexList || []); setCactList(cactList || []); setAlarmsOn(alarmsOn || false); setAlarmTimesList(alarmTimesList || ["08:00","12:00","17:00","22:00"]); setOoReminderOn(r[23] || false); setOoReminderInterval(r[24] || 1); setBowelReminderOn(r[25] || false); setBowelReminderTime(r[26] || "08:30");
+      sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); setCompanionDrinks(cdMap || {}); setCexList(cexList || []); setCactList(cactList || []); setAlarmsOn(alarmsOn || false); setAlarmTimesList(alarmTimesList || ["08:00","12:00","17:00","22:00"]); setOoReminderOn(r[23] || false); setOoReminderInterval(r[24] || 1); setBowelReminderOn(r[25] || false); setBowelReminderTime(r[26] || "08:30"); setWeeBtnOn(r[27] !== undefined ? r[27] : true);
       if (isInitial) {
         var now = Date.now();
         var twoHours = 2 * 60 * 60 * 1000;
@@ -2480,11 +2503,11 @@ function App() {
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="text-right"><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span><br/><span className="text-xs text-indigo-400">Build {BUILD_VERSION} <button onClick={function() { window.location.reload(true); }} style={{background:'none',border:'none',cursor:'pointer',color:'white',fontSize:'0.75rem',padding:0,verticalAlign:'middle'}}>🔄</button></span></div></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} />}
+    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} bowelReminderOn={bowelReminderOn} setBowelReminderOn={function(v) { setBowelReminderOn(v); sv(K.bowelReminderOn, v); }} bowelReminderTime={bowelReminderTime} setBowelReminderTime={function(v) { setBowelReminderTime(v); sv(K.bowelReminderTime, v); }} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
+    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} bowelReminderOn={bowelReminderOn} setBowelReminderOn={function(v) { setBowelReminderOn(v); sv(K.bowelReminderOn, v); }} bowelReminderTime={bowelReminderTime} setBowelReminderTime={function(v) { setBowelReminderTime(v); sv(K.bowelReminderTime, v); }} weeBtnOn={weeBtnOn} setWeeBtnOn={function(v) { setWeeBtnOn(v); sv(K.weeBtnOn, v); }} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
     {showOoPopup && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={function() { setShowOoPopup(false); }}>
       <div style={{background:"white",borderRadius:"1.25rem",padding:"1.5rem",width:"min(320px,90vw)",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={function(e) { e.stopPropagation(); }}>
         <div style={{textAlign:"center",marginBottom:"1rem"}}>
