@@ -264,9 +264,9 @@ function DoseMod(p) {
   var [time, sTime] = useState(isEdit ? ft(ex.takenAt) : nw());
   var [date, sDate] = useState(isEdit ? dateOf(ex.takenAt) : td());
   var [dose, setDose] = useState(isEdit ? (ex.dose || "") : (function() {
-    // Default to "2 tablets" for Sinemet 12.5/50 (co-careldopa low-strength)
-    var hay = ((med.name || "") + " " + (med.dose || "")).toLowerCase().replace(/\s+/g, "");
-    if (/12\.5\/?50|121\/250|12-?12-?50/.test(hay)) return "2 tablets";
+    // Default to "2 tablets" for Sinemet 12.5/50
+    var hay = ((med.name || "") + " " + (med.dose || "")).replace(/\s+/g, "");
+    if (/12\.5\/50/.test(hay)) return "2 tablets";
     return med.dose || "";
   })());
   var cd = p.companionDrink || null;
