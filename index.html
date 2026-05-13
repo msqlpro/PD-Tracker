@@ -110,7 +110,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v20 May13 — 12.5/50 defaults to 2 tablets";
+var BUILD_VERSION = "v21 May13 — manual fast blocks auto-fast";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -2402,6 +2402,10 @@ function App() {
     // Auto-calculate fasting: first meal of today + last meal of yesterday
     var mealDate = (meal.loggedAt || "").slice(0,10);
     if (mealDate === td()) {
+      var autoId = "auto_fast_" + td();
+      // Skip auto-calc if user has logged a manual fast for today
+      var manualFastToday = fast.find(function(f){ return f.date === td() && f.id !== autoId; });
+      if (manualFastToday) return;
       var allMeals = meals.filter(function(m) { return m.id !== meal.id; }).concat([meal]);
       var todayMeals = allMeals.filter(function(m) { return (m.loggedAt||"").slice(0,10) === td(); })
         .sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
@@ -2414,7 +2418,6 @@ function App() {
       var lastYd = ydMeals[0];
       var hrs = Math.round(((new Date(firstToday.loggedAt) - new Date(lastYd.loggedAt)) / 3600000) * 10) / 10;
       if (hrs <= 0 || hrs > 36) return;
-      var autoId = "auto_fast_" + td();
       var fastEntry = { id: autoId, startTime: ft(lastYd.loggedAt), endTime: ft(firstToday.loggedAt), hours: hrs, date: td() };
       var existing = fast.find(function(f){ return f.id === autoId; });
       if (existing) { uFast(fastEntry); } else { aFast(fastEntry); }
