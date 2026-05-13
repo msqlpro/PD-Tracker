@@ -110,7 +110,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v21 May13 — manual fast blocks auto-fast";
+var BUILD_VERSION = "v22 May13 — modal inputs auto-scroll above keyboard";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -200,7 +200,26 @@ function FoodBreakdown(p) {
   if (!p.items || !p.items.length) return null;
   return (<div><div className="space-y-0.5">{p.items.map(function(it, i) { return (<div key={i} className="flex items-center justify-between text-xs py-0.5"><span className="text-gray-700 truncate mr-2">{it.emoji} <span className="capitalize font-medium">{it.food}</span>{it.multiplier !== 1 && <span className="text-gray-400"> x{it.multiplier}</span>}<span className="text-gray-400 ml-1">({it.per})</span></span><span className="flex gap-1.5 shrink-0"><span className="text-red-600">P:{it.protein}</span><span className="text-amber-600">C:{it.carbs}</span><span className="text-green-600">F:{it.fibre}</span><span className="text-pink-600">Cal:{it.calories}</span><span className="text-purple-600">S:{it.sugar||0}</span></span></div>); })}</div><div className="flex flex-wrap gap-2 mt-1.5 pt-1.5 border-t border-gray-200"><span className="text-xs font-bold text-gray-600">Total:</span><NB l="P" v={p.totals.protein} c="text-red-700" /><NB l="C" v={p.totals.carbs} c="text-amber-700" /><NB l="F" v={p.totals.fibre} c="text-green-700" /><NB l="Cal" v={p.totals.calories} c="text-pink-700" /><NB l="S" v={p.totals.sugar||0} c="text-purple-700" /></div></div>);
 }
-function Mod(p) { return (<div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" onClick={p.onClose}><div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto" onClick={function(e) { e.stopPropagation(); }}><div style={{padding:"1rem", paddingBottom:"max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem))"}}>{p.children}</div></div></div>); }
+function Mod(p) {
+  var modRef = React.useRef(null);
+  useEffect(function() {
+    var el = modRef.current;
+    if (!el) return;
+    var handler = function(e) {
+      var tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        var target = e.target;
+        // Wait for iOS keyboard animation, then scroll the field into view
+        setTimeout(function() {
+          try { target.scrollIntoView({ block: "center", behavior: "smooth" }); } catch(_) {}
+        }, 350);
+      }
+    };
+    el.addEventListener("focusin", handler);
+    return function() { el.removeEventListener("focusin", handler); };
+  }, []);
+  return (<div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" onClick={p.onClose}><div ref={modRef} className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto" onClick={function(e) { e.stopPropagation(); }}><div style={{padding:"1rem", paddingBottom:"max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem))"}}>{p.children}</div></div></div>);
+}
 function SaveDel(p) { return (<div className="flex gap-2 mt-4">{p.canDel && <button onClick={p.onDel} className="flex-1 py-3 bg-red-100 text-red-600 rounded-xl font-semibold">Delete</button>}<button onClick={p.onSave} className={"flex-1 py-3 text-white rounded-xl font-bold " + (p.color || "bg-blue-600")}>{p.label}</button></div>); }
 function RenderMD(p) {
   var lines = (p.text || "").split("\n");
