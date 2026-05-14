@@ -2419,8 +2419,10 @@ function App() {
     if (!meal) return;
     meals.find(function(m) { return m.id === meal.id; }) ? uMeal(meal) : aMeal(meal);
     // Auto-calculate fasting: first meal of today + last meal of yesterday
+    // Recalc fires when meal is dated today OR yesterday (a backdated yesterday meal still affects today's fast window)
     var mealDate = (meal.loggedAt || "").slice(0,10);
-    if (mealDate === td()) {
+    var yd = (function(){ var d=new Date(); d.setDate(d.getDate()-1); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); })();
+    if (mealDate === td() || mealDate === yd) {
       var autoId = "auto_fast_" + td();
       // Skip auto-calc if user has logged a manual fast for today
       var manualFastToday = fast.find(function(f){ return f.date === td() && f.id !== autoId; });
@@ -2430,7 +2432,6 @@ function App() {
         .sort(function(a,b){ return (a.loggedAt||"").localeCompare(b.loggedAt||""); });
       if (todayMeals.length === 0) return;
       var firstToday = todayMeals[0];
-      var yd = (function(){ var d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
       var ydMeals = allMeals.filter(function(m){ return (m.loggedAt||"").slice(0,10) === yd; })
         .sort(function(a,b){ return (b.loggedAt||"").localeCompare(a.loggedAt||""); });
       if (ydMeals.length === 0) return;
