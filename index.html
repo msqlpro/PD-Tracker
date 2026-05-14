@@ -110,7 +110,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v24 May14 — auto-update banner detects new deploys";
+var BUILD_VERSION = "v25 May14 — faster update polling (60s) + iOS visibilitychange";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -2393,7 +2393,7 @@ function App() {
     return function() { clearInterval(interval); };
   }, [bowelReminderOn, bowelReminderTime, bowel]);
 
-  // Poll deployed index.html for a newer BUILD_VERSION every 5 mins.
+  // Poll deployed index.html for a newer BUILD_VERSION every 60s.
   // Surfaces a banner when GitHub Pages has shipped a new build.
   useEffect(function() {
     var stopped = false;
@@ -2408,12 +2408,14 @@ function App() {
         })
         .catch(function() {});
     }
-    var t1 = setTimeout(checkForUpdate, 10000);
-    var t2 = setInterval(checkForUpdate, 5 * 60 * 1000);
-    // Also re-check whenever the app regains focus (returning from background)
+    var t1 = setTimeout(checkForUpdate, 2000);
+    var t2 = setInterval(checkForUpdate, 60 * 1000);
+    // Re-check on focus AND visibilitychange — iOS PWAs often only fire the latter
     var onFocus = function() { checkForUpdate(); };
+    var onVisible = function() { if (document.visibilityState === "visible") checkForUpdate(); };
     window.addEventListener("focus", onFocus);
-    return function() { stopped = true; clearTimeout(t1); clearInterval(t2); window.removeEventListener("focus", onFocus); };
+    document.addEventListener("visibilitychange", onVisible);
+    return function() { stopped = true; clearTimeout(t1); clearInterval(t2); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
 
   function add(setter, key) { return function(item) { setter(function(prev) { var items = Array.isArray(item) ? item : [item]; var u = prev.concat(items); items.forEach(function(it) { dbSave(key, it); }); return u; }); }; }
