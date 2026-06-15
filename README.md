@@ -41,6 +41,8 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 ### 2026-06-15
 - **Protein timing (levodopa)** — new Settings card to set daytime protein targets (breakfast / lunch / daytime total) and the evening cut-off, for protein-redistribution to protect levodopa absorption
 - **Over-target alerts** — Today screen shows a live daytime-vs-evening protein readout that turns red and lists the breach the moment a logged meal pushes you over a daytime target (no push needed — surfaces in-app at log time)
+- **AI error reasons surfaced** — meal/photo/drink analysis now reports the real API status and message (e.g. 401 invalid key, 400 credit balance too low) instead of a generic "Analysis failed"
+- **Model bump** — meal/photo/drink analysis and AI reports moved from `claude-sonnet-4-5` to `claude-sonnet-4-6` across all call sites
 
 ### 2026-04-13
 - **Fix:** Nutrition totals row now wraps (`flex-wrap`) so the Sugar value no longer overflows off screen on narrow mobile displays
