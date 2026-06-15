@@ -40,6 +40,7 @@ var SUPABASE_URL = "https://dbhsxzbqkwuisvvvukxq.supabase.co";
 var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaHN4emJxa3d1aXN2dnZ1a3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDgzMTIsImV4cCI6MjA4NzI4NDMxMn0.HBrCVs8SxYP1LXHGyNB3sNdYcMkcyjcygx8B_HSmYck";
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 var ANTHROPIC_API_KEY = "";
+var LAST_AI_ERROR = "";
 var CURRENT_UID = null;
 var { useState, useEffect, useCallback } = React;
 
@@ -50,36 +51,42 @@ async function analyzeMealWithAI(description) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 1000, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyze this meal and return ONLY valid JSON (no markdown, no backticks).\nMeal: "' + description + '"\nReturn: {"foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Calculate for exact stated quantities\n- Use real nutritional data\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyze this meal and return ONLY valid JSON (no markdown, no backticks).\nMeal: "' + description + '"\nReturn: {"foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Calculate for exact stated quantities\n- Use real nutritional data\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] })
     });
     var data = await response.json();
+    if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
     var text = (data.content || []).map(function(b) { return b.text || ""; }).join("");
+    LAST_AI_ERROR = "";
     return JSON.parse(text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim());
-  } catch (e) { return null; }
+  } catch (e) { if (!LAST_AI_ERROR) LAST_AI_ERROR = e.message || "network error"; return null; }
 }
 
 async function analyzeMealPhoto(base64Data) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } }, { type: "text", text: 'You are a precise UK nutritionist. Look at this meal photo and return ONLY valid JSON (no markdown, no backticks).\nReturn: {"description":"brief meal description","foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Estimate portion sizes from the photo\n- Use real nutritional data\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } }, { type: "text", text: 'You are a precise UK nutritionist. Look at this meal photo and return ONLY valid JSON (no markdown, no backticks).\nReturn: {"description":"brief meal description","foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Estimate portion sizes from the photo\n- Use real nutritional data\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] }] })
     });
     var data = await response.json();
+    if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
     var text = (data.content || []).map(function(b) { return b.text || ""; }).join("");
+    LAST_AI_ERROR = "";
     return JSON.parse(text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim());
-  } catch (e) { return null; }
+  } catch (e) { if (!LAST_AI_ERROR) LAST_AI_ERROR = e.message || "network error"; return null; }
 }
 
 async function analyzeDrinkWithAI(description, volume) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 800, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyse this drink and return ONLY valid JSON (no markdown, no backticks).\nDrink: "' + description + '"\nVolume: ' + volume + 'ml\nReturn: {"items":[{"item":"name","emoji":"emoji","per":"portion","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}}\nRules:\n- All values in grams (integers) except calories (kcal) and caffeine (mg)\n- Calculate for the exact volume specified\n- UK English spelling\n- Use real nutritional data\n- Never round small values down to 0 (use 1 if tiny)\n- For multi-ingredient drinks (smoothies, lattes, cocktails) break down each component\n- Use an appropriate emoji per item' }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyse this drink and return ONLY valid JSON (no markdown, no backticks).\nDrink: "' + description + '"\nVolume: ' + volume + 'ml\nReturn: {"items":[{"item":"name","emoji":"emoji","per":"portion","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}}\nRules:\n- All values in grams (integers) except calories (kcal) and caffeine (mg)\n- Calculate for the exact volume specified\n- UK English spelling\n- Use real nutritional data\n- Never round small values down to 0 (use 1 if tiny)\n- For multi-ingredient drinks (smoothies, lattes, cocktails) break down each component\n- Use an appropriate emoji per item' }] })
     });
     var data = await response.json();
+    if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
     var text = (data.content || []).map(function(b) { return b.text || ""; }).join("");
+    LAST_AI_ERROR = "";
     return JSON.parse(text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim());
-  } catch (e) { return null; }
+  } catch (e) { if (!LAST_AI_ERROR) LAST_AI_ERROR = e.message || "network error"; return null; }
 }
 
 async function generateReport(period, data) {
@@ -101,7 +108,7 @@ async function generateReport(period, data) {
     if (data.activity && data.activity.length) { summary += "\nACTIVITIES/THERAPIES (" + data.activity.length + "):\n"; data.activity.forEach(function(a) { summary += "- " + (a.loggedAt || "").slice(0, 16) + " " + a.type + " " + a.duration + "min\n"; }); }
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 2000, messages: [{ role: "user", content: summary + "\n\nYou are a Parkinson's disease tracking analyst. Provide a clear, insightful " + period + " report covering:\n1. **Medication Patterns** - timing consistency, effectiveness trends\n2. **Protein-Medication Interaction** - ONLY flag if HIGH-protein meal (30g+) eaten within 30 min BEFORE a dose\n3. **Symptom Trends**\n4. **ON/OFF Analysis**\n5. **Sleep Impact**\n6. **Exercise Benefits**\n7. **Nutrition Overview**\n8. **Fasting Compliance** - 14h target\n9. **Weight Trends**\n10. **Mood Patterns**\n11. **Gut Health & Bowel**\n12. **Key Recommendations** - 3-5 actionable suggestions\n\nCRITICAL RULES:\n- Levodopa best absorbed on empty stomach. Do NOT recommend eating before/with medication.\n- 12pm and 5pm doses overlap with eating window - this is NORMAL.\n- Only flag ACTUAL problems. Be encouraging. Use emoji. Markdown formatting." }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 2000, messages: [{ role: "user", content: summary + "\n\nYou are a Parkinson's disease tracking analyst. Provide a clear, insightful " + period + " report covering:\n1. **Medication Patterns** - timing consistency, effectiveness trends\n2. **Protein-Medication Interaction** - ONLY flag if HIGH-protein meal (30g+) eaten within 30 min BEFORE a dose\n3. **Symptom Trends**\n4. **ON/OFF Analysis**\n5. **Sleep Impact**\n6. **Exercise Benefits**\n7. **Nutrition Overview**\n8. **Fasting Compliance** - 14h target\n9. **Weight Trends**\n10. **Mood Patterns**\n11. **Gut Health & Bowel**\n12. **Key Recommendations** - 3-5 actionable suggestions\n\nCRITICAL RULES:\n- Levodopa best absorbed on empty stomach. Do NOT recommend eating before/with medication.\n- 12pm and 5pm doses overlap with eating window - this is NORMAL.\n- Only flag ACTUAL problems. Be encouraging. Use emoji. Markdown formatting." }] })
     });
     var result = await response.json();
     return (result.content || []).map(function(b) { return b.text || ""; }).join("");
@@ -110,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v26 Jun15 — protein timing (levodopa) targets + over-target alerts";
+var BUILD_VERSION = "v27 Jun15 — surface AI error reasons + model bump to sonnet-4-6";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -394,8 +401,8 @@ function MealMod(p) {
   var [me, setMe] = useState(false);
   var [mt, setMt] = useState(edit ? { protein: edit.protein, carbs: edit.carbs, fibre: edit.fibre, calories: edit.calories || 0, sugar: edit.sugar } : null);
   var [sp, setSp] = useState(!edit);
-  var analyze = async function() { if (!desc.trim()) return; setLoad(true); setErr(null); var r = await analyzeMealWithAI(desc); if (r) { setAi(r); if (!me) setMt(null); } else setErr("Analysis failed. Try again or adjust totals manually."); setLoad(false); };
-  var analyzePhoto = async function(file) { setLoad(true); setErr(null); try { var reader = new FileReader(); var b64 = await new Promise(function(res, rej) { reader.onload = function() { res(reader.result.split(",")[1]); }; reader.onerror = rej; reader.readAsDataURL(file); }); var r = await analyzeMealPhoto(b64); if (r) { if (r.description) setDesc(r.description); setAi({ foods: r.foods, totals: r.totals }); if (!me) setMt(null); } else setErr("Photo analysis failed."); } catch(e) { setErr("Photo error: " + e.message); } setLoad(false); };
+  var analyze = async function() { if (!desc.trim()) return; setLoad(true); setErr(null); var r = await analyzeMealWithAI(desc); if (r) { setAi(r); if (!me) setMt(null); } else setErr("Analysis failed: " + (LAST_AI_ERROR || "try again or adjust totals manually")); setLoad(false); };
+  var analyzePhoto = async function(file) { setLoad(true); setErr(null); try { var reader = new FileReader(); var b64 = await new Promise(function(res, rej) { reader.onload = function() { res(reader.result.split(",")[1]); }; reader.onerror = rej; reader.readAsDataURL(file); }); var r = await analyzeMealPhoto(b64); if (r) { if (r.description) setDesc(r.description); setAi({ foods: r.foods, totals: r.totals }); if (!me) setMt(null); } else setErr("Photo analysis failed: " + (LAST_AI_ERROR || "try again")); } catch(e) { setErr("Photo error: " + e.message); } setLoad(false); };
   var fin = mt || (aiResult ? aiResult.totals : null) || { protein: 0, carbs: 0, fibre: 0, calories: 0, sugar: 0 };
 
   // Build favourites: meals eaten 3+ times in last 30 days, sorted by frequency
@@ -560,7 +567,7 @@ function DrinkMod(p) {
     setLoad(true); setAiErr(null);
     var r = await analyzeDrinkWithAI(query, vol);
     if (r) { setAi(r); if (!me) setMt(null); }
-    else setAiErr("Analysis failed. Try again or adjust totals manually.");
+    else setAiErr("Analysis failed: " + (LAST_AI_ERROR || "try again or adjust totals manually"));
     setLoad(false);
   };
 
@@ -1362,7 +1369,7 @@ function InsightsPage(p) {
   var runAiAnalysis = async function() {
     sAiLoading(true); sAiInsights(null);
     try {
-      var res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}, body: JSON.stringify({ model:"claude-sonnet-4-5-20250929", max_tokens:1500, messages:[{role:"user",content:buildSummary()+"\n\nYou are a Parkinson's disease data analyst. Analyse the patterns above and give clear, specific insights about how this person's lifestyle factors (sleep, exercise, protein, ON/OFF time) interact with their symptoms and medication effectiveness. Be encouraging, specific, and use emoji. Use markdown formatting."}] }) });
+      var res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}, body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1500, messages:[{role:"user",content:buildSummary()+"\n\nYou are a Parkinson's disease data analyst. Analyse the patterns above and give clear, specific insights about how this person's lifestyle factors (sleep, exercise, protein, ON/OFF time) interact with their symptoms and medication effectiveness. Be encouraging, specific, and use emoji. Use markdown formatting."}] }) });
       var data = await res.json();
       sAiInsights((data.content||[]).map(function(b){return b.text||"";}).join(""));
     } catch(e) { sAiInsights("Analysis failed — check your API key in Settings."); }
@@ -1373,7 +1380,7 @@ function InsightsPage(p) {
     if (!aiQ.trim()) return;
     sAiQLoading(true); sAiQResult(null);
     try {
-      var res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}, body: JSON.stringify({ model:"claude-sonnet-4-5-20250929", max_tokens:1000, messages:[{role:"user",content:buildSummary(aiQ)+"\n\nYou are a helpful Parkinson's disease tracking assistant. Answer the user's question based on their tracking data above. Be specific, reference their actual numbers where relevant, and be encouraging. Use markdown."}] }) });
+      var res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}, body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, messages:[{role:"user",content:buildSummary(aiQ)+"\n\nYou are a helpful Parkinson's disease tracking assistant. Answer the user's question based on their tracking data above. Be specific, reference their actual numbers where relevant, and be encouraging. Use markdown."}] }) });
       var data = await res.json();
       sAiQResult((data.content||[]).map(function(b){return b.text||"";}).join(""));
     } catch(e) { sAiQResult("Failed — check your API key in Settings."); }
@@ -2106,7 +2113,7 @@ async function parseVoiceLog(transcript, medNames) {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 300, messages: [{ role: "user", content: prompt }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 300, messages: [{ role: "user", content: prompt }] })
     });
     var data = await response.json();
     var text = (data.content || []).map(function(b) { return b.text || ""; }).join("");
