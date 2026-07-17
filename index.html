@@ -117,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v27 Jun15 — surface AI error reasons + model bump to sonnet-4-6";
+var BUILD_VERSION = "v28 Jul17 — fix password reset: add Set New Password screen on recovery link";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -2678,15 +2678,48 @@ function AuthScreen() {
   </div>);
 }
 
+function SetNewPasswordScreen({ onDone }) {
+  var [pw1, setPw1] = useState("");
+  var [pw2, setPw2] = useState("");
+  var [loading, setLoading] = useState(false);
+  var [error, setError] = useState("");
+  var [success, setSuccess] = useState(false);
+  var save = async function() {
+    setError("");
+    if (pw1.length < 6) { setError("Password must be at least 6 characters"); return; }
+    if (pw1 !== pw2) { setError("Passwords don't match"); return; }
+    setLoading(true);
+    try {
+      var { error: err } = await sb.auth.updateUser({ password: pw1 });
+      if (err) { setError(err.message); } else { setSuccess(true); setTimeout(onDone, 1500); }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+  return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col">
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-6 pt-12 pb-8 text-center"><div className="text-4xl mb-2">🔑</div><h1 className="text-2xl font-bold tracking-tight">Set New Password</h1><p className="text-indigo-300 text-sm mt-1">Choose a new password for your account</p></div>
+    <div className="p-6 flex-1"><div className="bg-white rounded-2xl p-6 shadow-sm">
+      {success ? (<div className="text-center py-6"><div className="text-4xl mb-3">✅</div><p className="font-bold text-gray-800">Password updated!</p><p className="text-sm text-gray-500 mt-1">Taking you to the app...</p></div>) : (<>
+      <label className="block mb-3"><span className="text-sm font-medium text-gray-700">New password</span><input type="password" value={pw1} onChange={function(e) { setPw1(e.target.value); }} placeholder="Min 6 characters" className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm" autoComplete="new-password" /></label>
+      <label className="block mb-4"><span className="text-sm font-medium text-gray-700">Confirm new password</span><input type="password" value={pw2} onChange={function(e) { setPw2(e.target.value); }} placeholder="Type it again" className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm" autoComplete="new-password" /></label>
+      {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl mb-3">{error}</div>}
+      <button onClick={save} disabled={loading || !pw1 || !pw2} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2">{loading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />Saving...</> : "Save New Password"}</button>
+      <button onClick={onDone} className="w-full text-center text-sm text-gray-400 mt-3">Skip — keep my current password</button>
+      </>)}
+    </div></div>
+  </div>);
+}
+
 function AuthGate() {
   var [session, setSession] = useState(null);
   var [checking, setChecking] = useState(true);
+  var [recovery, setRecovery] = useState(window.location.hash.indexOf("type=recovery") !== -1);
   useEffect(function() {
     sb.auth.getSession().then(function(result) { var s = result.data.session; if (s) { CURRENT_UID = s.user.id; ANTHROPIC_API_KEY = localStorage.getItem("pd_api_key") || ""; } setSession(s); setChecking(false); });
-    var { data: { subscription } } = sb.auth.onAuthStateChange(function(event, s) { if (s) { CURRENT_UID = s.user.id; ANTHROPIC_API_KEY = localStorage.getItem("pd_api_key") || ""; } else { CURRENT_UID = null; } setSession(s); });
+    var { data: { subscription } } = sb.auth.onAuthStateChange(function(event, s) { if (event === "PASSWORD_RECOVERY") setRecovery(true); if (s) { CURRENT_UID = s.user.id; ANTHROPIC_API_KEY = localStorage.getItem("pd_api_key") || ""; } else { CURRENT_UID = null; } setSession(s); });
     return function() { subscription.unsubscribe(); };
   }, []);
   if (checking) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
+  if (session && recovery) return <SetNewPasswordScreen onDone={function() { setRecovery(false); try { history.replaceState(null, "", window.location.pathname); } catch (e) {} }} />;
   if (!session) return <AuthScreen />;
   return <App />;
 }
