@@ -117,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v31 Jul19 — quick logging: 1-tap dose (logs at actual time), Up-next chips, repeat drink, +250ml water, undo toasts";
+var BUILD_VERSION = "v32 Jul19 — email code sign-in: type the 6-digit code in-app, works inside the home-screen app";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -2737,13 +2737,23 @@ function AuthScreen() {
   var [loading, setLoading] = useState(false);
   var [error, setError] = useState("");
   var [success, setSuccess] = useState("");
+  var [codeSent, setCodeSent] = useState(false);
+  var [otpCode, setOtpCode] = useState("");
+  var verifyCode = async function() {
+    setLoading(true); setError("");
+    try {
+      var { error: err } = await sb.auth.verifyOtp({ email: email, token: otpCode.trim(), type: "email" });
+      if (err) setError(err.message === "Token has expired or is invalid" ? "Code invalid or expired — request a fresh one." : err.message);
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
   var handleSubmit = async function() {
     setLoading(true); setError(""); setSuccess("");
     try {
       if (mode === "login") { var { error: err } = await sb.auth.signInWithPassword({ email: email, password: password }); if (err) setError(err.message); }
       else if (mode === "signup") { if (password.length < 6) { setError("Password must be at least 6 characters"); setLoading(false); return; } var { error: err } = await sb.auth.signUp({ email: email, password: password, options: { data: { display_name: name } } }); if (err) setError(err.message); else setSuccess("Check your email for a confirmation link!"); }
       else if (mode === "reset") { var { error: err } = await sb.auth.resetPasswordForEmail(email, { redirectTo: "https://msqlpro.github.io/PD-Tracker/" }); if (err) setError(err.message); else setSuccess("Password reset email sent!"); }
-      else if (mode === "magic") { var { error: err } = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: "https://msqlpro.github.io/PD-Tracker/", shouldCreateUser: false } }); if (err) setError(err.message); else setSuccess("Login link sent! Check your email and tap the link — no password needed."); }
+      else if (mode === "magic") { var { error: err } = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: "https://msqlpro.github.io/PD-Tracker/", shouldCreateUser: false } }); if (err) setError(err.message); else { setCodeSent(true); setSuccess("Email sent! Type the 6-digit code from it below — this signs you in right here (works in the home-screen app)."); } }
     } catch (e) { setError(e.message); }
     setLoading(false);
   };
@@ -2756,6 +2766,10 @@ function AuthScreen() {
       {mode !== "reset" && mode !== "magic" && <label className="block mb-4"><span className="text-sm font-medium text-gray-700">Password</span><input type="password" value={password} onChange={function(e) { setPassword(e.target.value); }} placeholder={mode === "signup" ? "Min 6 characters" : "Your password"} className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-sm" autoComplete={mode === "signup" ? "new-password" : "current-password"} /></label>}
       {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl mb-3">{error}</div>}
       {success && <div className="text-sm text-green-600 bg-green-50 p-3 rounded-xl mb-3">{success}</div>}
+      {mode === "magic" && codeSent && (<div className="mb-3">
+        <label className="block mb-2"><span className="text-sm font-medium text-gray-700">6-digit code from the email</span><input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otpCode} onChange={function(e) { setOtpCode(e.target.value.replace(/\D/g, "")); }} placeholder="123456" autoComplete="one-time-code" className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-center text-2xl tracking-widest font-bold" /></label>
+        <button onClick={verifyCode} disabled={loading || otpCode.length < 6} className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-xl font-bold disabled:opacity-50">{loading ? "Checking..." : "✓ Verify Code & Sign In"}</button>
+      </div>)}
       <button onClick={handleSubmit} disabled={loading || !email} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2">{loading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />Please wait...</> : mode === "login" ? "Log In" : mode === "signup" ? "Create Account" : mode === "magic" ? "Email Me a Login Link" : "Send Reset Email"}</button>
       {mode === "login" && <><button onClick={function() { setMode("magic"); setError(""); setSuccess(""); }} className="w-full py-3 mt-3 bg-white border-2 border-indigo-200 text-indigo-700 rounded-xl font-bold">✉️ Email me a login link (no password)</button><button onClick={function() { setMode("reset"); setError(""); setSuccess(""); }} className="w-full text-center text-sm text-indigo-600 mt-3">Forgot password?</button></>}
       {(mode === "reset" || mode === "magic") && <button onClick={function() { setMode("login"); setError(""); setSuccess(""); }} className="w-full text-center text-sm text-indigo-600 mt-3">← Back to login</button>}
