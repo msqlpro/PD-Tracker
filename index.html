@@ -117,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v33 Jul19 — Quick Symptom: one-tap \"same as last time\" severity memory";
+var BUILD_VERSION = "v34 Jul19 — update banner: cache-busting reload actually loads the new build, plus dismiss button";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -2479,7 +2479,8 @@ function App() {
         .then(function(html) {
           if (stopped || !html) return;
           var m = html.match(/BUILD_VERSION\s*=\s*"([^"]+)"/);
-          if (m && m[1] && m[1] !== BUILD_VERSION) setUpdateAvail(m[1]);
+          var dismissed = null; try { dismissed = sessionStorage.getItem("pd_dismissed_update"); } catch(e) {}
+          if (m && m[1] && m[1] !== BUILD_VERSION && m[1] !== dismissed) setUpdateAvail(m[1]);
         })
         .catch(function() {});
     }
@@ -2659,8 +2660,11 @@ function App() {
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
-    {updateAvail && <button onClick={function() { window.location.reload(true); }} style={{display:"block",width:"100%",background:"linear-gradient(90deg,#10b981,#059669)",color:"white",padding:"0.65rem 1rem",border:"none",cursor:"pointer",fontSize:"0.85rem",fontWeight:600,textAlign:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>🚀 New version available — tap to update <span style={{fontWeight:400,opacity:0.85,fontSize:"0.75rem",display:"block",marginTop:"2px"}}>{updateAvail}</span></button>}
-    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="text-right"><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span><br/><span className="text-xs text-indigo-400">Build {BUILD_VERSION} <button onClick={function() { window.location.reload(true); }} style={{background:'none',border:'none',cursor:'pointer',color:'white',fontSize:'0.75rem',padding:0,verticalAlign:'middle'}}>🔄</button></span></div></div>
+    {updateAvail && (<div style={{display:"flex",alignItems:"stretch",background:"linear-gradient(90deg,#10b981,#059669)",boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>
+      <button onClick={function() { window.location.href = window.location.pathname + "?u=" + Date.now(); }} style={{flex:1,background:"none",color:"white",padding:"0.65rem 1rem",border:"none",cursor:"pointer",fontSize:"0.85rem",fontWeight:600,textAlign:"center"}}>🚀 New version available — tap to update <span style={{fontWeight:400,opacity:0.85,fontSize:"0.75rem",display:"block",marginTop:"2px"}}>{updateAvail}</span></button>
+      <button onClick={function() { try { sessionStorage.setItem("pd_dismissed_update", updateAvail); } catch(e) {} setUpdateAvail(null); }} style={{background:"rgba(0,0,0,0.15)",color:"white",border:"none",cursor:"pointer",padding:"0 14px",fontSize:"1.1rem",fontWeight:700}}>×</button>
+    </div>)}
+    <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="text-right"><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span><br/><span className="text-xs text-indigo-400">Build {BUILD_VERSION} <button onClick={function() { window.location.href = window.location.pathname + "?u=" + Date.now(); }} style={{background:'none',border:'none',cursor:'pointer',color:'white',fontSize:'0.75rem',padding:0,verticalAlign:'middle'}}>🔄</button></span></div></div>
     {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
