@@ -117,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v30 Jul19 — magic link login: sign in via emailed link, no password needed";
+var BUILD_VERSION = "v31 Jul19 — quick logging: 1-tap dose (logs at actual time), Up-next chips, repeat drink, +250ml water, undo toasts";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -273,11 +273,15 @@ function MedPickerMod(p) {
         {p.meds.map(function(m) {
           var isGroup = m.items && m.items.length > 0;
           return (
-            <button key={m.id} onClick={function() { p.onSelect(m); }}
-              className={"w-full text-white rounded-2xl p-4 text-left shadow-md " + (isGroup ? "bg-gradient-to-r from-emerald-600 to-teal-500" : "bg-gradient-to-r from-indigo-600 to-blue-500")}>
-              <div className="font-bold text-base">{isGroup ? "🧺" : "💊"} {m.name}{isGroup ? " (" + m.items.length + ")" : ""}</div>
-              {m.dose ? <div className={"text-sm mt-0.5 " + (isGroup ? "text-emerald-100" : "text-indigo-200")}>{m.dose}</div> : null}
-            </button>
+            <div key={m.id} className="flex gap-2 items-stretch">
+              <button onClick={function() { if (p.onQuickLog) p.onQuickLog(m); else p.onSelect(m); }}
+                className={"flex-1 text-white rounded-2xl p-4 text-left shadow-md " + (isGroup ? "bg-gradient-to-r from-emerald-600 to-teal-500" : "bg-gradient-to-r from-indigo-600 to-blue-500")}>
+                <div className="font-bold text-base">{isGroup ? "🧺" : "💊"} {m.name}{isGroup ? " (" + m.items.length + ")" : ""}</div>
+                <div className={"text-xs mt-0.5 " + (isGroup ? "text-emerald-100" : "text-indigo-200")}>{m.dose ? m.dose + " · " : ""}Tap to log now</div>
+              </button>
+              <button onClick={function() { p.onSelect(m); }} title="Details / different time"
+                className="w-14 rounded-2xl bg-gray-100 text-gray-500 text-xl font-bold shadow-sm">⋯</button>
+            </div>
           );
         })}
       </div>
@@ -1737,6 +1741,46 @@ function AppGrid(p) {
   </div>);
 }
 
+function QuickChips(p) {
+  var chips = [];
+  var now = new Date();
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  // Dose reminder chip: an alarm time is within +/-45 min and no dose of the
+  // primary med has been logged near it yet. Tapping logs at the CURRENT time
+  // (never backfilled to the scheduled time - doses can slip).
+  var primary = (p.meds || []).find(function(m) { return !(m.items && m.items.length); });
+  if (primary) {
+    var times = (p.alarmTimes && p.alarmTimes.length ? p.alarmTimes : (primary.times || []));
+    var due = null;
+    (times || []).forEach(function(t) {
+      if (due) return;
+      var pr = (t || "").split(":");
+      var tm = (parseInt(pr[0]) || 0) * 60 + (parseInt(pr[1]) || 0);
+      if (Math.abs(nowMins - tm) > 45) return;
+      var covered = (p.logs || []).some(function(l) {
+        if (!l.takenAt || !isT(l.takenAt) || l.medId !== primary.id) return false;
+        var d = new Date(l.takenAt); var lm = d.getHours() * 60 + d.getMinutes();
+        return Math.abs(lm - tm) <= 60;
+      });
+      if (!covered) due = t;
+    });
+    if (due) chips.push({ key: "dose", cls: "linear-gradient(135deg,#4f46e5,#3b82f6)", label: "💊 " + primary.name + " (" + due + " dose) · log now", onTap: function() { p.onQuickDose(primary); } });
+  }
+  // Repeat last drink chip (excludes water & auto companion drinks)
+  var lastD = (p.drinks || []).filter(function(d) { return d.loggedAt && !d.companionForLogId && d.drinkId !== "water"; })
+    .sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0];
+  if (lastD) chips.push({ key: "redrink", cls: "linear-gradient(135deg,#0891b2,#0ea5e9)", label: "🔁 " + (lastD.emoji || "🥤") + " " + lastD.name + " " + (lastD.volume || 250) + "ml", onTap: function() { p.onRepeatDrink(lastD); } });
+  // Always-on water tap counter
+  chips.push({ key: "water", cls: "linear-gradient(135deg,#0284c7,#38bdf8)", label: "💧 +250ml water", onTap: p.onWater });
+  if (!chips.length) return null;
+  return (<div style={{display:"flex",gap:"8px",overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:"4px",marginBottom:"8px"}}>
+    {chips.map(function(c) {
+      return (<button key={c.key} onClick={c.onTap}
+        style={{flexShrink:0,background:c.cls,color:"#fff",border:"none",borderRadius:"999px",padding:"10px 16px",fontWeight:700,fontSize:"13px",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",cursor:"pointer",whiteSpace:"nowrap"}}>{c.label}</button>);
+    })}
+  </div>);
+}
+
 function TodayPage(p) {
   var meds = p.meds, logs = p.logs, meals = p.meals, ex = p.ex, slp = p.slp, sym = p.sym, oo = p.oo, fast = p.fast, drinks = p.drinks, weight = p.weight || [], mood = p.mood || [], bowel = p.bowel || [], activity = p.activity || [], setM = p.setM;
   var tL = logs.filter(function(l) { return l.takenAt && isT(l.takenAt); });
@@ -1769,6 +1813,7 @@ function TodayPage(p) {
       <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} />
     </div>
     <div className="px-4">
+      <QuickChips meds={meds} logs={logs} drinks={drinks} alarmTimes={p.alarmTimes} onQuickDose={p.onQuickDose} onRepeatDrink={p.onRepeatDrink} onWater={p.onWater} />
       {(function() {
         // Morning check-in banner: show before 12:00 if no sleep logged today
         // Also shown any time if sleep not yet logged (test-friendly)
@@ -2240,6 +2285,13 @@ function App() {
   var [medTarget, sMedTarget] = useState(4);
   var [dark, sDark] = useState(false);
   var [modal, sModal] = useState(null);
+  var [toast, setToast] = useState(null);
+  var toastTimerRef = React.useRef(null);
+  var showToast = function(msg, undoFn) {
+    setToast({ msg: msg, undo: undoFn });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(function() { setToast(null); }, 6000);
+  };
   var [ready, setReady] = useState(false);
   var [companionDrinks, setCompanionDrinks] = useState({});
   var [cexList, setCexList] = useState([]);
@@ -2556,6 +2608,34 @@ function App() {
     close();
   };
 
+  // ---- One-tap quick logging (always logs at the CURRENT time, never the scheduled time) ----
+  var quickDoseLog = function(med) {
+    var nowIso = new Date().toISOString();
+    if (med.items && med.items.length) {
+      var baseId = Date.now(); var items = [];
+      med.items.forEach(function(it, i) { items.push({ id: (baseId + i).toString(), medId: med.id + "_" + i, medName: it.name, dose: it.dose || "", takenAt: nowIso, effectiveness: 0 }); });
+      handleGroupDoseSave(items, companionDrinks[med.id] ? items[0].id : null);
+      showToast("🧺 Logged " + med.name + " (" + items.length + ") at " + nw(), function() { items.forEach(function(l) { dLog(l.id); }); if (companionDrinks[med.id]) dDrink("cd_" + items[0].id); });
+    } else {
+      var hay = ((med.name || "") + " " + (med.dose || "")).replace(/\s+/g, "");
+      var dose = /12\.5\/50/.test(hay) ? "2 tablets" : (med.dose || "");
+      var logItem = { id: Date.now().toString(), medId: med.id, medName: med.name, dose: dose, takenAt: nowIso, effectiveness: 0 };
+      handleDoseSave(logItem, companionDrinks[med.id] ? logItem.id : null);
+      showToast("💊 Logged " + med.name + " at " + nw(), function() { dLog(logItem.id); if (companionDrinks[med.id]) dDrink("cd_" + logItem.id); });
+    }
+  };
+  var repeatDrink = function(d) {
+    var item = Object.assign({}, d, { id: Date.now().toString(), loggedAt: new Date().toISOString(), note: "" });
+    delete item.companionForLogId;
+    aDrink(item);
+    showToast("🥤 Logged " + item.name + " " + (item.volume || 250) + "ml", function() { dDrink(item.id); });
+  };
+  var quickWater = function() {
+    var item = { id: Date.now().toString(), drinkId: "water", name: "Water", emoji: "💧", volume: 250, caffeine: 0, calories: 0, sugar: 0, carbs: 0, protein: 0, fibre: 0, loggedAt: new Date().toISOString() };
+    aDrink(item);
+    showToast("💧 +250ml water", function() { dDrink(item.id); });
+  };
+
   var handleDoseDelete = function(logId) {
     dLog(logId);
     var compDrink = drinks.find(function(d) { return d.companionForLogId === logId || d.id === "cd_" + logId; });
@@ -2571,7 +2651,7 @@ function App() {
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
     {updateAvail && <button onClick={function() { window.location.reload(true); }} style={{display:"block",width:"100%",background:"linear-gradient(90deg,#10b981,#059669)",color:"white",padding:"0.65rem 1rem",border:"none",cursor:"pointer",fontSize:"0.85rem",fontWeight:600,textAlign:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>🚀 New version available — tap to update <span style={{fontWeight:400,opacity:0.85,fontSize:"0.75rem",display:"block",marginTop:"2px"}}>{updateAvail}</span></button>}
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="text-right"><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span><br/><span className="text-xs text-indigo-400">Build {BUILD_VERSION} <button onClick={function() { window.location.reload(true); }} style={{background:'none',border:'none',cursor:'pointer',color:'white',fontSize:'0.75rem',padding:0,verticalAlign:'middle'}}>🔄</button></span></div></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
+    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
@@ -2611,7 +2691,7 @@ function App() {
     </div>
     {showQuickSym && <QuickSymPanel onClose={function() { setShowQuickSym(false); }} onSave={function(item) { aSym(item); setShowQuickSym(false); }} />}
     {followUp && <DoseFollowUpMod medName={followUp.medName} minutesAfter={followUp.minutesAfter} onDismiss={function() { setFollowUp(null); }} onSave={function(result) { var stamp = new Date().toISOString(); if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); } if (result.eff && followUp.logId) { var existing = logs.find(function(l) { return l.id === followUp.logId; }); if (existing) { uLog(Object.assign({}, existing, { effectiveness: result.eff })); } } setFollowUp(null); }} />}
-    {modal && modal.type === "medPicker" && <MedPickerMod meds={meds} onSelect={function(m) { sModal({ type: (m.items && m.items.length > 0) ? "groupDose" : "dose", med: m }); }} onClose={close} />}
+    {modal && modal.type === "medPicker" && <MedPickerMod meds={meds} onQuickLog={function(m) { quickDoseLog(m); close(); }} onSelect={function(m) { sModal({ type: (m.items && m.items.length > 0) ? "groupDose" : "dose", med: m }); }} onClose={close} />}
     {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} meals={meals} onSave={handleDoseSave} onClose={close} />}
     {modal && modal.type === "groupDose" && <GroupDoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} onSaveGroup={handleGroupDoseSave} onClose={close} />}
     {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} meals={meals} onSave={function(l) { uLog(l); close(); }} onDelete={handleDoseDelete} onClose={close} />}
@@ -2642,6 +2722,10 @@ function App() {
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
     {modal && modal.type === "activity" && <ActivityMod cactList={cactList} onSaveCact={function(v) { setCactList(v); sv(K.cact, v); }} onSave={function(a) { aAct(a); close(); }} onClose={close} />}
     {modal && modal.type === "eActivity" && <ActivityMod existing={modal.data} cactList={cactList} onSaveCact={function(v) { setCactList(v); sv(K.cact, v); }} onSave={function(a) { uAct(a); close(); }} onDelete={function(id) { dAct(id); close(); }} onClose={close} />}
+    {toast && (<div style={{position:"fixed",left:"12px",right:"12px",bottom:"88px",zIndex:80,background:"#111827",color:"#fff",borderRadius:"14px",padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 8px 24px rgba(0,0,0,0.35)",maxWidth:"420px",margin:"0 auto"}}>
+      <span style={{fontSize:"14px",fontWeight:600}}>{toast.msg}</span>
+      <button onClick={function() { if (toast.undo) toast.undo(); setToast(null); }} style={{marginLeft:"12px",background:"#374151",color:"#93c5fd",border:"none",borderRadius:"10px",padding:"8px 14px",fontWeight:700,cursor:"pointer",flexShrink:0}}>Undo</button>
+    </div>)}
   </div>);
 }
 
