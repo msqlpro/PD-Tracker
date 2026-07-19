@@ -117,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v32 Jul19 — email code sign-in: type the 6-digit code in-app, works inside the home-screen app";
+var BUILD_VERSION = "v33 Jul19 — Quick Symptom: one-tap \"same as last time\" severity memory";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -1479,6 +1479,9 @@ var DEF_APP_BUTTONS = [
 
 function QuickSymPanel(p) {
   var [sel, setSel] = useState(null);
+  var lastSev = {};
+  try { lastSev = JSON.parse(localStorage.getItem("pd_last_sev") || "{}"); } catch (e) {}
+  var rememberSev = function(symId, sev) { try { lastSev[symId] = sev; localStorage.setItem("pd_last_sev", JSON.stringify(lastSev)); } catch (e) {} };
   var SEV_LABELS = ["", "Mild", "Low", "Moderate", "High", "Severe"];
   var SEV_COLORS = ["", "#16a34a", "#65a30d", "#d97706", "#ea580c", "#dc2626"];
   return (
@@ -1501,12 +1504,19 @@ function QuickSymPanel(p) {
       </div>
       {sel && (
         <div>
+          {lastSev[sel] ? (<button onClick={function() {
+            var stamp = new Date().toISOString();
+            rememberSev(sel, lastSev[sel]);
+            p.onSave({ id: Date.now().toString() + "_qs_" + sel, symptomId: sel, severity: lastSev[sel], notes: "", loggedAt: stamp });
+            p.onClose();
+          }} style={{width:"100%",marginBottom:"10px",padding:"12px",borderRadius:"12px",border:"none",background:"#4f46e5",color:"#fff",fontWeight:700,fontSize:"15px",cursor:"pointer"}}>⚡ Same as last time · severity {lastSev[sel]}</button>) : null}
           <div style={{fontSize:"12px",color:"#6b7280",marginBottom:"8px",textAlign:"center"}}>Tap severity to log immediately</div>
           <div style={{display:"flex",gap:"8px"}}>
             {[1,2,3,4,5].map(function(n) {
               return (
                 <button key={n} onClick={function() {
                   var stamp = new Date().toISOString();
+                  rememberSev(sel, n);
                   p.onSave({ id: Date.now().toString() + "_qs_" + sel, symptomId: sel, severity: n, notes: "", loggedAt: stamp });
                   p.onClose();
                 }} style={{flex:1,padding:"14px 0",borderRadius:"12px",border:"none",background:SEV_COLORS[n],color:"#fff",fontWeight:700,fontSize:"16px",cursor:"pointer"}}>
