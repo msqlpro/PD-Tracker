@@ -117,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v34 Jul19 — update banner: cache-busting reload actually loads the new build, plus dismiss button";
+var BUILD_VERSION = "v35 Jul22 — login code fix: accepts 8-character alphanumeric codes (was stripping letters and capping at 6 digits)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -2767,7 +2767,7 @@ function AuthScreen() {
       if (mode === "login") { var { error: err } = await sb.auth.signInWithPassword({ email: email, password: password }); if (err) setError(err.message); }
       else if (mode === "signup") { if (password.length < 6) { setError("Password must be at least 6 characters"); setLoading(false); return; } var { error: err } = await sb.auth.signUp({ email: email, password: password, options: { data: { display_name: name } } }); if (err) setError(err.message); else setSuccess("Check your email for a confirmation link!"); }
       else if (mode === "reset") { var { error: err } = await sb.auth.resetPasswordForEmail(email, { redirectTo: "https://msqlpro.github.io/PD-Tracker/" }); if (err) setError(err.message); else setSuccess("Password reset email sent!"); }
-      else if (mode === "magic") { var { error: err } = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: "https://msqlpro.github.io/PD-Tracker/", shouldCreateUser: false } }); if (err) setError(err.message); else { setCodeSent(true); setSuccess("Email sent! Type the 6-digit code from it below — this signs you in right here (works in the home-screen app)."); } }
+      else if (mode === "magic") { var { error: err } = await sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: "https://msqlpro.github.io/PD-Tracker/", shouldCreateUser: false } }); if (err) setError(err.message); else { setCodeSent(true); setSuccess("Email sent! Type the code from it below — this signs you in right here (works in the home-screen app)."); } }
     } catch (e) { setError(e.message); }
     setLoading(false);
   };
@@ -2781,7 +2781,7 @@ function AuthScreen() {
       {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl mb-3">{error}</div>}
       {success && <div className="text-sm text-green-600 bg-green-50 p-3 rounded-xl mb-3">{success}</div>}
       {mode === "magic" && codeSent && (<div className="mb-3">
-        <label className="block mb-2"><span className="text-sm font-medium text-gray-700">6-digit code from the email</span><input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otpCode} onChange={function(e) { setOtpCode(e.target.value.replace(/\D/g, "")); }} placeholder="123456" autoComplete="one-time-code" className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-center text-2xl tracking-widest font-bold" /></label>
+        <label className="block mb-2"><span className="text-sm font-medium text-gray-700">Code from the email</span><input type="text" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={10} value={otpCode} onChange={function(e) { setOtpCode(e.target.value.replace(/\s/g, "")); }} placeholder="code from email" autoComplete="one-time-code" className="mt-1 w-full p-3 border border-gray-300 rounded-xl text-center text-2xl tracking-widest font-bold" /></label>
         <button onClick={verifyCode} disabled={loading || otpCode.length < 6} className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-xl font-bold disabled:opacity-50">{loading ? "Checking..." : "✓ Verify Code & Sign In"}</button>
       </div>)}
       <button onClick={handleSubmit} disabled={loading || !email} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2">{loading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />Please wait...</> : mode === "login" ? "Log In" : mode === "signup" ? "Create Account" : mode === "magic" ? "Email Me a Login Link" : "Send Reset Email"}</button>
