@@ -51,7 +51,7 @@ async function analyzeMealWithAI(description) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyze this meal and return ONLY valid JSON (no markdown, no backticks).\nMeal: "' + description + '"\nReturn: {"foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Calculate for exact stated quantities\n- Use real nutritional data\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyze this meal and return ONLY valid JSON (no markdown, no backticks).\nMeal: "' + description + '"\nReturn: {"foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Calculate for exact stated quantities\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] })
     });
     var data = await response.json();
     if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
@@ -65,7 +65,7 @@ async function analyzeMealPhoto(base64Data) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } }, { type: "text", text: 'You are a precise UK nutritionist. Look at this meal photo and return ONLY valid JSON (no markdown, no backticks).\nReturn: {"description":"brief meal description","foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Estimate portion sizes from the photo\n- Use real nutritional data\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } }, { type: "text", text: 'You are a precise UK nutritionist. Look at this meal photo and return ONLY valid JSON (no markdown, no backticks).\nReturn: {"description":"brief meal description","foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Estimate portion sizes from the photo\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] }] })
     });
     var data = await response.json();
     if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
@@ -79,7 +79,7 @@ async function analyzeDrinkWithAI(description, volume) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyse this drink and return ONLY valid JSON (no markdown, no backticks).\nDrink: "' + description + '"\nVolume: ' + volume + 'ml\nReturn: {"items":[{"item":"name","emoji":"emoji","per":"portion","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}}\nRules:\n- All values in grams (integers) except calories (kcal) and caffeine (mg)\n- Calculate for the exact volume specified\n- UK English spelling\n- Use real nutritional data\n- Never round small values down to 0 (use 1 if tiny)\n- For multi-ingredient drinks (smoothies, lattes, cocktails) break down each component\n- Use an appropriate emoji per item' }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyse this drink and return ONLY valid JSON (no markdown, no backticks).\nDrink: "' + description + '"\nVolume: ' + volume + 'ml\nReturn: {"items":[{"item":"name","emoji":"emoji","per":"portion","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}}\nRules:\n- All values in grams (integers) except calories (kcal) and caffeine (mg)\n- Calculate for the exact volume specified\n- UK English spelling\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Never round small values down to 0 (use 1 if tiny)\n- For multi-ingredient drinks (smoothies, lattes, cocktails) break down each component\n- Use an appropriate emoji per item' }] })
     });
     var data = await response.json();
     if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
@@ -117,7 +117,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v36 Jul25 — pinned quick-pick meals: usual breakfast pinned with walnuts restored (601kcal/17g protein)";
+var BUILD_VERSION = "v37 Jul25 — pinned breakfast updated: walnuts + 200ml Cocos kefir (688kcal/20g); coconut kefir kcal corrected in AI prompt";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -428,8 +428,17 @@ function MealMod(p) {
   // Pinned meals: always shown at the top of quick-pick, regardless of recent frequency.
   var PINNED_MEALS = [
     { id: "pinned-usual-breakfast", pinned: true,
-      description: "Flaxseed 30g, Walnut halves 6, Chia seeds 30g, Blackberries 6, Blueberries 10g, Muesli 30g, 120ml coconut kefir",
-      protein: 17, carbs: 52, fibre: 23, calories: 601, sugar: 12, foodBreakdown: [] }
+      description: "Flaxseed 30g, Walnut halves 6, Chia seeds 30g, Blackberries 6, Blueberries 10g, Muesli 30g, 200ml Cocos Organic coconut kefir",
+      protein: 20, carbs: 51, fibre: 22, calories: 688, sugar: 9,
+      foodBreakdown: [
+        { food: "Flaxseed", emoji: "🌾", per: "30g", multiplier: 1, protein: 6, carbs: 9, fibre: 8, calories: 161, sugar: 1 },
+        { food: "Walnut halves", emoji: "🌰", per: "6 halves (~15g)", multiplier: 1, protein: 2, carbs: 2, fibre: 1, calories: 98, sugar: 0 },
+        { food: "Chia seeds", emoji: "🌱", per: "30g", multiplier: 1, protein: 5, carbs: 11, fibre: 10, calories: 146, sugar: 0 },
+        { food: "Blackberries", emoji: "🫐", per: "6 berries", multiplier: 1, protein: 1, carbs: 2, fibre: 1, calories: 10, sugar: 1 },
+        { food: "Blueberries", emoji: "🫐", per: "10g", multiplier: 1, protein: 0, carbs: 1, fibre: 0, calories: 6, sugar: 1 },
+        { food: "Muesli", emoji: "🥣", per: "30g", multiplier: 1, protein: 3, carbs: 19, fibre: 2, calories: 109, sugar: 5 },
+        { food: "Cocos Organic coconut kefir", emoji: "🥥", per: "200ml", multiplier: 1, protein: 3, carbs: 7, fibre: 0, calories: 158, sugar: 1 }
+      ] }
   ];
   var pinnedDescs = {};
   PINNED_MEALS.forEach(function(pm) { pinnedDescs[pm.description] = true; });
