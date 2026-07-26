@@ -208,7 +208,7 @@ function REAL(a) { return (a || []).filter(function(x) { return x && x.source !=
 // Guards against double-taps writing two contradictory ON/OFF rows seconds apart.
 // NOTE: this only covers taps inside the app — the iOS Shortcut posts straight to
 // the Supabase REST endpoint and bypasses this entirely.
-var _lastOoAt = 0;
+var _lastOo = null;
 function isEst(x) { return !!(x && x.source === "estimated"); }
 function dAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function dateOf(iso) { if (!iso) return td(); if (iso.length === 10) return iso; try { var d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); } catch(e) { return iso.slice(0,10); } }
@@ -2559,7 +2559,18 @@ function App() {
   var aEx = add(sEx, K.ex), uEx = upd(sEx, K.ex), dEx = del(sEx, K.ex);
   var aSym = add(sSym, K.sym), uSym = upd(sSym, K.sym), dSym = del(sSym, K.sym);
   var aOoRaw = add(sOo, K.onoff), uOo = upd(sOo, K.onoff), dOo = del(sOo, K.onoff);
-  var aOo = function(item) { var now = Date.now(); if (now - _lastOoAt < 5000) { console.warn("ON/OFF: ignored duplicate within 5s"); return; } _lastOoAt = now; return aOoRaw(item); };
+  var aOo = function(item) {
+    var now = Date.now(), prev = _lastOo;
+    if (prev && now - prev.at < 15000) {
+      // Same state again = double-fire, drop it. Different state = the user
+      // correcting a mis-tap, so replace rather than keep both contradictory rows.
+      if (prev.state === item.state) { console.warn("ON/OFF: ignored duplicate within 15s"); return; }
+      console.warn("ON/OFF: treating as correction, replacing previous entry");
+      dOo(prev.id);
+    }
+    _lastOo = { at: now, id: item.id, state: item.state };
+    return aOoRaw(item);
+  };
   var aFast = add(sFast, K.fast), uFast = upd(sFast, K.fast), dFast = del(sFast, K.fast);
   var aDrink = add(sDrinks, K.drinks), uDrink = upd(sDrinks, K.drinks), dDrink = del(sDrinks, K.drinks);
   var aWeight = add(sWeight, K.weight), uWeight = upd(sWeight, K.weight), dWeight = del(sWeight, K.weight);
