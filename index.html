@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v40 Jul25 — protein targets updated (breakfast 22g, daytime 30g) + under-eating flag added";
+var BUILD_VERSION = "v41 Jul26 — pace card: fixed floating-point decimals + row layout wrap";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 var TO_ROW = {
@@ -188,6 +188,9 @@ function td() { var d = new Date(); return d.getFullYear() + "-" + String(d.getM
 function nw() { return new Date().toTimeString().slice(0, 5); }
 function ft(iso) { try { return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
 function isT(iso) { return iso && iso.slice(0, 10) === td(); }
+// Display helper: rounds to 1 decimal place and strips a trailing ".0".
+// Stops floating-point artefacts like 15.200000000000003 reaching the UI.
+function n1(v) { var n = Number(v) || 0; return String(Math.round(n * 10) / 10); }
 function dAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function dateOf(iso) { if (!iso) return td(); if (iso.length === 10) return iso; try { var d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); } catch(e) { return iso.slice(0,10); } }
 
@@ -1890,9 +1893,9 @@ function TodayPage(p) {
 
     {(function(){if (!p.prdOn) return null;var eveH = parseInt((p.prdEveStart||"17:00").split(":")[0]) || 17;var bfMax = p.prdBfMax || 22, luMax = p.prdLunchMax || 10, dayMax = p.prdDayMax || 30;var bf = 0, lu = 0, eve = 0;function add(arr){ arr.forEach(function(x){ if(!x.loggedAt) return; var h = new Date(x.loggedAt).getHours(); var pr = x.protein || 0; if (h < 11) bf += pr; else if (h < eveH) lu += pr; else eve += pr; }); }add(tMl); add(tDr);bf = Math.round(bf); lu = Math.round(lu); eve = Math.round(eve); var day = bf + lu;var breaches = [];if (bf > bfMax) breaches.push("Breakfast " + bf + "g (target ≤" + bfMax + "g)");if (lu > luMax) breaches.push("Lunch/daytime " + lu + "g (target ≤" + luMax + "g)");if (day > dayMax) breaches.push("Daytime total " + day + "g (target ≤" + dayMax + "g)");var total = day + eve;var under = (total > 0 && total < 80) ? "Daily total " + total + "g \u2014 aim 85\u201390g" : ((eve > 0 && eve < 50) ? "Evening " + eve + "g \u2014 aim 55\u201365g" : "");var over = breaches.length > 0;var dayColor = day > dayMax ? "text-red-600" : day > dayMax*0.8 ? "text-amber-600" : "text-green-600";return (<div className={"rounded-2xl p-3 mb-2 shadow-sm " + (over ? "" : "bg-white")} style={over ? {background:"#fff1f2", border:"2px solid #fb7185"} : {}}><div className="flex items-center justify-between mb-1"><span className="text-xs font-bold text-gray-600">🍳 Protein timing</span><span className="text-[10px] text-gray-400">daytime vs evening</span></div><div className="flex items-baseline gap-3"><span className={"text-lg font-bold " + dayColor}>{day}g<span className="text-[10px] font-normal text-gray-400"> / ≤{dayMax}g day</span></span><span className="text-lg font-bold text-gray-700">{eve}g<span className="text-[10px] font-normal text-gray-400"> evening</span></span></div>{over && <div style={{marginTop:"6px"}}><div style={{fontWeight:600, fontSize:"13px", color:"#be123c", marginBottom:"2px"}}>⚠️ Over your daytime protein target</div>{breaches.map(function(b,i){ return <div key={i} style={{fontSize:"12px", color:"#e11d48"}}>{b}</div>; })}</div>}{!over && under && <div style={{marginTop:"6px"}}><div style={{fontWeight:600, fontSize:"13px", color:"#b45309"}}>⬇️ Under target</div><div style={{fontSize:"12px", color:"#d97706"}}>{under}</div><div style={{fontSize:"11px", color:"#fb7185", marginTop:"3px", fontStyle:"italic"}}>Shift protein to your evening meal to protect your daytime doses.</div></div>}</div>);})()}
     <div className="grid grid-cols-3 gap-2 mb-2">
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{dn.protein}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{dn.carbs}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{dn.fibre}g</div><div className="text-[10px] text-gray-500">Fibre</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{n1(dn.protein)}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{n1(dn.carbs)}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{n1(dn.fibre)}g</div><div className="text-[10px] text-gray-500">Fibre</div></div>
     </div>
     {(function() {
       // Personal baseline vs today so far — compares "what I've had/done by now"
@@ -1948,11 +1951,11 @@ function TodayPage(p) {
         var onPace = Math.abs(diff) < typical * 0.15; // within 15%
         var ahead = diff > 0;
         var tone = onPace ? "text-gray-600" : (ahead ? "text-emerald-600" : "text-orange-600");
-        var icon = onPace ? "✓ on pace" : (ahead ? "▲ " + Math.abs(diff) + unit + " ahead" : "▼ " + Math.abs(diff) + unit + " behind");
-        return (<div className="flex justify-between items-center py-1.5 px-2 rounded-lg bg-white/60" key={label}>
-          <span className={"text-xs font-bold " + color}>{label}</span>
-          <span className="text-[10px] text-gray-500">today: <strong className="text-gray-800">{today}{unit}</strong> · typical: <strong className="text-gray-700">{typical}{unit}</strong></span>
-          <span className={"text-[10px] font-bold " + tone}>{icon}</span>
+        var icon = onPace ? "✓ on pace" : (ahead ? "▲ " + n1(Math.abs(diff)) + unit + " ahead" : "▼ " + n1(Math.abs(diff)) + unit + " behind");
+        return (<div className="flex justify-between items-center gap-2 py-1.5 px-2 rounded-lg bg-white/60" key={label}>
+          <span className={"text-xs font-bold whitespace-nowrap shrink-0 " + color}>{label}</span>
+          <span className="text-[10px] text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis">today: <strong className="text-gray-800">{n1(today)}{unit}</strong> · typical: <strong className="text-gray-700">{n1(typical)}{unit}</strong></span>
+          <span className={"text-[10px] font-bold whitespace-nowrap shrink-0 " + tone}>{icon}</span>
         </div>);
       };
 
@@ -1965,10 +1968,10 @@ function TodayPage(p) {
           {row("Fibre", dn.fibre, typicalFib, "g", "text-green-700")}
           {row("Protein", dn.protein, typicalProt, "g", "text-red-700")}
           {row("Calories", Math.round(totalCalsIn), typicalCal, "", "text-amber-700")}
-          {typeof typicalBowel === "string" ? null : (<div className="flex justify-between items-center py-1.5 px-2 rounded-lg bg-white/60">
-            <span className="text-xs font-bold text-orange-700">Bowel</span>
-            <span className="text-[10px] text-gray-500">today: <strong className="text-gray-800">{todayBowelCount}</strong> · typical/day: <strong className="text-gray-700">{typicalBowel}</strong></span>
-            <span className={"text-[10px] font-bold " + (todayBowelCount >= 1 ? "text-emerald-600" : "text-orange-600")}>{todayBowelCount >= 1 ? "✓ logged" : "— none yet"}</span>
+          {typeof typicalBowel === "string" ? null : (<div className="flex justify-between items-center gap-2 py-1.5 px-2 rounded-lg bg-white/60">
+            <span className="text-xs font-bold text-orange-700 whitespace-nowrap shrink-0">Bowel</span>
+            <span className="text-[10px] text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis">today: <strong className="text-gray-800">{todayBowelCount}</strong> · typical/day: <strong className="text-gray-700">{typicalBowel}</strong></span>
+            <span className={"text-[10px] font-bold whitespace-nowrap shrink-0 " + (todayBowelCount >= 1 ? "text-emerald-600" : "text-orange-600")}>{todayBowelCount >= 1 ? "✓ logged" : "— none yet"}</span>
           </div>)}
         </div>
       </div>);
