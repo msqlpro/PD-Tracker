@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v42 Jul26 — protein-timing targets now use one shared default (22/10/32g); v40 only changed a dead fallback";
+var BUILD_VERSION = "v43 Jul26 — estimated/backfilled rows tagged and excluded from all averages, trends and AI insights";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -145,12 +145,12 @@ var PRD = { bf: 22, lunch: 10, day: 32, eveStart: "17:00" };
 function prdVal(v, d) { return (v === null || v === undefined || v === "") ? d : v; }
 var TO_ROW = {
   meds: function(d) { return { id: d.id, user_id: CURRENT_UID, name: d.name, dose: d.dose || "", times: d.times || [], items: d.items || null }; },
-  logs: function(d) { return { id: d.id, user_id: CURRENT_UID, med_id: d.medId, med_name: d.medName, dose: d.dose || "", taken_at: d.takenAt, effectiveness: d.effectiveness || 0 }; },
-  meals: function(d) { return { id: d.id, user_id: CURRENT_UID, description: d.description, logged_at: d.loggedAt, protein: d.protein || 0, carbs: d.carbs || 0, fibre: d.fibre || 0, calories: d.calories || 0, sugar: d.sugar || 0, food_breakdown: d.foodBreakdown || [] }; },
+  logs: function(d) { return { id: d.id, user_id: CURRENT_UID, med_id: d.medId, med_name: d.medName, dose: d.dose || "", taken_at: d.takenAt, effectiveness: d.effectiveness || 0, source: d.source || "logged" }; },
+  meals: function(d) { return { id: d.id, user_id: CURRENT_UID, description: d.description, logged_at: d.loggedAt, protein: d.protein || 0, carbs: d.carbs || 0, fibre: d.fibre || 0, calories: d.calories || 0, sugar: d.sugar || 0, food_breakdown: d.foodBreakdown || [], source: d.source || "logged" }; },
   ex: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, intensity: d.intensity || "moderate", distance: (d.distance === "" || d.distance === undefined ? null : d.distance), distance_unit: d.distanceUnit || "km", logged_at: d.loggedAt }; },
   sleep: function(d) { return { id: d.id, user_id: CURRENT_UID, hours: d.hours, quality: d.quality, bedtime: d.bedtime, wake_time: d.wakeTime, date: d.date }; },
   sym: function(d) { return { id: d.id, user_id: CURRENT_UID, symptom_id: d.symptomId, severity: d.severity, notes: d.notes || "", logged_at: d.loggedAt }; },
-  onoff: function(d) { return { id: d.id, user_id: CURRENT_UID, state: d.state, logged_at: d.loggedAt }; },
+  onoff: function(d) { return { id: d.id, user_id: CURRENT_UID, state: d.state, logged_at: d.loggedAt, source: d.source || "logged" }; },
   fast: function(d) { return { id: d.id, user_id: CURRENT_UID, start_time: d.startTime, end_time: d.endTime, hours: d.hours, date: d.date }; },
   drinks: function(d) { return { id: d.id, user_id: CURRENT_UID, drink_id: d.drinkId, name: d.name, emoji: d.emoji || "🥤", volume: d.volume || 0, caffeine: d.caffeine || 0, calories: d.calories || 0, sugar: d.sugar || 0, carbs: d.carbs || 0, protein: d.protein || 0, fibre: d.fibre || 0, description: d.description || "", drink_breakdown: d.drinkBreakdown || null, note: d.note || "", logged_at: d.loggedAt }; },
   weight: function(d) { return { id: d.id, user_id: CURRENT_UID, weight: d.weight, unit: d.unit || "kg", note: d.note || "", date: d.date }; },
@@ -160,12 +160,12 @@ var TO_ROW = {
 };
 var FROM_ROW = {
   meds: function(r) { return { id: r.id, name: r.name, dose: r.dose, times: r.times || [], items: r.items || null }; },
-  logs: function(r) { return { id: r.id, medId: r.med_id, medName: r.med_name, dose: r.dose, takenAt: r.taken_at, effectiveness: r.effectiveness || 0 }; },
-  meals: function(r) { return { id: r.id, description: r.description, loggedAt: r.logged_at, protein: Number(r.protein)||0, carbs: Number(r.carbs)||0, fibre: Number(r.fibre)||0, calories: Number(r.calories)||0, sugar: Number(r.sugar)||0, foodBreakdown: r.food_breakdown || [] }; },
+  logs: function(r) { return { id: r.id, medId: r.med_id, medName: r.med_name, dose: r.dose, takenAt: r.taken_at, effectiveness: r.effectiveness || 0, source: r.source || "logged" }; },
+  meals: function(r) { return { id: r.id, description: r.description, loggedAt: r.logged_at, protein: Number(r.protein)||0, carbs: Number(r.carbs)||0, fibre: Number(r.fibre)||0, calories: Number(r.calories)||0, sugar: Number(r.sugar)||0, foodBreakdown: r.food_breakdown || [], source: r.source || "logged" }; },
   ex: function(r) { return { id: r.id, type: r.type, duration: r.duration, intensity: r.intensity, distance: r.distance, distanceUnit: r.distance_unit, loggedAt: r.logged_at }; },
   sleep: function(r) { return { id: r.id, hours: Number(r.hours), quality: r.quality, bedtime: r.bedtime, wakeTime: r.wake_time, date: r.date }; },
   sym: function(r) { return { id: r.id, symptomId: r.symptom_id, severity: r.severity, notes: r.notes, loggedAt: r.logged_at }; },
-  onoff: function(r) { return { id: r.id, state: r.state, loggedAt: r.logged_at }; },
+  onoff: function(r) { return { id: r.id, state: r.state, loggedAt: r.logged_at, source: r.source || "logged" }; },
   fast: function(r) { return { id: r.id, startTime: r.start_time, endTime: r.end_time, hours: Number(r.hours), date: r.date }; },
   drinks: function(r) { return { id: r.id, drinkId: r.drink_id, name: r.name, emoji: r.emoji, volume: r.volume, caffeine: r.caffeine, calories: r.calories, sugar: r.sugar || 0, carbs: r.carbs || 0, protein: r.protein || 0, fibre: r.fibre || 0, description: r.description || "", drinkBreakdown: r.drink_breakdown || null, note: r.note, loggedAt: r.logged_at }; },
   weight: function(r) { return { id: r.id, weight: Number(r.weight), unit: r.unit, note: r.note, date: r.date }; },
@@ -200,6 +200,16 @@ function isT(iso) { return iso && iso.slice(0, 10) === td(); }
 // Display helper: rounds to 1 decimal place and strips a trailing ".0".
 // Stops floating-point artefacts like 15.200000000000003 reaching the UI.
 function n1(v) { var n = Number(v) || 0; return String(Math.round(n * 10) / 10); }
+// Rows tagged source='estimated' are backfilled "typical" values, not observations
+// (e.g. the 30 Apr - 11 May 2026 holiday gap). They are fine to SHOW in history,
+// but must never feed an average, a trend or an AI insight - otherwise the app
+// rediscovers the assumptions the backfill was built from and reports them as findings.
+function REAL(a) { return (a || []).filter(function(x) { return x && x.source !== "estimated"; }); }
+// Guards against double-taps writing two contradictory ON/OFF rows seconds apart.
+// NOTE: this only covers taps inside the app — the iOS Shortcut posts straight to
+// the Supabase REST endpoint and bypasses this entirely.
+var _lastOoAt = 0;
+function isEst(x) { return !!(x && x.source === "estimated"); }
 function dAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function dateOf(iso) { if (!iso) return td(); if (iso.length === 10) return iso; try { var d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); } catch(e) { return iso.slice(0,10); } }
 
@@ -1309,13 +1319,13 @@ function InsightsPage(p) {
 
   var dailies = Array.from({ length: DAYS }, function(_, i) {
     var d = dAgo(i);
-    var dayLogs = p.logs.filter(function(l) { return dateOf(l.takenAt) === d; });
+    var dayLogs = REAL(p.logs).filter(function(l) { return dateOf(l.takenAt) === d; });
     var daySym = p.sym.filter(function(s) { return dateOf(s.loggedAt) === d; });
     var daySlp = p.slp.find(function(s) { return s.date === d; });
     var dayEx = p.ex.filter(function(e) { return dateOf(e.loggedAt) === d; });
-    var dayOo = p.oo.filter(function(o) { return dateOf(o.loggedAt) === d; });
+    var dayOo = REAL(p.oo).filter(function(o) { return dateOf(o.loggedAt) === d; });
     var dayMood = (p.mood || []).find(function(m) { return m.date === d; });
-    var dayMeals = p.meals.filter(function(m) { return dateOf(m.loggedAt) === d; });
+    var dayMeals = REAL(p.meals).filter(function(m) { return dateOf(m.loggedAt) === d; });
     var avgEff = dayLogs.length ? dayLogs.reduce(function(s, l) { return s + (l.effectiveness || 0); }, 0) / dayLogs.length : null;
     var avgSym = daySym.length ? daySym.reduce(function(s, sy) { return s + (sy.severity || 0); }, 0) / daySym.length : null;
     var exMins = dayEx.reduce(function(s, e) { return s + (e.duration || 0); }, 0);
@@ -1403,7 +1413,7 @@ function InsightsPage(p) {
         s+="\n";
       }
     });
-    var recentMeals = p.meals.filter(function(m) { return m.loggedAt && m.loggedAt >= dAgo(30) && m.foodBreakdown && m.foodBreakdown.length; });
+    var recentMeals = REAL(p.meals).filter(function(m) { return m.loggedAt && m.loggedAt >= dAgo(30) && m.foodBreakdown && m.foodBreakdown.length; });
     if (recentMeals.length) {
       s += "\nFOOD DETAIL (last 30 days, " + recentMeals.length + " analysed meals):\n";
       recentMeals.forEach(function(m) {
@@ -1916,7 +1926,7 @@ function TodayPage(p) {
 
       // Group by date: for each of last 14 completed days, total up to this time-of-day
       var dayTotals = {};
-      meals.forEach(function(m) {
+      REAL(meals).forEach(function(m) {
         if (!m.loggedAt) return;
         var d = new Date(m.loggedAt);
         if (d.getTime() < fourteenDaysAgo || d.getTime() >= todayStart.getTime()) return;
@@ -2123,12 +2133,12 @@ function HistoryPage(p) {
       return (<div key={date} className="mb-4">
         <h3 className="font-bold text-gray-500 text-sm mb-2">{new Date(date + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}{stepsByDate[date] !== undefined && <span className="ml-2 text-xs font-normal text-green-600">👟 {stepsByDate[date].toLocaleString()} steps</span>}</h3>
         {items.map(function(it) {
-          if (it._t === "med") return <button key={it.id} onClick={function() { setM({ type: "eDose", log: it }); }} className="w-full bg-blue-50 rounded-xl p-2.5 mb-1 text-left text-sm"><div className="flex justify-between"><span>💊 {it.medName} {it.dose}</span><span className="text-gray-400 text-xs">{ft(it.takenAt)}</span></div>{it.effectiveness > 0 && <div className="text-blue-600 text-xs">{"⭐".repeat(it.effectiveness)}</div>}</button>;
-          if (it._t === "meal") return <button key={it.id} onClick={function() { setM({ type: "eMeal", meal: it }); }} className="w-full bg-green-50 rounded-xl p-2.5 mb-1 text-left text-sm"><div className="flex justify-between items-start"><span>🍽️ {it.description}</span><span className="text-gray-400 text-xs shrink-0 ml-2">{ft(it.loggedAt)}</span></div><div className="mt-1 flex gap-1 flex-wrap"><NB l="P" v={it.protein || 0} c="text-red-600" /><NB l="C" v={it.carbs || 0} c="text-amber-600" /><NB l="F" v={it.fibre || 0} c="text-green-600" /><NB l="Cal" v={it.calories || 0} c="text-pink-600" /></div></button>;
+          if (it._t === "med") return <button key={it.id} onClick={function() { setM({ type: "eDose", log: it }); }} className="w-full bg-blue-50 rounded-xl p-2.5 mb-1 text-left text-sm"><div className="flex justify-between"><span>💊 {it.medName} {it.dose}{isEst(it) && <span className="ml-1 px-1 rounded text-[9px] font-bold text-amber-700 bg-amber-100 uppercase align-middle">est</span>}</span><span className="text-gray-400 text-xs">{ft(it.takenAt)}</span></div>{it.effectiveness > 0 && <div className="text-blue-600 text-xs">{"⭐".repeat(it.effectiveness)}</div>}</button>;
+          if (it._t === "meal") return <button key={it.id} onClick={function() { setM({ type: "eMeal", meal: it }); }} className="w-full bg-green-50 rounded-xl p-2.5 mb-1 text-left text-sm"><div className="flex justify-between items-start"><span>🍽️ {it.description}{isEst(it) && <span className="ml-1 px-1 rounded text-[9px] font-bold text-amber-700 bg-amber-100 uppercase align-middle">est</span>}</span><span className="text-gray-400 text-xs shrink-0 ml-2">{ft(it.loggedAt)}</span></div><div className="mt-1 flex gap-1 flex-wrap"><NB l="P" v={it.protein || 0} c="text-red-600" /><NB l="C" v={it.carbs || 0} c="text-amber-600" /><NB l="F" v={it.fibre || 0} c="text-green-600" /><NB l="Cal" v={it.calories || 0} c="text-pink-600" /></div></button>;
           if (it._t === "ex") return <button key={it.id} onClick={function() { setM({ type: "eEx", data: it }); }} className="w-full bg-orange-50 rounded-xl p-2.5 mb-1 text-left text-sm">🏃 {it.type} · {it.duration}min{it.distance ? " · " + it.distance + (it.distanceUnit || "km") : ""} · {it.intensity}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           if (it._t === "slp") return <button key={it.id} onClick={function() { setM({ type: "eSlp", data: it }); }} className="w-full bg-indigo-50 rounded-xl p-2.5 mb-1 text-left text-sm">😴 {it.hours}h · {["", "😫", "😕", "😐", "😊", "😁"][it.quality]} · {it.bedtime}→{it.wakeTime}</button>;
           if (it._t === "sym") { var st = SYMS.find(function(t) { return t.id === it.symptomId; }); return <button key={it.id} onClick={function() { setM({ type: "eSym", data: it }); }} className="w-full bg-red-50 rounded-xl p-2.5 mb-1 text-left text-sm">{st ? st.e : ""} {st ? st.l : it.symptomId} · Sev:{it.severity}/5<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>; }
-          if (it._t === "oo") return <button key={it.id} onClick={function() { setM({ type: "eOo", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.state === "on" ? "bg-green-50" : "bg-red-50")}>{it.state === "on" ? "🟢 ON" : "🔴 OFF"}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
+          if (it._t === "oo") return <button key={it.id} onClick={function() { setM({ type: "eOo", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.state === "on" ? "bg-green-50" : "bg-red-50")}>{it.state === "on" ? "🟢 ON" : "🔴 OFF"}{isEst(it) && <span className="ml-1 px-1 rounded text-[9px] font-bold text-amber-700 bg-amber-100 uppercase align-middle">est</span>}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           if (it._t === "fast") return <button key={it.id} onClick={function() { setM({ type: "eFast", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.hours >= 14 ? "bg-teal-50" : "bg-amber-50")}>⏱️ Fast: {it.hours}h ({it.startTime}→{it.endTime}) <span className={"text-xs float-right " + (it.hours >= 14 ? "text-teal-600" : "text-amber-600")}>{it.hours >= 14 ? "✅" : "⚠️"}</span></button>;
           if (it._t === "drink") return <button key={it.id} onClick={function() { setM({ type: "eDrink", data: it }); }} className="w-full bg-cyan-50 rounded-xl p-2.5 mb-1 text-left text-sm">{it.emoji || "🥤"} {it.name} · {it.volume}ml{it.caffeine ? " · ☕" + it.caffeine + "mg" : ""}{it.calories ? " · " + it.calories + "kcal" : ""}{it.sugar ? " · 🍬" + it.sugar + "g" : ""}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           if (it._t === "weight") return <button key={it.id} onClick={function() { setM({ type: "eWeight", data: it }); }} className="w-full bg-violet-50 rounded-xl p-2.5 mb-1 text-left text-sm">⚖️ {it.weight}kg{it.note ? " · " + it.note : ""}</button>;
@@ -2150,7 +2160,7 @@ function ReportPage(p) {
     var days = period === "daily" ? 1 : period === "weekly" ? 7 : period === "monthly" ? 30 : 9999;
     var dates = Array.from({ length: days }, function(_, i) { return dAgo(i); });
     var inRange = function(iso, df) { return dates.indexOf(df ? iso : (iso || "").slice(0, 10)) >= 0; };
-    return { logs: p.logs.filter(function(l) { return l.takenAt && inRange(l.takenAt); }), meals: p.meals.filter(function(m) { return m.loggedAt && inRange(m.loggedAt); }), ex: p.ex.filter(function(e) { return e.loggedAt && inRange(e.loggedAt); }), slp: p.slp.filter(function(s) { return s.date && inRange(s.date, true); }), sym: p.sym.filter(function(s) { return s.loggedAt && inRange(s.loggedAt); }), oo: p.oo.filter(function(o) { return o.loggedAt && inRange(o.loggedAt); }), fast: p.fast.filter(function(f) { return f.date && inRange(f.date, true); }), drinks: p.drinks.filter(function(d) { return d.loggedAt && inRange(d.loggedAt); }), weight: (p.weight || []).filter(function(w) { return w.date && inRange(w.date, true); }), mood: (p.mood || []).filter(function(m) { return m.date && inRange(m.date, true); }), bowel: (p.bowel || []).filter(function(b) { return b.loggedAt && inRange(b.loggedAt); }), activity: (p.activity || []).filter(function(a) { return a.loggedAt && inRange(a.loggedAt); }) };
+    return { logs: REAL(p.logs).filter(function(l) { return l.takenAt && inRange(l.takenAt); }), meals: REAL(p.meals).filter(function(m) { return m.loggedAt && inRange(m.loggedAt); }), ex: p.ex.filter(function(e) { return e.loggedAt && inRange(e.loggedAt); }), slp: p.slp.filter(function(s) { return s.date && inRange(s.date, true); }), sym: p.sym.filter(function(s) { return s.loggedAt && inRange(s.loggedAt); }), oo: REAL(p.oo).filter(function(o) { return o.loggedAt && inRange(o.loggedAt); }), fast: p.fast.filter(function(f) { return f.date && inRange(f.date, true); }), drinks: p.drinks.filter(function(d) { return d.loggedAt && inRange(d.loggedAt); }), weight: (p.weight || []).filter(function(w) { return w.date && inRange(w.date, true); }), mood: (p.mood || []).filter(function(m) { return m.date && inRange(m.date, true); }), bowel: (p.bowel || []).filter(function(b) { return b.loggedAt && inRange(b.loggedAt); }), activity: (p.activity || []).filter(function(a) { return a.loggedAt && inRange(a.loggedAt); }) };
   }
   var doReport = async function() { sLoading(true); sReport(null); var data = getData(); var total = data.logs.length + data.meals.length + data.ex.length + data.slp.length + data.sym.length + data.oo.length + data.fast.length + data.drinks.length + data.weight.length + data.mood.length + data.bowel.length + data.activity.length; if (total === 0) { sReport("No data found for this period. Start logging to generate a report!"); sLoading(false); return; } var result = await generateReport(period, data); sReport(result); sLoading(false); };
   var counts = getData();
@@ -2548,7 +2558,8 @@ function App() {
   var aLog = add(sLogs, K.logs), uLog = upd(sLogs, K.logs), dLog = del(sLogs, K.logs);
   var aEx = add(sEx, K.ex), uEx = upd(sEx, K.ex), dEx = del(sEx, K.ex);
   var aSym = add(sSym, K.sym), uSym = upd(sSym, K.sym), dSym = del(sSym, K.sym);
-  var aOo = add(sOo, K.onoff), uOo = upd(sOo, K.onoff), dOo = del(sOo, K.onoff);
+  var aOoRaw = add(sOo, K.onoff), uOo = upd(sOo, K.onoff), dOo = del(sOo, K.onoff);
+  var aOo = function(item) { var now = Date.now(); if (now - _lastOoAt < 5000) { console.warn("ON/OFF: ignored duplicate within 5s"); return; } _lastOoAt = now; return aOoRaw(item); };
   var aFast = add(sFast, K.fast), uFast = upd(sFast, K.fast), dFast = del(sFast, K.fast);
   var aDrink = add(sDrinks, K.drinks), uDrink = upd(sDrinks, K.drinks), dDrink = del(sDrinks, K.drinks);
   var aWeight = add(sWeight, K.weight), uWeight = upd(sWeight, K.weight), dWeight = del(sWeight, K.weight);
