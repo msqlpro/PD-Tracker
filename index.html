@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v43 Jul26 — estimated/backfilled rows tagged and excluded from all averages, trends and AI insights";
+var BUILD_VERSION = "v44 Jul26 — step count reads today or yesterday; mobility table now upsertable on (user_id, date)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -2376,7 +2376,7 @@ function App() {
   var [prdDayMax, setPrdDayMax] = useState(PRD.day);
   var [prdEveStart, setPrdEveStart] = useState(PRD.eveStart);
   var [showOoPopup, setShowOoPopup] = useState(false);
-  var [appleHealth, setAppleHealth] = useState({ steps: null, sleep: null, heartRate: null });
+  var [appleHealth, setAppleHealth] = useState({ steps: null, stepsDate: null, sleep: null, heartRate: null });
   var [followUp, setFollowUp] = useState(null);
   var [showQuickSym, setShowQuickSym] = useState(false);
   var [showVoice] = useState(true);
@@ -2437,11 +2437,14 @@ function App() {
         var today = td();
         var yd = dAgo(1);
         var [mob, slpData, vit] = await Promise.all([
-          sb.from("apple_health_mobility").select("steps").eq("user_id", CURRENT_UID).eq("date", yd).single(),
+          // Take today's step count if the Shortcut has already run, otherwise fall
+          // back to yesterday's. Previously this only ever looked at yesterday, so a
+          // same-day write was invisible until the following morning.
+          sb.from("apple_health_mobility").select("date,steps").eq("user_id", CURRENT_UID).in("date", [today, yd]).order("date", { ascending: false }).limit(1).maybeSingle(),
           sb.from("apple_health_sleep").select("total_hours,deep_hours,rem_hours,bedtime,wake_time").eq("user_id", CURRENT_UID).eq("date", today).single(),
           sb.from("apple_health_vitals").select("resting_heart_rate").eq("user_id", CURRENT_UID).eq("date", today).single()
         ]);
-        setAppleHealth({ steps: mob.data ? mob.data.steps : null, sleep: slpData.data ? slpData.data : null, heartRate: vit.data ? vit.data.resting_heart_rate : null });
+        setAppleHealth({ steps: mob.data ? mob.data.steps : null, stepsDate: mob.data ? mob.data.date : null, sleep: slpData.data ? slpData.data : null, heartRate: vit.data ? vit.data.resting_heart_rate : null });
         // Auto-create sleep log entry from Apple Watch data
         if (slpData.data && slpData.data.total_hours) {
           var hrs = Number(slpData.data.total_hours);
