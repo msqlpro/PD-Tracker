@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v46 Aug27 — Save Meal button moved directly under Analyse/Photo row";
+var BUILD_VERSION = "v47 Sep3 — Log Medication: back-date a late dose from the picker";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -300,20 +300,35 @@ function CompanionDrinkPicker(p) {
 }
 
 function MedPickerMod(p) {
+  var [back, setBack] = useState(0);
+  var OFFSETS = [{ v: 0, l: "Now" }, { v: 15, l: "−15m" }, { v: 30, l: "−30m" }, { v: 45, l: "−45m" }, { v: 60, l: "−1h" }, { v: 90, l: "−90m" }, { v: 120, l: "−2h" }];
+  var whenStr = new Date(Date.now() - back * 60000).toTimeString().slice(0, 5);
   return (<Mod onClose={p.onClose}>
     <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold">💊 Log Medication</h3><button onClick={p.onClose} style={{fontSize:"1.75rem",lineHeight:1,width:"44px",height:"44px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:"#f3f4f6",border:"none",cursor:"pointer",color:"#6b7280",flexShrink:0}}>×</button></div>
     {(!p.meds || p.meds.length === 0) ? (
       <p className="text-gray-500 text-sm text-center py-6">No medications set up yet. Add them in Settings.</p>
     ) : (
       <div className="flex flex-col gap-3 pb-2">
+        <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-bold text-gray-600">Time taken</span>
+            <span className={"text-sm font-bold " + (back ? "text-amber-600" : "text-gray-700")}>{whenStr}{back ? " · " + back + " min ago" : ""}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {OFFSETS.map(function(o) {
+              return <button key={o.v} onClick={function() { setBack(o.v); }}
+                className={"px-2.5 py-1.5 rounded-full text-xs font-medium " + (back === o.v ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600")}>{o.l}</button>;
+            })}
+          </div>
+        </div>
         {p.meds.map(function(m) {
           var isGroup = m.items && m.items.length > 0;
           return (
             <div key={m.id} className="flex gap-2 items-stretch">
-              <button onClick={function() { if (p.onQuickLog) p.onQuickLog(m); else p.onSelect(m); }}
+              <button onClick={function() { if (p.onQuickLog) p.onQuickLog(m, back); else p.onSelect(m); }}
                 className={"flex-1 text-white rounded-2xl p-4 text-left shadow-md " + (isGroup ? "bg-gradient-to-r from-emerald-600 to-teal-500" : "bg-gradient-to-r from-indigo-600 to-blue-500")}>
                 <div className="font-bold text-base">{isGroup ? "🧺" : "💊"} {m.name}{isGroup ? " (" + m.items.length + ")" : ""}</div>
-                <div className={"text-xs mt-0.5 " + (isGroup ? "text-emerald-100" : "text-indigo-200")}>{m.dose ? m.dose + " · " : ""}Tap to log now</div>
+                <div className={"text-xs mt-0.5 " + (isGroup ? "text-emerald-100" : "text-indigo-200")}>{m.dose ? m.dose + " · " : ""}{back ? "Tap to log at " + whenStr : "Tap to log now"}</div>
               </button>
               <button onClick={function() { p.onSelect(m); }} title="Details / different time"
                 className="w-14 rounded-2xl bg-gray-100 text-gray-500 text-xl font-bold shadow-sm">⋯</button>
@@ -2694,19 +2709,21 @@ function App() {
   };
 
   // ---- One-tap quick logging (always logs at the CURRENT time, never the scheduled time) ----
-  var quickDoseLog = function(med) {
-    var nowIso = new Date().toISOString();
+  var quickDoseLog = function(med, backMins) {
+    var when = new Date(Date.now() - (backMins || 0) * 60000);
+    var nowIso = when.toISOString();
+    var whenStr = when.toTimeString().slice(0, 5);
     if (med.items && med.items.length) {
       var baseId = Date.now(); var items = [];
       med.items.forEach(function(it, i) { items.push({ id: (baseId + i).toString(), medId: med.id + "_" + i, medName: it.name, dose: it.dose || "", takenAt: nowIso, effectiveness: 0 }); });
       handleGroupDoseSave(items, companionDrinks[med.id] ? items[0].id : null);
-      showToast("🧺 Logged " + med.name + " (" + items.length + ") at " + nw(), function() { items.forEach(function(l) { dLog(l.id); }); if (companionDrinks[med.id]) dDrink("cd_" + items[0].id); });
+      showToast("🧺 Logged " + med.name + " (" + items.length + ") at " + whenStr, function() { items.forEach(function(l) { dLog(l.id); }); if (companionDrinks[med.id]) dDrink("cd_" + items[0].id); });
     } else {
       var hay = ((med.name || "") + " " + (med.dose || "")).replace(/\s+/g, "");
       var dose = /12\.5\/50/.test(hay) ? "2 tablets" : (med.dose || "");
       var logItem = { id: Date.now().toString(), medId: med.id, medName: med.name, dose: dose, takenAt: nowIso, effectiveness: 0 };
       handleDoseSave(logItem, companionDrinks[med.id] ? logItem.id : null);
-      showToast("💊 Logged " + med.name + " at " + nw(), function() { dLog(logItem.id); if (companionDrinks[med.id]) dDrink("cd_" + logItem.id); });
+      showToast("💊 Logged " + med.name + " at " + whenStr, function() { dLog(logItem.id); if (companionDrinks[med.id]) dDrink("cd_" + logItem.id); });
     }
   };
   var repeatDrink = function(d) {
@@ -2779,7 +2796,7 @@ function App() {
     </div>
     {showQuickSym && <QuickSymPanel onClose={function() { setShowQuickSym(false); }} onSave={function(item) { aSym(item); setShowQuickSym(false); }} />}
     {followUp && <DoseFollowUpMod medName={followUp.medName} minutesAfter={followUp.minutesAfter} onDismiss={function() { setFollowUp(null); }} onSave={function(result) { var stamp = new Date().toISOString(); if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); } if (result.eff && followUp.logId) { var existing = logs.find(function(l) { return l.id === followUp.logId; }); if (existing) { uLog(Object.assign({}, existing, { effectiveness: result.eff })); } } setFollowUp(null); }} />}
-    {modal && modal.type === "medPicker" && <MedPickerMod meds={meds} onQuickLog={function(m) { quickDoseLog(m); close(); }} onSelect={function(m) { sModal({ type: (m.items && m.items.length > 0) ? "groupDose" : "dose", med: m }); }} onClose={close} />}
+    {modal && modal.type === "medPicker" && <MedPickerMod meds={meds} onQuickLog={function(m, backMins) { quickDoseLog(m, backMins); close(); }} onSelect={function(m) { sModal({ type: (m.items && m.items.length > 0) ? "groupDose" : "dose", med: m }); }} onClose={close} />}
     {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} meals={meals} onSave={handleDoseSave} onClose={close} />}
     {modal && modal.type === "groupDose" && <GroupDoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} onSaveGroup={handleGroupDoseSave} onClose={close} />}
     {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} meals={meals} onSave={function(l) { uLog(l); close(); }} onDelete={handleDoseDelete} onClose={close} />}
