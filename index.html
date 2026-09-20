@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v62 Sep20 — Daily protein = day + evening; settings keep 0; Mood button shows latest; burned shows 0";
+var BUILD_VERSION = "v63 Sep20 — Weight button shows current weight; removed repeat-drink and +250ml water chips";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -1978,12 +1978,12 @@ function AppGrid(p) {
             })() : (
             <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg relative " + (wiggle ? "wiggling" : "")}
               style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
-              <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.id === "mood" && p.moodEmoji ? p.moodEmoji : btn.emoji}</span>
+              {btn.id === "weight" && p.weightVal ? <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.15rem", lineHeight: 1, textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>{p.weightVal}<span style={{ fontSize: "0.6rem", fontWeight: 600 }}>kg</span></span> : <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.id === "mood" && p.moodEmoji ? p.moodEmoji : btn.emoji}</span>}
               {btn.isWee && p.weeCount > 0 && (
                 <span style={{position:"absolute",top:"-4px",right:"-4px",background:"#fff",color:"#b45309",fontSize:"11px",fontWeight:700,minWidth:"20px",height:"20px",borderRadius:"10px",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.2)",border:"1.5px solid #fbbf24"}}>{p.weeCount}</span>
               )}
             </div>)}
-            <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.id === "mood" && p.moodLabel ? p.moodLabel : btn.label}</span>
+            <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.id === "mood" && p.moodLabel ? p.moodLabel : btn.label}{btn.id === "weight" && p.weightDiff ? <span style={{ color: parseFloat(p.weightDiff) < 0 ? "#16a34a" : parseFloat(p.weightDiff) > 0 ? "#ef4444" : "#9ca3af", fontWeight: 700 }}> {parseFloat(p.weightDiff) > 0 ? "+" : ""}{p.weightDiff}</span> : null}</span>
           </div>
         );
       })}
@@ -2019,9 +2019,9 @@ function QuickChips(p) {
   // Repeat last drink chip (excludes water & auto companion drinks)
   var lastD = (p.drinks || []).filter(function(d) { return d.loggedAt && !d.companionForLogId && d.drinkId !== "water"; })
     .sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0];
-  if (lastD) chips.push({ key: "redrink", cls: "linear-gradient(135deg,#0891b2,#0ea5e9)", label: "🔁 " + (lastD.emoji || "🥤") + " " + lastD.name + " " + (lastD.volume || 250) + "ml", onTap: function() { p.onRepeatDrink(lastD); } });
+  if (false && lastD) chips.push({ key: "redrink", cls: "linear-gradient(135deg,#0891b2,#0ea5e9)", label: "🔁 " + (lastD.emoji || "🥤") + " " + lastD.name + " " + (lastD.volume || 250) + "ml", onTap: function() { p.onRepeatDrink(lastD); } });
   // Always-on water tap counter
-  chips.push({ key: "water", cls: "linear-gradient(135deg,#0284c7,#38bdf8)", label: "💧 +250ml water", onTap: p.onWater });
+  if (false) chips.push({ key: "water", cls: "linear-gradient(135deg,#0284c7,#38bdf8)", label: "💧 +250ml water", onTap: p.onWater });
   if (!chips.length) return null;
   return (<div style={{display:"flex",gap:"8px",overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:"4px",marginBottom:"8px"}}>
     {chips.map(function(c) {
@@ -2057,11 +2057,13 @@ function TodayPage(p) {
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
 
   var todayMoodTop = (p.mood || []).filter(function(m) { return m.date === td(); }).sort(function(a, b) { return (idIso(a.id) || "").localeCompare(idIso(b.id) || ""); }).slice(-1)[0];
+  var wSorted = (p.weight || []).slice().sort(function(a, b) { var c = (b.date || "").localeCompare(a.date || ""); return c !== 0 ? c : (idIso(b.id) || "").localeCompare(idIso(a.id) || ""); });
+  var wTop = wSorted[0] || null, wPrev = wSorted[1] || null;
   var todayWeeCount = (bowel || []).filter(function(b) { return b.loggedAt && isT(b.loggedAt) && b.type === "urine"; }).length;
 
   return (<div className="pb-28">
     <div className="sticky-grid px-4 pt-4 pb-2">
-      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} onOpenExercise={p.onOpenExercise} moodEmoji={todayMoodTop ? MOOD_EMOJI[todayMoodTop.level] : null} moodLabel={todayMoodTop ? MOOD_LABELS[todayMoodTop.level] : null} />
+      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} onOpenExercise={p.onOpenExercise} weightVal={wTop ? wTop.weight : null} weightDiff={wTop && wPrev ? (wTop.weight - wPrev.weight).toFixed(1) : null} moodEmoji={todayMoodTop ? MOOD_EMOJI[todayMoodTop.level] : null} moodLabel={todayMoodTop ? MOOD_LABELS[todayMoodTop.level] : null} />
     </div>
     <div className="px-4">
       <QuickChips meds={meds} logs={logs} drinks={drinks} alarmTimes={p.alarmTimes} onQuickDose={p.onQuickDose} onRepeatDrink={p.onRepeatDrink} onWater={p.onWater} />
@@ -2206,11 +2208,9 @@ function TodayPage(p) {
       var sorted = weight.slice().sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
       var latestW = sorted.length > 0 ? sorted[0] : null; var prevW = sorted.length > 1 ? sorted[1] : null;
       var wDiff = prevW && latestW ? (latestW.weight - prevW.weight).toFixed(1) : null;
-      var todayMood = mood.find(function(m) { return m.date === td(); });
-      return (<div className="grid grid-cols-3 gap-2 mb-2">
+      return (<div className="grid grid-cols-2 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-orange-500">{calBurned > 0 ? "-" + calBurned : "0"}</div><div className="text-[10px] text-gray-500">Calories burned</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-700">{drinkCaff}<span className="text-[10px] font-normal">mg</span></div><div className="text-[10px] text-gray-500">Caffeine</div></div>
-        <div className="bg-white rounded-xl p-2 shadow-sm text-center"><div className="text-[10px] font-bold text-violet-600 mb-0.5">⚖️ Weight</div>{latestW ? <div className="flex items-baseline justify-center gap-1"><span className="text-lg font-bold text-violet-700">{latestW.weight}<span className="text-[10px] font-normal">kg</span></span>{wDiff !== null && <span className={"text-[10px] font-bold " + (parseFloat(wDiff) < 0 ? "text-green-600" : parseFloat(wDiff) > 0 ? "text-red-500" : "text-gray-400")}>{parseFloat(wDiff) > 0 ? "+" : ""}{wDiff}</span>}</div> : <div className="text-xs text-gray-400">—</div>}</div>
       </div>);
     })()}
 
