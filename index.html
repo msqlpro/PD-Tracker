@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v63 Sep20 — Weight button shows current weight; removed repeat-drink and +250ml water chips";
+var BUILD_VERSION = "v64 Sep20 — Medication and Meal buttons show done/target (e.g. 1/3)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -1978,7 +1978,7 @@ function AppGrid(p) {
             })() : (
             <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg relative " + (wiggle ? "wiggling" : "")}
               style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
-              {btn.id === "weight" && p.weightVal ? <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.15rem", lineHeight: 1, textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>{p.weightVal}<span style={{ fontSize: "0.6rem", fontWeight: 600 }}>kg</span></span> : <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.id === "mood" && p.moodEmoji ? p.moodEmoji : btn.emoji}</span>}
+              {(btn.id === "med_picker" || btn.id === "meal") && p.counts && p.counts[btn.id] ? (function(){ var c = p.counts[btn.id]; return <span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1, color: "#fff" }}><span style={{ fontSize: "1rem" }}>{btn.emoji}</span><span style={{ fontWeight: 800, fontSize: "0.95rem", marginTop: "2px", textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>{c.done}/{c.target}{c.done >= c.target ? " ✓" : ""}</span></span>; })() : btn.id === "weight" && p.weightVal ? <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.15rem", lineHeight: 1, textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>{p.weightVal}<span style={{ fontSize: "0.6rem", fontWeight: 600 }}>kg</span></span> : <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.id === "mood" && p.moodEmoji ? p.moodEmoji : btn.emoji}</span>}
               {btn.isWee && p.weeCount > 0 && (
                 <span style={{position:"absolute",top:"-4px",right:"-4px",background:"#fff",color:"#b45309",fontSize:"11px",fontWeight:700,minWidth:"20px",height:"20px",borderRadius:"10px",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.2)",border:"1.5px solid #fbbf24"}}>{p.weeCount}</span>
               )}
@@ -2063,7 +2063,7 @@ function TodayPage(p) {
 
   return (<div className="pb-28">
     <div className="sticky-grid px-4 pt-4 pb-2">
-      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} onOpenExercise={p.onOpenExercise} weightVal={wTop ? wTop.weight : null} weightDiff={wTop && wPrev ? (wTop.weight - wPrev.weight).toFixed(1) : null} moodEmoji={todayMoodTop ? MOOD_EMOJI[todayMoodTop.level] : null} moodLabel={todayMoodTop ? MOOD_LABELS[todayMoodTop.level] : null} />
+      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} onOpenExercise={p.onOpenExercise} counts={{ med_picker: { done: tL.length, target: p.medTarget || 4 }, meal: { done: tMl.length, target: 3 } }} weightVal={wTop ? wTop.weight : null} weightDiff={wTop && wPrev ? (wTop.weight - wPrev.weight).toFixed(1) : null} moodEmoji={todayMoodTop ? MOOD_EMOJI[todayMoodTop.level] : null} moodLabel={todayMoodTop ? MOOD_LABELS[todayMoodTop.level] : null} />
     </div>
     <div className="px-4">
       <QuickChips meds={meds} logs={logs} drinks={drinks} alarmTimes={p.alarmTimes} onQuickDose={p.onQuickDose} onRepeatDrink={p.onRepeatDrink} onWater={p.onWater} />
