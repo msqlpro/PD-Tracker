@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v57 Sep20 — Water/Meds/kcal tile row; bigger refresh; recent meals show date+time";
+var BUILD_VERSION = "v58 Sep20 — Last dose card moved above Water/Meds/kcal row";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -2097,6 +2097,23 @@ function TodayPage(p) {
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{n1(dn.carbs)}g</div><div className="text-[10px] text-gray-500">Carbs · {carbPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (carbPct >= 100 ? "bg-emerald-500" : "bg-amber-400")} style={{ width: carbPct + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {ctg}g</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{n1(dn.fibre)}g</div><div className="text-[10px] text-gray-500">Fibre · {fibPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (fibPct >= 100 ? "bg-emerald-500" : "bg-green-400")} style={{ width: fibPct + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {ftg}g</div></div>
     </div>); })()}
+    {(function() {
+      var lastDose = tL.slice().sort(function(a, b) { return (b.takenAt || "").localeCompare(a.takenAt || ""); })[0];
+      if (!lastDose) return null;
+      var minsAgo = Math.floor((Date.now() - new Date(lastDose.takenAt)) / 60000);
+      var display = minsAgo < 60 ? minsAgo + "m ago" : Math.floor(minsAgo / 60) + "h " + (minsAgo % 60) + "m ago";
+      var urgent = minsAgo >= 240;
+      return (<div className={"rounded-xl p-2.5 mb-2 shadow-sm flex items-center justify-between " + (urgent ? "bg-orange-50 border border-orange-200" : "bg-indigo-50")}>
+        <div className="flex items-center gap-2">
+          <span className="text-base">💊</span>
+          <div>
+            <div className={"text-xs font-bold " + (urgent ? "text-orange-700" : "text-indigo-700")}>Last dose: {lastDose.medName}</div>
+            <div className={"text-[10px] " + (urgent ? "text-orange-500" : "text-indigo-400")}>{ft(lastDose.takenAt)}</div>
+          </div>
+        </div>
+        <div className={"text-sm font-bold " + (urgent ? "text-orange-600" : "text-indigo-600")}>{display}</div>
+      </div>);
+    })()}
     {(function() { var ct = p.calTarget || 2000; var calPct = Math.min(100, Math.round((netCal / ct) * 100)); var calOver = netCal > ct; var mdt = p.medTarget || 4; var mdn = tL.length; var mdPct = Math.min(100, Math.round((mdn / mdt) * 100)); return (<div className="grid grid-cols-3 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-cyan-600">{waterMl >= 1000 ? (waterMl/1000).toFixed(1) + "L" : waterMl + "ml"}</div><div className="text-[10px] text-gray-500">Water · {waterPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (waterPct >= 100 ? "bg-cyan-500" : "bg-cyan-300")} style={{ width: Math.min(waterPct, 100) + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {(waterTarget/1000).toFixed(1)}L</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-blue-600">{mdn}</div><div className="text-[10px] text-gray-500">Meds · {mdPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (mdPct >= 100 ? "bg-emerald-500" : "bg-blue-400")} style={{ width: Math.min(mdPct, 100) + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {mdt} doses</div></div>
@@ -2179,23 +2196,6 @@ function TodayPage(p) {
             <span className={"text-[10px] font-bold whitespace-nowrap shrink-0 " + (todayBowelCount >= 1 ? "text-emerald-600" : "text-orange-600")}>{todayBowelCount >= 1 ? "✓ logged" : "— none yet"}</span>
           </div>)}
         </div>
-      </div>);
-    })()}
-    {(function() {
-      var lastDose = tL.slice().sort(function(a, b) { return (b.takenAt || "").localeCompare(a.takenAt || ""); })[0];
-      if (!lastDose) return null;
-      var minsAgo = Math.floor((Date.now() - new Date(lastDose.takenAt)) / 60000);
-      var display = minsAgo < 60 ? minsAgo + "m ago" : Math.floor(minsAgo / 60) + "h " + (minsAgo % 60) + "m ago";
-      var urgent = minsAgo >= 240;
-      return (<div className={"rounded-xl p-2.5 mb-2 shadow-sm flex items-center justify-between " + (urgent ? "bg-orange-50 border border-orange-200" : "bg-indigo-50")}>
-        <div className="flex items-center gap-2">
-          <span className="text-base">💊</span>
-          <div>
-            <div className={"text-xs font-bold " + (urgent ? "text-orange-700" : "text-indigo-700")}>Last dose: {lastDose.medName}</div>
-            <div className={"text-[10px] " + (urgent ? "text-orange-500" : "text-indigo-400")}>{ft(lastDose.takenAt)}</div>
-          </div>
-        </div>
-        <div className={"text-sm font-bold " + (urgent ? "text-orange-600" : "text-indigo-600")}>{display}</div>
       </div>);
     })()}
     {(function() {
