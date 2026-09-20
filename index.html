@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v50 Sep20 — Log Drink: Save button moved under Analyse Nutrition";
+var BUILD_VERSION = "v51 Sep20 — Today: protein % bar on top Protein tile; removed duplicate Protein card and Cal In tile";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -2088,11 +2088,11 @@ function TodayPage(p) {
 
 
     {(function(){if (!p.prdOn) return null;var eveH = parseInt(prdVal(p.prdEveStart, PRD.eveStart).split(":")[0]); if (isNaN(eveH)) eveH = 17;var bfMax = prdVal(p.prdBfMax, PRD.bf), luMax = prdVal(p.prdLunchMax, PRD.lunch), dayMax = prdVal(p.prdDayMax, PRD.day);var bf = 0, lu = 0, eve = 0;function add(arr){ arr.forEach(function(x){ if(!x.loggedAt) return; var h = new Date(x.loggedAt).getHours(); var pr = x.protein || 0; if (h < 11) bf += pr; else if (h < eveH) lu += pr; else eve += pr; }); }add(tMl); add(tDr);bf = Math.round(bf); lu = Math.round(lu); eve = Math.round(eve); var day = bf + lu;var breaches = [];if (bf > bfMax) breaches.push("Breakfast " + bf + "g (target ≤" + bfMax + "g)");if (lu > luMax) breaches.push("Lunch/daytime " + lu + "g (target ≤" + luMax + "g)");if (day > dayMax) breaches.push("Daytime total " + day + "g (target ≤" + dayMax + "g)");var total = day + eve;var under = (total > 0 && total < 80) ? "Daily total " + total + "g \u2014 aim 85\u201390g" : ((eve > 0 && eve < 50) ? "Evening " + eve + "g \u2014 aim 55\u201365g" : "");var over = breaches.length > 0;var dayColor = day > dayMax ? "text-red-600" : day > dayMax*0.8 ? "text-amber-600" : "text-green-600";return (<div className={"rounded-2xl p-3 mb-2 shadow-sm " + (over ? "" : "bg-white")} style={over ? {background:"#fff1f2", border:"2px solid #fb7185"} : {}}><div className="flex items-center justify-between mb-1"><span className="text-xs font-bold text-gray-600">🍳 Protein timing</span><span className="text-[10px] text-gray-400">daytime vs evening</span></div><div className="flex items-baseline gap-3"><span className={"text-lg font-bold " + dayColor}>{day}g<span className="text-[10px] font-normal text-gray-400"> / ≤{dayMax}g day</span></span><span className="text-lg font-bold text-gray-700">{eve}g<span className="text-[10px] font-normal text-gray-400"> evening</span></span></div>{over && <div style={{marginTop:"6px"}}><div style={{fontWeight:600, fontSize:"13px", color:"#be123c", marginBottom:"2px"}}>⚠️ Over your daytime protein target</div>{breaches.map(function(b,i){ return <div key={i} style={{fontSize:"12px", color:"#e11d48"}}>{b}</div>; })}</div>}{!over && under && <div style={{marginTop:"6px"}}><div style={{fontWeight:600, fontSize:"13px", color:"#b45309"}}>⬇️ Under target</div><div style={{fontSize:"12px", color:"#d97706"}}>{under}</div><div style={{fontSize:"11px", color:"#fb7185", marginTop:"3px", fontStyle:"italic"}}>Shift protein to your evening meal to protect your daytime doses.</div></div>}</div>);})()}
-    <div className="grid grid-cols-3 gap-2 mb-2">
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{n1(dn.protein)}g</div><div className="text-[10px] text-gray-500">Protein</div></div>
+    {(function() { var pt = p.protTarget || 50; var protPct = Math.min(100, Math.round((dn.protein / pt) * 100)); return (<div className="grid grid-cols-3 gap-2 mb-2">
+      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-red-600">{n1(dn.protein)}g</div><div className="text-[10px] text-gray-500">Protein · {protPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (protPct >= 100 ? "bg-emerald-500" : "bg-red-400")} style={{ width: protPct + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {pt}g</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-600">{n1(dn.carbs)}g</div><div className="text-[10px] text-gray-500">Carbs</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-green-600">{n1(dn.fibre)}g</div><div className="text-[10px] text-gray-500">Fibre</div></div>
-    </div>
+    </div>); })()}
     {(function() {
       // Personal baseline vs today so far — compares "what I've had/done by now"
       // to "what I typically have/do by this hour over the last 14 days"
@@ -2172,8 +2172,7 @@ function TodayPage(p) {
         </div>
       </div>);
     })()}
-    <div className="grid grid-cols-3 gap-2 mb-2">
-      <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-pink-600">{totalCalsIn}</div><div className="text-[10px] text-gray-500">Cal In</div></div>
+    <div className="grid grid-cols-2 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-orange-500">-{calBurned}</div><div className="text-[10px] text-gray-500">Burned</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-amber-700">{drinkCaff}<span className="text-[10px] font-normal">mg</span></div><div className="text-[10px] text-gray-500">Caffeine</div></div>
     </div>
@@ -2196,19 +2195,17 @@ function TodayPage(p) {
     })()}
     <div className="grid grid-cols-2 gap-2 mb-2">
       <div className="bg-white rounded-xl p-2.5 shadow-sm"><div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-cyan-700">💧</span><span className="text-[10px] text-gray-400">{waterPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className={"h-full rounded-full " + (waterPct >= 100 ? "bg-cyan-500" : "bg-cyan-300")} style={{ width: waterPct + "%" }} /></div><div className="text-[10px] text-gray-500 mt-1">{waterMl}ml / {waterTarget}ml</div></div>
-      {(function() { var ct = p.calTarget || 2000; var calPct = Math.min(100, Math.round((netCal / ct) * 100)); var over = netCal > ct; return (<div className="bg-white rounded-xl p-2.5 shadow-sm"><div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-amber-700">🔥</span><span className="text-[10px] text-gray-400">{calPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className={"h-full rounded-full " + (over ? "bg-red-500" : "bg-amber-400")} style={{ width: Math.min(calPct, 100) + "%" }} /></div><div className={"text-[10px] mt-1 " + (over ? "text-red-600" : "text-gray-500")}>{netCal} / {ct} kcal</div></div>); })()}
+      {(function() { var ct = p.calTarget || 2000; var calPct = Math.min(100, Math.round((netCal / ct) * 100)); var over = netCal > ct; return (<div className="bg-white rounded-xl p-2.5 shadow-sm"><div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-amber-700">🔥</span><span className="text-[10px] text-gray-400">{calPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className={"h-full rounded-full " + (over ? "bg-red-500" : "bg-amber-400")} style={{ width: Math.min(calPct, 100) + "%" }} /></div><div className={"text-[10px] mt-1 " + (over ? "text-red-600" : "text-gray-500")}>{netCal} / {ct} kcal{calBurned > 0 ? " (" + totalCalsIn + " in)" : ""}</div></div>); })()}
     </div>
     {(function() {
-      var pt = p.protTarget || 50; var protPct = Math.min(100, Math.round((dn.protein / pt) * 100));
       var mt = p.medTarget || 4; var medsTaken = tL.length; var medPct = Math.min(100, Math.round((medsTaken / mt) * 100));
       var sorted = weight.slice().sort(function(a, b) { return (b.date || "").localeCompare(a.date || ""); });
       var latestW = sorted.length > 0 ? sorted[0] : null; var prevW = sorted.length > 1 ? sorted[1] : null;
       var wDiff = prevW && latestW ? (latestW.weight - prevW.weight).toFixed(1) : null;
       var todayMood = mood.find(function(m) { return m.date === td(); });
-      return (<div className="grid grid-cols-2 gap-2 mb-2">
+      return (<div className="grid grid-cols-3 gap-2 mb-2">
         <div className="bg-white rounded-xl p-2 shadow-sm"><div className="text-[10px] font-bold text-violet-600 mb-0.5">⚖️ Weight</div>{latestW ? <div className="flex items-baseline gap-1"><span className="text-lg font-bold text-violet-700">{latestW.weight}<span className="text-[10px] font-normal">kg</span></span>{wDiff !== null && <span className={"text-[10px] font-bold " + (parseFloat(wDiff) < 0 ? "text-green-600" : parseFloat(wDiff) > 0 ? "text-red-500" : "text-gray-400")}>{parseFloat(wDiff) > 0 ? "+" : ""}{wDiff}</span>}</div> : <div className="text-xs text-gray-400">—</div>}</div>
         <div className={"rounded-xl p-2 shadow-sm " + (todayMood ? "bg-amber-50 border border-amber-100" : "bg-white")}><div className="text-[10px] font-bold text-amber-600 mb-0.5">😊 Mood</div>{todayMood ? <div className="flex items-center gap-1"><span className="text-lg">{MOOD_EMOJI[todayMood.level]}</span><span className="text-xs font-medium text-amber-800">{MOOD_LABELS[todayMood.level]}</span></div> : <div className="text-xs text-gray-400">—</div>}</div>
-        <div className="bg-white rounded-xl p-2 shadow-sm"><div className="flex justify-between"><span className="text-[10px] font-bold text-red-600">💪 Protein</span><span className="text-[10px] text-gray-400">{protPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (protPct >= 100 ? "bg-emerald-500" : "bg-red-400")} style={{ width: Math.min(protPct, 100) + "%" }} /></div><div className="text-[10px] text-gray-500 mt-0.5">{dn.protein}g / {pt}g</div></div>
         <div className="bg-white rounded-xl p-2 shadow-sm"><div className="flex justify-between"><span className="text-[10px] font-bold text-blue-600">💊 Meds</span><span className="text-[10px] text-gray-400">{medPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (medPct >= 100 ? "bg-emerald-500" : "bg-blue-400")} style={{ width: Math.min(medPct, 100) + "%" }} /></div><div className="text-[10px] text-gray-500 mt-0.5">{medsTaken} / {mt} doses</div></div>
       </div>);
     })()}
