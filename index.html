@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v55 Sep20 — Burned tile renamed Calories burned";
+var BUILD_VERSION = "v56 Sep20 — From 06:00, popup if fewer than 3 meals logged yesterday";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -440,8 +440,8 @@ function GroupDoseMod(p) {
 function MealMod(p) {
   var edit = p.edit, prev = p.prev || [];
   var [desc, setDesc] = useState(edit ? edit.description : "");
-  var [time, setTime] = useState(edit ? ft(edit.loggedAt) : nw());
-  var [date, setDate] = useState(edit ? dateOf(edit.loggedAt) : td());
+  var [time, setTime] = useState(edit ? ft(edit.loggedAt) : (p.defaultDate ? "13:00" : nw()));
+  var [date, setDate] = useState(edit ? dateOf(edit.loggedAt) : (p.defaultDate || td()));
   var [aiResult, setAi] = useState(edit && edit.foodBreakdown && edit.foodBreakdown.length ? { foods: edit.foodBreakdown, totals: { protein: edit.protein, carbs: edit.carbs, fibre: edit.fibre, calories: edit.calories || 0, sugar: edit.sugar } } : null);
   var [loading, setLoad] = useState(false);
   var [error, setErr] = useState(null);
@@ -2560,6 +2560,14 @@ function App() {
   var [appleHealth, setAppleHealth] = useState({ steps: null, stepsDate: null, sleep: null, heartRate: null });
   var [followUp, setFollowUp] = useState(null);
   var [showQuickSym, setShowQuickSym] = useState(false);
+  // Missed-meals nudge: from 06:00, if fewer than 3 meals were logged yesterday
+  var [nagTick, setNagTick] = useState(0);
+  useEffect(function() { var t = setInterval(function() { setNagTick(function(n) { return n + 1; }); }, 300000); return function() { clearInterval(t); }; }, []);
+  var [nagDismissed, setNagDismissed] = useState(function() { try { return localStorage.getItem("pd_meal_nag_dismissed") || ""; } catch(e) { return ""; } });
+  var yDate = (function() { var d = new Date(); d.setDate(d.getDate() - 1); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); })();
+  var yMealCount = meals.filter(function(m) { return m.loggedAt && dateOf(m.loggedAt) === yDate; }).length;
+  var showMealNag = ready && new Date().getHours() >= 6 && yMealCount < 3 && nagDismissed !== td();
+  var dismissMealNag = function() { var d = td(); setNagDismissed(d); try { localStorage.setItem("pd_meal_nag_dismissed", d); } catch(e) {} };
   var [showVoice] = useState(true);
   var [backfilling, setBackfilling] = useState(false);
   var [backfillProgress, setBackfillProgress] = useState("");
@@ -2966,13 +2974,22 @@ function App() {
     <div className={"fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 pb-6 max-w-md mx-auto z-40 " + (dark ? "bg-gray-800 border-gray-700" : "bg-white")}>
       {tabs.map(function(t) { return <button key={t.id} onClick={function() { switchTab(t.id); }} className={"flex flex-col items-center py-1 px-3 " + (tab === t.id ? "text-blue-600" : dark ? "text-gray-500" : "text-gray-400")}>{t.isDyn ? <span className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold " + (tab === t.id ? "bg-blue-600 text-white" : dark ? "bg-gray-700 text-gray-400" : "bg-gray-200 text-gray-500")}>{t.i}</span> : <span className="text-xl">{t.i}</span>}<span className="text-[10px] mt-0.5">{t.n}</span></button>; })}
     </div>
+    {showMealNag && !modal && !showQuickSym && <Mod onClose={dismissMealNag}>
+      <div className="text-center">
+        <div style={{fontSize:"2.5rem"}}>🍽️</div>
+        <h3 className="text-lg font-bold mt-1">Yesterday's meals</h3>
+        <p className="text-sm text-gray-600 mt-2">Only <b>{yMealCount}</b> of 3 meals logged for {new Date(yDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}. Add the missing ones so your protein and dose-timing data stays accurate.</p>
+        <button onClick={function() { sModal({ type: "meal", date: yDate }); }} className="w-full mt-4 py-3 bg-emerald-600 text-white rounded-xl font-bold">+ Log a meal for yesterday</button>
+        <button onClick={dismissMealNag} className="w-full mt-2 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold">Not now (hide until tomorrow)</button>
+      </div>
+    </Mod>}
     {showQuickSym && <QuickSymPanel onClose={function() { setShowQuickSym(false); }} onSave={function(item) { aSym(item); setShowQuickSym(false); }} />}
     {followUp && <DoseFollowUpMod medName={followUp.medName} minutesAfter={followUp.minutesAfter} onDismiss={function() { setFollowUp(null); }} onSave={function(result) { var stamp = new Date().toISOString(); if (result.ooState) { aOo({ id: Date.now().toString() + "_fu_oo", state: result.ooState, loggedAt: stamp }); } if (result.eff && followUp.logId) { var existing = logs.find(function(l) { return l.id === followUp.logId; }); if (existing) { uLog(Object.assign({}, existing, { effectiveness: result.eff })); } } setFollowUp(null); }} />}
     {modal && modal.type === "medPicker" && <MedPickerMod meds={meds} onQuickLog={function(m, t) { quickDoseLog(m, t); close(); }} onSelect={function(m) { sModal({ type: (m.items && m.items.length > 0) ? "groupDose" : "dose", med: m }); }} onClose={close} />}
     {modal && modal.type === "dose" && <DoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} meals={meals} onSave={handleDoseSave} onClose={close} />}
     {modal && modal.type === "groupDose" && <GroupDoseMod med={modal.med} companionDrink={companionDrinks[modal.med.id] || null} onSaveGroup={handleGroupDoseSave} onClose={close} />}
     {modal && modal.type === "eDose" && <DoseMod med={{ id: modal.log.medId, name: modal.log.medName, dose: modal.log.dose }} existing={modal.log} meals={meals} onSave={function(l) { uLog(l); close(); }} onDelete={handleDoseDelete} onClose={close} />}
-    {modal && modal.type === "meal" && <MealMod onSave={hMs} onClose={close} prev={meals} />}
+    {modal && modal.type === "meal" && <MealMod onSave={hMs} onClose={close} prev={meals} defaultDate={modal.date} />}
     {modal && modal.type === "eMeal" && <MealMod onSave={hMs} onClose={close} edit={modal.meal} prev={meals} />}
     {modal && modal.type === "ex" && <ExMod cfg={exCfg} cexList={cexList} onSaveCex={function(v) { setCexList(v); sv(K.cex, v); }} onSave={function(e) { aEx(e); close(); }} onClose={close} />}
     {modal && modal.type === "eEx" && <ExMod cfg={exCfg} existing={modal.data} cexList={cexList} onSaveCex={function(v) { setCexList(v); sv(K.cex, v); }} onSave={function(e) { uEx(e); close(); }} onDelete={function(id) { dEx(id); close(); }} onClose={close} />}
