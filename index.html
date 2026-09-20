@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v51 Sep20 — Today: protein % bar on top Protein tile; removed duplicate Protein card and Cal In tile";
+var BUILD_VERSION = "v52 Sep20 — Mood button shows today's mood (card removed); Exercise button opens Exercise page (bottom tab removed)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -1797,6 +1797,7 @@ function AppGrid(p) {
   stateRef.current.onQuickOo = p.onQuickOo;
   stateRef.current.onQuickSym = p.onQuickSym;
   stateRef.current.onQuickWee = p.onQuickWee;
+  stateRef.current.onOpenExercise = p.onOpenExercise;
   stateRef.current.setM = p.setM;
 
   var saveOrder = function(btns) {
@@ -1898,6 +1899,7 @@ function AppGrid(p) {
             }
             else if (btn.isQuickSym) { if (s.onQuickSym) s.onQuickSym(); }
             else if (btn.isWee) { if (s.onQuickWee) s.onQuickWee(); }
+            else if (btn.id === "ex" && s.onOpenExercise) s.onOpenExercise();
             else s.setM({ type: btn.id });
           }
         }
@@ -1936,6 +1938,7 @@ function AppGrid(p) {
             }
             else if (btn.isQuickSym) { if (stateRef.current.onQuickSym) stateRef.current.onQuickSym(); }
             else if (btn.isWee) { if (stateRef.current.onQuickWee) stateRef.current.onQuickWee(); }
+            else if (btn.id === "ex" && stateRef.current.onOpenExercise) stateRef.current.onOpenExercise();
             else p.setM({ type: btn.id });
           }}>
             {btn.isPie ? (function() {
@@ -1972,12 +1975,12 @@ function AppGrid(p) {
             })() : (
             <div className={"w-16 h-16 rounded-full bg-gradient-to-br " + btn.grad + " flex items-center justify-center shadow-lg relative " + (wiggle ? "wiggling" : "")}
               style={{ opacity: isDragging ? 0.45 : 1, animationDelay: (idx % 4 * 0.05) + "s", transform: isDragging ? "scale(1.12)" : "", transition: "opacity 0.1s, transform 0.1s" }}>
-              <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.emoji}</span>
+              <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>{btn.id === "mood" && p.moodEmoji ? p.moodEmoji : btn.emoji}</span>
               {btn.isWee && p.weeCount > 0 && (
                 <span style={{position:"absolute",top:"-4px",right:"-4px",background:"#fff",color:"#b45309",fontSize:"11px",fontWeight:700,minWidth:"20px",height:"20px",borderRadius:"10px",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.2)",border:"1.5px solid #fbbf24"}}>{p.weeCount}</span>
               )}
             </div>)}
-            <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.label}</span>
+            <span className="text-[10px] text-gray-600 mt-1.5 font-medium text-center leading-tight" style={{ maxWidth: "4rem" }}>{btn.id === "mood" && p.moodLabel ? p.moodLabel : btn.label}</span>
           </div>
         );
       })}
@@ -2050,11 +2053,12 @@ function TodayPage(p) {
   var waterTarget = p.waterTarget || 2000;
   var waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
 
+  var todayMoodTop = (p.mood || []).filter(function(m) { return m.date === td(); }).slice(-1)[0];
   var todayWeeCount = (bowel || []).filter(function(b) { return b.loggedAt && isT(b.loggedAt) && b.type === "urine"; }).length;
 
   return (<div className="pb-28">
     <div className="sticky-grid px-4 pt-4 pb-2">
-      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} />
+      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} onOpenExercise={p.onOpenExercise} moodEmoji={todayMoodTop ? MOOD_EMOJI[todayMoodTop.level] : null} moodLabel={todayMoodTop ? MOOD_LABELS[todayMoodTop.level] : null} />
     </div>
     <div className="px-4">
       <QuickChips meds={meds} logs={logs} drinks={drinks} alarmTimes={p.alarmTimes} onQuickDose={p.onQuickDose} onRepeatDrink={p.onRepeatDrink} onWater={p.onWater} />
@@ -2203,9 +2207,8 @@ function TodayPage(p) {
       var latestW = sorted.length > 0 ? sorted[0] : null; var prevW = sorted.length > 1 ? sorted[1] : null;
       var wDiff = prevW && latestW ? (latestW.weight - prevW.weight).toFixed(1) : null;
       var todayMood = mood.find(function(m) { return m.date === td(); });
-      return (<div className="grid grid-cols-3 gap-2 mb-2">
+      return (<div className="grid grid-cols-2 gap-2 mb-2">
         <div className="bg-white rounded-xl p-2 shadow-sm"><div className="text-[10px] font-bold text-violet-600 mb-0.5">⚖️ Weight</div>{latestW ? <div className="flex items-baseline gap-1"><span className="text-lg font-bold text-violet-700">{latestW.weight}<span className="text-[10px] font-normal">kg</span></span>{wDiff !== null && <span className={"text-[10px] font-bold " + (parseFloat(wDiff) < 0 ? "text-green-600" : parseFloat(wDiff) > 0 ? "text-red-500" : "text-gray-400")}>{parseFloat(wDiff) > 0 ? "+" : ""}{wDiff}</span>}</div> : <div className="text-xs text-gray-400">—</div>}</div>
-        <div className={"rounded-xl p-2 shadow-sm " + (todayMood ? "bg-amber-50 border border-amber-100" : "bg-white")}><div className="text-[10px] font-bold text-amber-600 mb-0.5">😊 Mood</div>{todayMood ? <div className="flex items-center gap-1"><span className="text-lg">{MOOD_EMOJI[todayMood.level]}</span><span className="text-xs font-medium text-amber-800">{MOOD_LABELS[todayMood.level]}</span></div> : <div className="text-xs text-gray-400">—</div>}</div>
         <div className="bg-white rounded-xl p-2 shadow-sm"><div className="flex justify-between"><span className="text-[10px] font-bold text-blue-600">💊 Meds</span><span className="text-[10px] text-gray-400">{medPct}%</span></div><div className="w-full bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (medPct >= 100 ? "bg-emerald-500" : "bg-blue-400")} style={{ width: Math.min(medPct, 100) + "%" }} /></div><div className="text-[10px] text-gray-500 mt-0.5">{medsTaken} / {mt} doses</div></div>
       </div>);
     })()}
@@ -2911,7 +2914,7 @@ function App() {
   };
 
   var dayNum = new Date().getDate().toString();
-  var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "exercise", i: "🏃", n: "Exercise" }, { id: "insights", i: "📈", n: "Insights" }, { id: "report", i: "📊", n: "Report" }, { id: "setup", i: "⚙️", n: "Setup" }];
+  var tabs = [{ id: "today", i: dayNum, n: "Today", isDyn: true }, { id: "history", i: "📋", n: "History" }, { id: "insights", i: "📈", n: "Insights" }, { id: "report", i: "📊", n: "Report" }, { id: "setup", i: "⚙️", n: "Setup" }];
 
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
@@ -2921,7 +2924,7 @@ function App() {
       <button onClick={function() { try { sessionStorage.setItem("pd_dismissed_update", updateAvail); } catch(e) {} setUpdateAvail(null); }} style={{background:"rgba(0,0,0,0.15)",color:"white",border:"none",cursor:"pointer",padding:"0 14px",fontSize:"1.1rem",fontWeight:700}}>×</button>
     </div>)}
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="text-right"><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span><br/><span className="text-xs text-indigo-400">Build {BUILD_VERSION} <button onClick={function() { window.location.href = window.location.pathname + "?u=" + Date.now(); }} style={{background:'none',border:'none',cursor:'pointer',color:'white',fontSize:'0.75rem',padding:0,verticalAlign:'middle'}}>🔄</button></span></div></div>
-    {tab === "today" && <TodayPage meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
+    {tab === "today" && <TodayPage onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "exercise" && <ExercisePage ex={ex} setM={sModal} dark={dark} cfg={exCfg} setCfg={setExCfg} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
