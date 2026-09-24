@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v71 Sep22 — Dose counter and last-dose clock count Sinemet only";
+var BUILD_VERSION = "v72 Sep24 — Infrared reminder every 2 days at 06:30";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -586,6 +586,15 @@ var EX_CATS = { aerobic: { l: "Aerobic", e: "🫀", col: "#16a34a" }, strength: 
 var EX_CFG_DEF = { hrMax: 160, aeroN: 4, aeroMin: 30, aeroLo: 80, aeroHi: 85, strN: 2, balN: 2, flexN: 0, dailyN: 1 };
 function exCfgLoad() { return sb.from("profiles").select("settings").eq("id", CURRENT_UID).single().then(function(r) { var s = (r.data && r.data.settings && r.data.settings.exCfg) || {}; return Object.assign({}, EX_CFG_DEF, s); }).catch(function() { return Object.assign({}, EX_CFG_DEF); }); }
 async function exCfgSave(cfg) { try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var s = (data && data.settings) || {}; s.exCfg = cfg; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: s }); } catch(e) { console.error("Save exCfg", e); } }
+// Infrared reminder — repeats every N days at a set time, counted from a start date.
+// Stored in profiles.settings.irCfg so it syncs across devices; lastDone marks the day it was ticked off.
+var IR_CFG_DEF = { on: true, time: "06:30", every: 2, start: "2026-09-25", lastDone: "" };
+function irCfgLoad() { return sb.from("profiles").select("settings").eq("id", CURRENT_UID).single().then(function(r) { var s = (r.data && r.data.settings && r.data.settings.irCfg) || {}; return Object.assign({}, IR_CFG_DEF, s); }).catch(function() { return Object.assign({}, IR_CFG_DEF); }); }
+async function irCfgSave(cfg) { try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var s = (data && data.settings) || {}; s.irCfg = cfg; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: s }); } catch(e) { console.error("Save irCfg", e); } }
+function irDayNum(ymd) { var p = (ymd || "").split("-"); return Math.round(Date.UTC(+p[0], (+p[1]) - 1, +p[2]) / 86400000); }
+function irDueOn(cfg, ymd) { if (!cfg || !cfg.on || !cfg.start) return false; var diff = irDayNum(ymd) - irDayNum(cfg.start); var n = Math.max(1, parseInt(cfg.every) || 1); return diff >= 0 && diff % n === 0; }
+function irNextDue(cfg) { var d = new Date(); for (var i = 0; i < 400; i++) { var ymd = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); if (irDueOn(cfg, ymd)) return ymd; d.setDate(d.getDate() + 1); } return ""; }
+function irPastTime(cfg) { var now = new Date(); var t = (cfg.time || "06:30").split(":"); return now.getHours() * 60 + now.getMinutes() >= (parseInt(t[0])||0) * 60 + (parseInt(t[1])||0); }
 function exInferCat(type) {
   var t = (type || "").toLowerCase();
   if (/run|jog|spin|cycl|bike|swim|row|walk|hike|hiit|box|boxercise|parkrun|ellip|tread|danc|squash|tennis|cardio/.test(t)) return "aerobic";
@@ -1182,6 +1191,21 @@ function Setup(p) {
         </select>
       </div>}
       <p className="text-xs text-gray-400 mt-2">⚠️ Reminders only work while the app is open.</p>
+    </div>
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <h3 className="font-bold text-gray-700 mb-3">🔴 Infrared Reminder</h3>
+      <p className="text-xs text-gray-500 mb-3">Pops up every {(p.irCfg && p.irCfg.every) || 2} days at the set time, and stays on the Today tab until you tap Done.</p>
+      <button onClick={function() {
+        var c = Object.assign({}, p.irCfg, { on: !p.irCfg.on }); p.setIrCfg(c);
+        if (c.on && "Notification" in window && Notification.permission === "default") { Notification.requestPermission().catch(function() {}); }
+      }} className={"w-full py-3 rounded-xl font-bold text-sm " + (p.irCfg && p.irCfg.on ? "bg-red-500 text-white" : "bg-green-600 text-white")}>{p.irCfg && p.irCfg.on ? "🔕 Disable Infrared Reminder" : "🔔 Enable Infrared Reminder"}</button>
+      {p.irCfg && p.irCfg.on && <div className="mt-3 grid grid-cols-3 gap-2">
+        <div><p className="text-xs font-medium text-gray-600 mb-1">Time</p><input type="time" value={p.irCfg.time} onChange={function(e) { p.setIrCfg(Object.assign({}, p.irCfg, { time: e.target.value })); }} className="w-full border rounded-xl p-2 text-sm" /></div>
+        <div><p className="text-xs font-medium text-gray-600 mb-1">Every (days)</p><input type="number" min="1" max="30" value={p.irCfg.every} onChange={function(e) { var n = parseInt(e.target.value) || 1; p.setIrCfg(Object.assign({}, p.irCfg, { every: Math.max(1, Math.min(30, n)) })); }} className="w-full border rounded-xl p-2 text-sm" /></div>
+        <div><p className="text-xs font-medium text-gray-600 mb-1">Starting</p><input type="date" value={p.irCfg.start} onChange={function(e) { if (e.target.value) p.setIrCfg(Object.assign({}, p.irCfg, { start: e.target.value })); }} className="w-full border rounded-xl p-2 text-sm" /></div>
+      </div>}
+      {p.irCfg && p.irCfg.on && <p className="text-xs text-gray-500 mt-2">Next due: {(function() { var n = irNextDue(p.irCfg); if (!n) return "—"; var d = new Date(n + "T12:00:00"); return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + " at " + p.irCfg.time; })()}</p>}
+      <p className="text-xs text-gray-400 mt-2">⚠️ Phone notifications only fire while the app is open. The popup and Today banner appear whenever you open it on a due day.</p>
     </div>
     <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
       <h3 className="font-bold text-gray-700 mb-3">🚽 Bowel Morning Reminder</h3>
@@ -2090,6 +2114,15 @@ function TodayPage(p) {
         </button>);
       })()}
       {(function() {
+        var c = p.irCfg; var today = td();
+        if (!c || !irDueOn(c, today) || c.lastDone === today || !irPastTime(c)) return null;
+        return (<button onClick={function() { p.onIrOpen(); }}
+          className="w-full mb-3 py-3 rounded-2xl font-bold text-white text-sm shadow-md flex items-center justify-center gap-2"
+          style={{background: "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)"}}>
+          🔴 Infrared Reminder — due today
+        </button>);
+      })()}
+      {(function() {
         // Bowel reminder banner: show on Today after reminder time if no bowel logged
         if (!p.bowelReminderOn) return null;
         var remTime = p.bowelReminderTime || "08:30";
@@ -2542,6 +2575,9 @@ function App() {
   var [medTarget, sMedTarget] = useState(4);
   var [dark, sDark] = useState(false);
   var [exCfg, setExCfg] = useState(EX_CFG_DEF);
+  var [irCfg, setIrCfgState] = useState(IR_CFG_DEF);
+  var [showIrPopup, setShowIrPopup] = useState(false);
+  var setIrCfg = function(c) { setIrCfgState(c); irCfgSave(c); };
   var [modal, sModal] = useState(null);
   var [toast, setToast] = useState(null);
   var toastTimerRef = React.useRef(null);
@@ -2593,6 +2629,7 @@ function App() {
   var loadData = useCallback(async function(isInitial) {
     try {
       exCfgLoad().then(setExCfg);
+      irCfgLoad().then(setIrCfgState);
       var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"]), ld(K.ooReminderOn, false), ld(K.ooReminderInterval, 1), ld(K.bowelReminderOn, false), ld(K.bowelReminderTime, "08:30"), ld(K.weeBtnOn, true), ld(K.prdOn, true), ld(K.prdBfMax, PRD.bf), ld(K.prdLunchMax, PRD.lunch), ld(K.prdDayMax, PRD.day), ld(K.prdEveStart, PRD.eveStart), ld(K.prdEveTarget, PRD.eve), ld(K.carbTarget, 260), ld(K.fibreTarget, 30), ld(K.weightGoal, null), ld(K.mealTarget, 3)]);
       var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17], cdMap = r[18], cexList = r[19], cactList = r[20], alarmsOn = r[21], alarmTimesList = r[22];
       var medsLoadFailed = !!LOAD_FAILED[K.meds];
@@ -2708,6 +2745,25 @@ function App() {
     var timer = setInterval(function() { setShowOoPopup(true); }, ms);
     return function() { clearInterval(timer); };
   }, [ooReminderOn, ooReminderInterval]);
+
+  // Infrared reminder — on a due day, pops up at the set time (or on first open after it) until marked done.
+  useEffect(function() {
+    if (!irCfg.on) return;
+    var check = function() {
+      var today = td();
+      if (!irDueOn(irCfg, today) || irCfg.lastDone === today || !irPastTime(irCfg)) return;
+      var seenKey = "pd_ir_popup_" + today;
+      if (sessionStorage.getItem(seenKey) === "1") return;
+      sessionStorage.setItem(seenKey, "1");
+      setShowIrPopup(true);
+      if ("Notification" in window && Notification.permission === "granted") { try { new Notification("🔴 Infrared Reminder", { body: "Infrared session due today.", tag: "ir-" + today, requireInteraction: true }); } catch(e) {} }
+    };
+    check();
+    var interval = setInterval(check, 30000);
+    var onVis = function() { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVis);
+    return function() { clearInterval(interval); document.removeEventListener("visibilitychange", onVis); };
+  }, [irCfg]);
 
   // Bowel reminder — fires once a day at bowelReminderTime if no bowel log yet today
   useEffect(function() {
@@ -2951,12 +3007,12 @@ function App() {
       <button onClick={function() { try { sessionStorage.setItem("pd_dismissed_update", updateAvail); } catch(e) {} setUpdateAvail(null); }} style={{background:"rgba(0,0,0,0.15)",color:"white",border:"none",cursor:"pointer",padding:"0 14px",fontSize:"1.1rem",fontWeight:700}}>×</button>
     </div>)}
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 pt-6 pb-3 flex justify-between items-center"><h1 className="text-lg font-bold tracking-tight">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></h1><div className="text-right"><span className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span><br/><span className="text-xs text-indigo-400">Build {BUILD_VERSION} <button onClick={function() { window.location.href = window.location.pathname + "?u=" + Date.now(); }} aria-label="Refresh app" style={{background:'rgba(255,255,255,0.15)',border:'none',cursor:'pointer',color:'white',fontSize:'1.6rem',width:'48px',height:'48px',borderRadius:'50%',lineHeight:1,verticalAlign:'middle',marginLeft:'6px'}}>🔄</button></span></div></div>
-    {tab === "today" && <TodayPage onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
+    {tab === "today" && <TodayPage irCfg={irCfg} onIrOpen={function() { setShowIrPopup(true); }} onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "exercise" && <ExercisePage ex={ex} setM={sModal} dark={dark} cfg={exCfg} setCfg={setExCfg} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} carbTarget={carbTarget} setCarbTarget={function(v){setCarbTarget(v); sv(K.carbTarget,v);}} fibreTarget={fibreTarget} setFibreTarget={function(v){setFibreTarget(v); sv(K.fibreTarget,v);}} weightGoal={weightGoal} setWeightGoal={function(v){setWeightGoal(v); sv(K.weightGoal,v);}} mealTarget={mealTarget} setMealTarget={function(v){setMealTarget(v); sv(K.mealTarget,v);}} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} bowelReminderOn={bowelReminderOn} setBowelReminderOn={function(v) { setBowelReminderOn(v); sv(K.bowelReminderOn, v); }} bowelReminderTime={bowelReminderTime} setBowelReminderTime={function(v) { setBowelReminderTime(v); sv(K.bowelReminderTime, v); }} weeBtnOn={weeBtnOn} setWeeBtnOn={function(v) { setWeeBtnOn(v); sv(K.weeBtnOn, v); }} prdOn={prdOn} setPrdOn={function(v){setPrdOn(v); sv(K.prdOn,v);}} prdBfMax={prdBfMax} setPrdBfMax={function(v){setPrdBfMax(v); sv(K.prdBfMax,v);}} prdLunchMax={prdLunchMax} setPrdLunchMax={function(v){setPrdLunchMax(v); sv(K.prdLunchMax,v);}} prdDayMax={prdDayMax} setPrdDayMax={function(v){setPrdDayMax(v); sv(K.prdDayMax,v);}} prdEveTarget={prdEveTarget} setPrdEveTarget={function(v){setPrdEveTarget(v); sv(K.prdEveTarget,v);}} prdEveStart={prdEveStart} setPrdEveStart={function(v){setPrdEveStart(v); sv(K.prdEveStart,v);}} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
+    {tab === "setup" && <Setup irCfg={irCfg} setIrCfg={setIrCfg} meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} carbTarget={carbTarget} setCarbTarget={function(v){setCarbTarget(v); sv(K.carbTarget,v);}} fibreTarget={fibreTarget} setFibreTarget={function(v){setFibreTarget(v); sv(K.fibreTarget,v);}} weightGoal={weightGoal} setWeightGoal={function(v){setWeightGoal(v); sv(K.weightGoal,v);}} mealTarget={mealTarget} setMealTarget={function(v){setMealTarget(v); sv(K.mealTarget,v);}} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} bowelReminderOn={bowelReminderOn} setBowelReminderOn={function(v) { setBowelReminderOn(v); sv(K.bowelReminderOn, v); }} bowelReminderTime={bowelReminderTime} setBowelReminderTime={function(v) { setBowelReminderTime(v); sv(K.bowelReminderTime, v); }} weeBtnOn={weeBtnOn} setWeeBtnOn={function(v) { setWeeBtnOn(v); sv(K.weeBtnOn, v); }} prdOn={prdOn} setPrdOn={function(v){setPrdOn(v); sv(K.prdOn,v);}} prdBfMax={prdBfMax} setPrdBfMax={function(v){setPrdBfMax(v); sv(K.prdBfMax,v);}} prdLunchMax={prdLunchMax} setPrdLunchMax={function(v){setPrdLunchMax(v); sv(K.prdLunchMax,v);}} prdDayMax={prdDayMax} setPrdDayMax={function(v){setPrdDayMax(v); sv(K.prdDayMax,v);}} prdEveTarget={prdEveTarget} setPrdEveTarget={function(v){setPrdEveTarget(v); sv(K.prdEveTarget,v);}} prdEveStart={prdEveStart} setPrdEveStart={function(v){setPrdEveStart(v); sv(K.prdEveStart,v);}} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
     {showOoPopup && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={function() { setShowOoPopup(false); }}>
       <div style={{background:"white",borderRadius:"1.25rem",padding:"1.5rem",width:"min(320px,90vw)",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={function(e) { e.stopPropagation(); }}>
         <div style={{textAlign:"center",marginBottom:"1rem"}}>
@@ -2977,6 +3033,17 @@ function App() {
           }} style={{flex:1,padding:"0.875rem",borderRadius:"0.75rem",border:"none",background:"#ef4444",color:"white",fontWeight:"bold",fontSize:"1rem",cursor:"pointer"}}>🔴 OFF</button>
         </div>
         <button onClick={function() { setShowOoPopup(false); }} style={{width:"100%",padding:"0.6rem",borderRadius:"0.75rem",border:"1px solid #e5e7eb",background:"transparent",color:"#9ca3af",fontSize:"0.85rem",cursor:"pointer"}}>Skip for now</button>
+      </div>
+    </div>}
+    {showIrPopup && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={function() { setShowIrPopup(false); }}>
+      <div style={{background:"white",borderRadius:"1.25rem",padding:"1.5rem",width:"min(320px,90vw)",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={function(e) { e.stopPropagation(); }}>
+        <div style={{textAlign:"center",marginBottom:"1rem"}}>
+          <div style={{fontSize:"2.5rem",marginBottom:"0.5rem"}}>🔴</div>
+          <h2 style={{fontSize:"1.1rem",fontWeight:"bold",color:"#1f2937",marginBottom:"0.25rem"}}>Infrared Reminder</h2>
+          <p style={{fontSize:"0.85rem",color:"#6b7280"}}>Infrared session due today.</p>
+        </div>
+        <button onClick={function() { setIrCfg(Object.assign({}, irCfg, { lastDone: td() })); setShowIrPopup(false); }} style={{width:"100%",padding:"0.875rem",borderRadius:"0.75rem",border:"none",background:"#dc2626",color:"white",fontWeight:"bold",fontSize:"1rem",cursor:"pointer",marginBottom:"0.75rem"}}>✅ Done</button>
+        <button onClick={function() { setShowIrPopup(false); }} style={{width:"100%",padding:"0.6rem",borderRadius:"0.75rem",border:"1px solid #e5e7eb",background:"transparent",color:"#9ca3af",fontSize:"0.85rem",cursor:"pointer"}}>Later</button>
       </div>
     </div>}
     {showVoice && <VoiceLogger meds={meds} onLog={function(e) {
