@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v75 Sep26 — ON/OFF button outer ring green/red";
+var BUILD_VERSION = "v76 Sep26 — Flexibility weekly target (2×) on Exercise tab";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -582,8 +582,8 @@ var EX_TYPES = [
 ];
 var EX_CATS = { aerobic: { l: "Aerobic", e: "🫀", col: "#16a34a" }, strength: { l: "Strength", e: "🏋️", col: "#2563eb" }, balance: { l: "Balance", e: "🧘", col: "#9333ea" }, flexibility: { l: "Flexibility", e: "🤸", col: "#0d9488" }, other: { l: "Other", e: "•", col: "#9ca3af" } };
 // Defaults: SPARX high-intensity protocol (4×/wk, ≥30 min, 80–85% HRmax) plus
-// Parkinson's Foundation strength/balance guidance. All editable on the page.
-var EX_CFG_DEF = { hrMax: 160, aeroN: 4, aeroMin: 30, aeroLo: 80, aeroHi: 85, strN: 2, balN: 2, flexN: 0, dailyN: 1 };
+// Parkinson's Foundation strength/balance/flexibility guidance. All editable on the page.
+var EX_CFG_DEF = { hrMax: 160, aeroN: 4, aeroMin: 30, aeroLo: 80, aeroHi: 85, strN: 2, balN: 2, flexN: 2, dailyN: 1 };
 function exCfgLoad() { return sb.from("profiles").select("settings").eq("id", CURRENT_UID).single().then(function(r) { var s = (r.data && r.data.settings && r.data.settings.exCfg) || {}; return Object.assign({}, EX_CFG_DEF, s); }).catch(function() { return Object.assign({}, EX_CFG_DEF); }); }
 async function exCfgSave(cfg) { try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var s = (data && data.settings) || {}; s.exCfg = cfg; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: s }); } catch(e) { console.error("Save exCfg", e); } }
 // Infrared reminder — repeats every N days at a set time, counted from a start date.
@@ -763,7 +763,7 @@ function ExercisePage(p) {
         <div className="grid grid-cols-3 gap-2 mb-2">{numIn("hrMax", "HRmax (bpm)", 100, 220)}{numIn("aeroLo", "Zone low %", 50, 100)}{numIn("aeroHi", "Zone high %", 50, 100)}</div>
         <div className="grid grid-cols-3 gap-2 mb-2">{numIn("aeroN", "Aerobic / wk", 0, 14)}{numIn("aeroMin", "Min mins", 5, 180)}{numIn("dailyN", "Sessions / day", 0, 5)}</div>
         <div className="grid grid-cols-3 gap-2 mb-3">{numIn("strN", "Strength / wk", 0, 14)}{numIn("balN", "Balance / wk", 0, 14)}{numIn("flexN", "Flexibility / wk", 0, 14)}</div>
-        <div className={"text-[11px] mb-3 " + sub}>Defaults follow the SPARX high-intensity protocol (4×/wk, ≥30 min at 80–85% HRmax) and Parkinson's Foundation guidance (2× strength, 2× balance). Sessions above the zone still count; below it they don't.</div>
+        <div className={"text-[11px] mb-3 " + sub}>Defaults follow the SPARX high-intensity protocol (4×/wk, ≥30 min at 80–85% HRmax) and Parkinson's Foundation guidance (2× strength, 2× balance, 2× flexibility). Flexibility = yoga, stretching, Pilates, mobility work — or any custom session set to count as Flexibility. Sessions above the zone still count; below it they don't.</div>
         <div className="flex gap-2"><button onClick={function() { setDraft(Object.assign({}, EX_CFG_DEF)); }} className={"flex-1 py-2.5 rounded-xl text-sm font-semibold " + (dark ? "bg-gray-700" : "bg-gray-100")}>Reset defaults</button><button onClick={function() { var nc = Object.assign({}, EX_CFG_DEF, draft); Object.keys(nc).forEach(function(k) { if (nc[k] === "" || isNaN(nc[k])) nc[k] = EX_CFG_DEF[k]; }); setCfg(nc); exCfgSave(nc); setShowCfg(false); }} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold">Save</button></div>
       </div>}
     </div>
