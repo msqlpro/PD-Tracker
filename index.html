@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v76 Sep26 — Flexibility weekly target (2×) on Exercise tab";
+var BUILD_VERSION = "v77 Sep30 — Exercise: avg/high/low HR on sessions";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -147,7 +147,7 @@ var TO_ROW = {
   meds: function(d) { return { id: d.id, user_id: CURRENT_UID, name: d.name, dose: d.dose || "", times: d.times || [], items: d.items || null }; },
   logs: function(d) { return { id: d.id, user_id: CURRENT_UID, med_id: d.medId, med_name: d.medName, dose: d.dose || "", taken_at: d.takenAt, effectiveness: d.effectiveness || 0, source: d.source || "logged" }; },
   meals: function(d) { return { id: d.id, user_id: CURRENT_UID, description: d.description, logged_at: d.loggedAt, protein: d.protein || 0, carbs: d.carbs || 0, fibre: d.fibre || 0, calories: d.calories || 0, sugar: d.sugar || 0, food_breakdown: d.foodBreakdown || [], source: d.source || "logged" }; },
-  ex: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, intensity: d.intensity || "moderate", distance: (d.distance === "" || d.distance === undefined ? null : d.distance), distance_unit: d.distanceUnit || "km", logged_at: d.loggedAt, avg_hr: d.avgHr || null, peak_hr: d.peakHr || null, category: d.category || null, notes: d.note || null }; },
+  ex: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, intensity: d.intensity || "moderate", distance: (d.distance === "" || d.distance === undefined ? null : d.distance), distance_unit: d.distanceUnit || "km", logged_at: d.loggedAt, avg_hr: d.avgHr || null, peak_hr: d.peakHr || null, min_hr: d.minHr || null, category: d.category || null, notes: d.note || null }; },
   sleep: function(d) { return { id: d.id, user_id: CURRENT_UID, hours: d.hours, quality: d.quality, bedtime: d.bedtime, wake_time: d.wakeTime, date: d.date }; },
   sym: function(d) { return { id: d.id, user_id: CURRENT_UID, symptom_id: d.symptomId, severity: d.severity, notes: d.notes || "", logged_at: d.loggedAt }; },
   onoff: function(d) { return { id: d.id, user_id: CURRENT_UID, state: d.state, logged_at: d.loggedAt, source: d.source || "logged" }; },
@@ -162,7 +162,7 @@ var FROM_ROW = {
   meds: function(r) { return { id: r.id, name: r.name, dose: r.dose, times: r.times || [], items: r.items || null }; },
   logs: function(r) { return { id: r.id, medId: r.med_id, medName: r.med_name, dose: r.dose, takenAt: r.taken_at, effectiveness: r.effectiveness || 0, source: r.source || "logged" }; },
   meals: function(r) { return { id: r.id, description: r.description, loggedAt: r.logged_at, protein: Number(r.protein)||0, carbs: Number(r.carbs)||0, fibre: Number(r.fibre)||0, calories: Number(r.calories)||0, sugar: Number(r.sugar)||0, foodBreakdown: r.food_breakdown || [], source: r.source || "logged" }; },
-  ex: function(r) { return { id: r.id, type: r.type, duration: r.duration, intensity: r.intensity, distance: r.distance, distanceUnit: r.distance_unit, loggedAt: r.logged_at, avgHr: r.avg_hr || null, peakHr: r.peak_hr || null, category: r.category || null, note: r.notes || "" }; },
+  ex: function(r) { return { id: r.id, type: r.type, duration: r.duration, intensity: r.intensity, distance: r.distance, distanceUnit: r.distance_unit, loggedAt: r.logged_at, avgHr: r.avg_hr || null, peakHr: r.peak_hr || null, minHr: r.min_hr || null, category: r.category || null, note: r.notes || "" }; },
   sleep: function(r) { return { id: r.id, hours: Number(r.hours), quality: r.quality, bedtime: r.bedtime, wakeTime: r.wake_time, date: r.date }; },
   sym: function(r) { return { id: r.id, symptomId: r.symptom_id, severity: r.severity, notes: r.notes, loggedAt: r.logged_at }; },
   onoff: function(r) { return { id: r.id, state: r.state, loggedAt: r.logged_at, source: r.source || "logged" }; },
@@ -646,13 +646,14 @@ function ExMod(p) {
   var [dUnit, setDUnit] = useState(isEdit && ex.distanceUnit ? ex.distanceUnit : "km");
   var [avg, setAvg] = useState(String(isEdit && ex.avgHr ? ex.avgHr : ""));
   var [peak, setPeak] = useState(String(isEdit && ex.peakHr ? ex.peakHr : ""));
+  var [low, setLow] = useState(String(isEdit && ex.minHr ? ex.minHr : ""));
   var [int_, setInt] = useState(isEdit ? (ex.intensity || "moderate") : "moderate");
   var [note, setNote] = useState(isEdit ? (ex.note || "") : "");
   var [time, setTime] = useState(isEdit ? ft(ex.loggedAt) : nw());
   var [date, setDate] = useState(isEdit ? dateOf(ex.loggedAt) : td());
   var typeCat = function(n) { var t = EX_TYPES.find(function(x) { return x.n === n; }); return t ? t.c : null; };
   var effCat = type === "Other" ? cat : (typeCat(type) || (cex.indexOf(type) >= 0 ? cat : cat));
-  var avgN = parseInt(avg) || 0, peakN = parseInt(peak) || 0;
+  var avgN = parseInt(avg) || 0, peakN = parseInt(peak) || 0, lowN = parseInt(low) || 0;
   var avgP = exPct(avgN, hrMax), peakP = exPct(peakN, hrMax);
   var zone = avgP === null ? "" : avgP >= lo ? (avgP > hi ? "above target zone" : "in target zone ✓") : avgP >= 60 ? "moderate" : "light";
   var onAvg = function(v) { v = v.replace(/^0+(?=\d)/, ""); setAvg(v); var pp = exPct(parseInt(v) || 0, hrMax); if (pp !== null) setInt(pp >= lo ? "vigorous" : pp >= 60 ? "moderate" : "light"); };
@@ -664,14 +665,14 @@ function ExMod(p) {
     <div className="flex flex-wrap gap-1.5 mb-2 mt-1">{EX_TYPES.map(function(t) { return <button key={t.n} onClick={function() { setType(t.n); setCat(t.c); }} className={"px-3 py-1.5 rounded-full text-xs font-medium " + (type === t.n ? "bg-blue-600 text-white" : "bg-white border text-gray-700")}>{t.e} {t.n}</button>; })}{cex.map(function(t) { return <button key={t} onClick={function() { setType(t); setCat(exInferCat(t)); }} className={"px-3 py-1.5 rounded-full text-xs font-medium " + (type === t ? "bg-blue-600 text-white" : "bg-white border text-gray-700")}>{t}</button>; })}<button onClick={function() { setType("Other"); }} className={"px-3 py-1.5 rounded-full text-xs font-medium " + (type === "Other" ? "bg-blue-600 text-white" : "bg-white border text-gray-700")}>Other</button></div>
     {(type === "Other" || cex.indexOf(type) >= 0) && <div className="flex gap-2 mb-2">{type === "Other" && <input value={custom} onChange={function(e) { setCust(e.target.value); }} placeholder="Name" className={inp + " flex-1"} />}<select value={cat} onChange={function(e) { setCat(e.target.value); }} className={inp + " flex-1"}><option value="aerobic">Counts as: Aerobic</option><option value="strength">Counts as: Strength</option><option value="balance">Counts as: Balance</option><option value="flexibility">Counts as: Flexibility</option><option value="other">Counts as: Other</option></select></div>}
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-xs text-gray-500">Mins</span><input type="number" inputMode="numeric" min={1} value={dur} onChange={function(e) { setDur(e.target.value.replace(/^0+(?=\d)/, "")); }} className={inp} /></label><label className="flex-1"><span className="text-xs text-gray-500">Distance ({dUnit})</span><input type="number" inputMode="decimal" step="0.01" min={0} placeholder="optional" value={dist} onChange={function(e) { setDist(e.target.value.replace(/^0+(?=\d)/, "")); }} className={inp} /></label></div>
-    <div className="flex gap-3 mb-1"><label className="flex-1"><span className="text-xs text-gray-500">Avg HR (bpm)</span><input type="number" inputMode="numeric" min={30} max={250} placeholder="e.g. 132" value={avg} onChange={function(e) { onAvg(e.target.value); }} className={inp} /></label><label className="flex-1"><span className="text-xs text-gray-500">Peak HR (bpm)</span><input type="number" inputMode="numeric" min={30} max={250} placeholder="e.g. 148" value={peak} onChange={function(e) { setPeak(e.target.value.replace(/^0+(?=\d)/, "")); }} className={inp} /></label></div>
+    <div className="flex gap-3 mb-1"><label className="flex-1"><span className="text-xs text-gray-500">Avg HR (bpm)</span><input type="number" inputMode="numeric" min={30} max={250} placeholder="e.g. 132" value={avg} onChange={function(e) { onAvg(e.target.value); }} className={inp} /></label><label className="flex-1"><span className="text-xs text-gray-500">High HR (bpm)</span><input type="number" inputMode="numeric" min={30} max={250} placeholder="e.g. 148" value={peak} onChange={function(e) { setPeak(e.target.value.replace(/^0+(?=\d)/, "")); }} className={inp} /></label><label className="flex-1"><span className="text-xs text-gray-500">Low HR (bpm)</span><input type="number" inputMode="numeric" min={30} max={250} placeholder="e.g. 95" value={low} onChange={function(e) { setLow(e.target.value.replace(/^0+(?=\d)/, "")); }} className={inp} /></label></div>
     <div className="text-xs mb-3 text-gray-500">{avgP !== null ? <span>Avg <b className={avgP >= lo ? "text-green-600" : "text-gray-700 dark:text-gray-200"}>{avgP}%</b> of HRmax {hrMax} — {zone}</span> : <span>HRmax {hrMax} · target zone {lo}–{hi}% = {Math.round(hrMax*lo/100)}–{Math.round(hrMax*hi/100)} bpm</span>}{peakP !== null && <span> · peak <b>{peakP}%</b></span>}</div>
     <div className="flex gap-3 mb-3"><label className="flex-1"><span className="text-xs text-gray-500">Intensity {avgP !== null ? "(from HR)" : ""}</span><select value={int_} onChange={function(e) { setInt(e.target.value); }} className={inp}><option value="light">Light</option><option value="moderate">Moderate</option><option value="vigorous">Vigorous</option></select></label></div>
     <label className="block mb-2"><span className="text-xs text-gray-500">Note</span><textarea value={note} onChange={function(e) { setNote(e.target.value); }} rows={2} placeholder="How it felt, ON/OFF, route, weights…" className={inp} /></label>
     <SaveDel canDel={isEdit} color="bg-orange-500" label={isEdit ? "Update" : "Save"} onDel={function() { p.onDelete(ex.id); }} onSave={function() {
       var tn = type === "Other" ? custom.trim() : type; if (!tn) return;
       if (type === "Other" && all.indexOf(tn) === -1 && p.onSaveCex) p.onSaveCex(cex.concat([tn]));
-      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), type: tn, category: effCat, duration: parseInt(dur) || 0, intensity: int_, distance: (dist === "" ? null : parseFloat(dist)), distanceUnit: dUnit, avgHr: avgN || null, peakHr: peakN || null, note: note, loggedAt: new Date(date + "T" + time).toISOString() });
+      p.onSave({ id: isEdit ? ex.id : Date.now().toString(), type: tn, category: effCat, duration: parseInt(dur) || 0, intensity: int_, distance: (dist === "" ? null : parseFloat(dist)), distanceUnit: dUnit, avgHr: avgN || null, peakHr: peakN || null, minHr: lowN || null, note: note, loggedAt: new Date(date + "T" + time).toISOString() });
       p.onClose(); }} />
   </Mod>);
 }
@@ -709,7 +710,7 @@ function ExercisePage(p) {
   var badge = function(e) { var c = exCat(e); if (c === "aerobic") return exIsHI(e, cfg) ? { t: "HI ✓", cls: "bg-green-100 text-green-700" } : { t: "aerobic · " + exWhyNotHI(e, cfg), cls: "bg-amber-100 text-amber-700" }; return { t: EX_CATS[c].l, cls: c === "strength" ? "bg-blue-100 text-blue-700" : c === "balance" ? "bg-purple-100 text-purple-700" : c === "flexibility" ? "bg-teal-100 text-teal-700" : "bg-gray-100 text-gray-600" }; };
   var row = function(e) { var bd = badge(e), t = EX_TYPES.find(function(x) { return x.n === e.type; }); var ap = exPct(e.avgHr, cfg.hrMax), pp = exPct(e.peakHr, cfg.hrMax); return (<button key={e.id} onClick={function() { setM({ type: "eEx", data: e }); }} className={"w-full text-left py-2 border-b last:border-0 " + (dark ? "border-gray-700" : "border-gray-100")}>
     <div className="flex justify-between items-center"><span className="text-sm font-semibold">{t ? t.e : EX_CATS[exCat(e)].e} {e.type} · {e.duration} min{e.distance ? " · " + e.distance + " " + (e.distanceUnit || "km") : ""}</span><span className={"text-[10px] px-2 py-0.5 rounded-full font-semibold " + bd.cls}>{bd.t}</span></div>
-    <div className={"text-xs " + sub}>{new Date(e.loggedAt).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} {ft(e.loggedAt)}{e.avgHr ? " · avg " + e.avgHr + " (" + ap + "%)" : " · no HR"}{e.peakHr ? " · peak " + e.peakHr + " (" + pp + "%)" : ""}{e.note ? " · " + e.note : ""}</div>
+    <div className={"text-xs " + sub}>{new Date(e.loggedAt).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} {ft(e.loggedAt)}{e.avgHr ? " · avg " + e.avgHr + " (" + ap + "%)" : " · no HR"}{e.peakHr ? " · high " + e.peakHr + " (" + pp + "%)" : ""}{e.minHr ? " · low " + e.minHr + " (" + exPct(e.minHr, cfg.hrMax) + "%)" : ""}{e.note ? " · " + e.note : ""}</div>
   </button>); };
   var numIn = function(k, lbl, min, max) { return (<label className="block"><span className={"text-xs " + sub}>{lbl}</span><input type="number" inputMode="numeric" min={min} max={max} value={draft[k]} onChange={function(ev) { var v = parseInt(ev.target.value); var nd = Object.assign({}, draft); nd[k] = isNaN(v) ? "" : v; setDraft(nd); }} className={"w-full border rounded-lg p-2 text-sm " + (dark ? "bg-gray-700 border-gray-600" : "")} /></label>); };
   return (<div className="p-4 pb-28">
