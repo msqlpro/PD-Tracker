@@ -131,7 +131,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v77 Sep30 — Exercise: avg/high/low HR on sessions";
+var BUILD_VERSION = "v78 Oct01 — ON/OFF check-ins 2½h & 3½h after each dose";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -1182,6 +1182,7 @@ function Setup(p) {
       {p.ooReminderOn && <div className="mt-3">
         <p className="text-xs font-medium text-gray-600 mb-2">Remind me every:</p>
         <select value={p.ooReminderInterval} onChange={function(e) { p.setOoReminderInterval(parseFloat(e.target.value)); }} className="w-full border rounded-xl p-2.5 text-sm">
+          <option value={0}>2½h and 3½h after each dose (recommended)</option>
           <option value={0.5}>30 minutes</option>
           <option value={1}>1 hour</option>
           <option value={2}>2 hours</option>
@@ -2594,7 +2595,7 @@ function App() {
   var [alarmsOn, setAlarmsOn] = useState(false);
   var [alarmTimesList, setAlarmTimesList] = useState(["08:00","12:00","17:00","22:00"]);
   var [ooReminderOn, setOoReminderOn] = useState(false);
-  var [ooReminderInterval, setOoReminderInterval] = useState(1);
+  var [ooReminderInterval, setOoReminderInterval] = useState(0);
   var [bowelReminderOn, setBowelReminderOn] = useState(false);
   var [bowelReminderTime, setBowelReminderTime] = useState("08:30");
   var [weeBtnOn, setWeeBtnOn] = useState(true);
@@ -2631,7 +2632,7 @@ function App() {
     try {
       exCfgLoad().then(setExCfg);
       irCfgLoad().then(setIrCfgState);
-      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"]), ld(K.ooReminderOn, false), ld(K.ooReminderInterval, 1), ld(K.bowelReminderOn, false), ld(K.bowelReminderTime, "08:30"), ld(K.weeBtnOn, true), ld(K.prdOn, true), ld(K.prdBfMax, PRD.bf), ld(K.prdLunchMax, PRD.lunch), ld(K.prdDayMax, PRD.day), ld(K.prdEveStart, PRD.eveStart), ld(K.prdEveTarget, PRD.eve), ld(K.carbTarget, 260), ld(K.fibreTarget, 30), ld(K.weightGoal, null), ld(K.mealTarget, 3)]);
+      var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"]), ld(K.ooReminderOn, false), ld(K.ooReminderInterval, 0), ld(K.bowelReminderOn, false), ld(K.bowelReminderTime, "08:30"), ld(K.weeBtnOn, true), ld(K.prdOn, true), ld(K.prdBfMax, PRD.bf), ld(K.prdLunchMax, PRD.lunch), ld(K.prdDayMax, PRD.day), ld(K.prdEveStart, PRD.eveStart), ld(K.prdEveTarget, PRD.eve), ld(K.carbTarget, 260), ld(K.fibreTarget, 30), ld(K.weightGoal, null), ld(K.mealTarget, 3)]);
       var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17], cdMap = r[18], cexList = r[19], cactList = r[20], alarmsOn = r[21], alarmTimesList = r[22];
       var medsLoadFailed = !!LOAD_FAILED[K.meds];
       var fm = m.length > 0 ? m : (medsLoadFailed ? [] : DEF_MEDS);
@@ -2640,7 +2641,7 @@ function App() {
       if (isInitial && !medsLoadFailed && fm.length > 0 && (m.length === 0 || fm.length !== m.length)) sv(K.meds, fm);
       var cs = sy.filter(function(x) { return x && x.loggedAt && x.symptomId; });
       if (isInitial && cs.length !== sy.length) sv(K.sym, cs);
-      if (!medsLoadFailed || fm.length > 0) sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); setCompanionDrinks(cdMap || {}); setCexList(cexList || []); setCactList(cactList || []); setAlarmsOn(alarmsOn || false); setAlarmTimesList(alarmTimesList || ["08:00","12:00","17:00","22:00"]); setOoReminderOn(r[23] || false); setOoReminderInterval(r[24] || 1); setBowelReminderOn(r[25] || false); setBowelReminderTime(r[26] || "08:30"); setWeeBtnOn(r[27] !== undefined ? r[27] : true); setPrdOn(r[28] !== undefined ? r[28] : true); setPrdBfMax(prdVal(r[29], PRD.bf)); setPrdLunchMax(prdVal(r[30], PRD.lunch)); setPrdDayMax(prdVal(r[31], PRD.day)); setPrdEveStart(r[32] || "17:00"); setPrdEveTarget(prdVal(r[33], PRD.eve)); setCarbTarget(prdVal(r[34], 260)); setFibreTarget(prdVal(r[35], 30)); setWeightGoal(prdVal(r[36], null)); setMealTarget(r[37] || 3);
+      if (!medsLoadFailed || fm.length > 0) sMeds(fm); sLogs(l); sMeals(ml); sEx(e); sSlp(s); sSym(cs); sOo(o); sFast(fa); sDrinks(dr); sWaterTarget(wt); sWeight(wg); sMood(mo); sBowel(bw); sDark(dk); sActivity(ac); sCalTarget(ct); sProtTarget(pt); sMedTarget(mt); setCompanionDrinks(cdMap || {}); setCexList(cexList || []); setCactList(cactList || []); setAlarmsOn(alarmsOn || false); setAlarmTimesList(alarmTimesList || ["08:00","12:00","17:00","22:00"]); setOoReminderOn(r[23] || false); setOoReminderInterval(r[24] || 0); setBowelReminderOn(r[25] || false); setBowelReminderTime(r[26] || "08:30"); setWeeBtnOn(r[27] !== undefined ? r[27] : true); setPrdOn(r[28] !== undefined ? r[28] : true); setPrdBfMax(prdVal(r[29], PRD.bf)); setPrdLunchMax(prdVal(r[30], PRD.lunch)); setPrdDayMax(prdVal(r[31], PRD.day)); setPrdEveStart(r[32] || "17:00"); setPrdEveTarget(prdVal(r[33], PRD.eve)); setCarbTarget(prdVal(r[34], 260)); setFibreTarget(prdVal(r[35], 30)); setWeightGoal(prdVal(r[36], null)); setMealTarget(r[37] || 3);
       if (isInitial) {
         var now = Date.now();
         var twoHours = 2 * 60 * 60 * 1000;
@@ -2740,11 +2741,38 @@ function App() {
     return function() { clearInterval(interval); };
   }, [alarmsOn, alarmTimesList]);
 
+  // ON/OFF check-ins. Interval 0 = dose-linked (default): prompt 2h30 and 3h30 after the
+  // latest levodopa dose, skipped if ON/OFF was logged within 30 min before the check-in.
+  // Same rule as the dose-alert edge function's email check-ins.
+  var ooRef = React.useRef({ logs: [], oo: [] });
+  ooRef.current.logs = logs; ooRef.current.oo = oo;
   useEffect(function() {
     if (!ooReminderOn) return;
-    var ms = ooReminderInterval * 60 * 60 * 1000;
-    var timer = setInterval(function() { setShowOoPopup(true); }, ms);
-    return function() { clearInterval(timer); };
+    if (ooReminderInterval) {
+      var ms = ooReminderInterval * 60 * 60 * 1000;
+      var timer = setInterval(function() { setShowOoPopup(true); }, ms);
+      return function() { clearInterval(timer); };
+    }
+    var check = function() {
+      var now = new Date(), today = td();
+      var mins = now.getHours() * 60 + now.getMinutes();
+      if (mins < 360 || mins >= 1260) return;
+      var doses = (ooRef.current.logs || []).filter(function(l) { return isLevodopaLog(l) && (l.takenAt || "").slice(0, 10) === today; })
+        .map(function(l) { return new Date(l.takenAt).getTime(); }).sort(function(a, b) { return a - b; });
+      if (!doses.length) return;
+      var last = doses[doses.length - 1], due = null;
+      [150, 210].forEach(function(off) { var c = last + off * 60000; if (now.getTime() >= c && now.getTime() < c + 60 * 60000) due = { c: c, off: off }; });
+      if (!due) return;
+      var recent = (ooRef.current.oo || []).some(function(o) { var t = new Date(o.loggedAt).getTime(); return t >= due.c - 30 * 60000 && t <= now.getTime(); });
+      if (recent) return;
+      var key = "pd_oo_ci_" + today + "_" + doses.length + "_" + due.off;
+      try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch(e) {}
+      setShowOoPopup(true);
+      if ("Notification" in window && Notification.permission === "granted") { try { new Notification("⚡ ON/OFF check-in", { body: Math.floor(due.off / 60) + "h" + String(due.off % 60).padStart(2, "0") + " since your last dose — are you ON or OFF?", tag: key, requireInteraction: true }); } catch(e) {} }
+    };
+    check();
+    var t2 = setInterval(check, 60000);
+    return function() { clearInterval(t2); };
   }, [ooReminderOn, ooReminderInterval]);
 
   // Infrared reminder — on a due day, pops up at the set time (or on first open after it) until marked done.

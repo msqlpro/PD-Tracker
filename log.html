@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Log ON/OFF</title>
+<style>
+  body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #f3f4f6; color: #1f2937; display: flex; min-height: 100vh; align-items: center; justify-content: center; }
+  .card { background: #fff; border-radius: 20px; padding: 28px 22px; width: min(340px, 90vw); box-shadow: 0 10px 40px rgba(0,0,0,.12); text-align: center; }
+  h1 { font-size: 1.2rem; margin: 8px 0 4px; }
+  p { color: #6b7280; font-size: .9rem; margin: 0 0 18px; }
+  .row { display: flex; gap: 12px; }
+  button { flex: 1; padding: 18px 0; border: 0; border-radius: 14px; font-size: 1.15rem; font-weight: 700; color: #fff; cursor: pointer; }
+  .on { background: #22c55e; } .off { background: #ef4444; }
+  button:disabled { opacity: .5; }
+  .msg { margin-top: 16px; font-weight: 600; min-height: 1.4em; }
+  a { color: #4f46e5; font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div style="font-size:2.4rem">⚡</div>
+  <h1>Are you ON or OFF right now?</h1>
+  <p id="sub">Tap once — it's logged with the current time.</p>
+  <div class="row">
+    <button class="on" id="b-on">🟢 ON</button>
+    <button class="off" id="b-off">🔴 OFF</button>
+  </div>
+  <div class="msg" id="msg"></div>
+  <a href="./">Open PD Tracker</a>
+</div>
+<script>
+  // Logging only happens on a tap (POST), never on page load, so email link scanners can't log anything.
+  var k = new URLSearchParams(location.search).get("k") || "";
+  var msg = document.getElementById("msg");
+  if (!k) { msg.textContent = "This link is missing its key — use the link from the email."; }
+  function log(s) {
+    var bOn = document.getElementById("b-on"), bOff = document.getElementById("b-off");
+    bOn.disabled = bOff.disabled = true; msg.style.color = "#6b7280"; msg.textContent = "Logging…";
+    fetch("https://dbhsxzbqkwuisvvvukxq.supabase.co/functions/v1/onoff-log", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ k: k, s: s })
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (!d.ok) throw new Error(d.error || "failed");
+      var t = new Date(d.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      msg.style.color = s === "on" ? "#16a34a" : "#dc2626";
+      msg.textContent = "✓ Logged " + s.toUpperCase() + " at " + t;
+    }).catch(function(e) {
+      msg.style.color = "#dc2626"; msg.textContent = "Couldn't log: " + e.message;
+      bOn.disabled = bOff.disabled = false;
+    });
+  }
+  document.getElementById("b-on").onclick = function() { log("on"); };
+  document.getElementById("b-off").onclick = function() { log("off"); };
+</script>
+</body>
+</html>
