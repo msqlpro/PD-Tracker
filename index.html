@@ -61,11 +61,27 @@ var { useState, useEffect, useCallback } = React;
 function loadCompanionDrinks() { return {}; }
 function saveCompanionDrinks(map) {}
 
+
+// Free sugars (NHS/SACN): limit 30g/day for adults. Meals: AI-estimated freeSugar; legacy rows fall back to foodBreakdown sum, else unknown (null).
+var FREE_SUGAR_LIMIT = 30, FREE_SUGAR_AIM = 25;
+var FS_BACKFILL_SEEN = {};
+function mealFreeSugar(m) {
+  if (m.freeSugar != null) return Number(m.freeSugar) || 0;
+  var fb = m.foodBreakdown || [];
+  if (fb.length && fb.every(function(f) { return f.freeSugar != null; })) return fb.reduce(function(a, f) { return a + (Number(f.freeSugar) || 0); }, 0);
+  return null;
+}
+function drinkFreeSugar(d) {
+  if (d.freeSugar != null) return Number(d.freeSugar) || 0;
+  var id = d.drinkId || "";
+  if (/water|coffee|tea|decaf|herbal|milk|kefir/.test(id)) return 0;
+  return Number(d.sugar) || 0; // juice, smoothie, other sweet drinks: treat sugar as free
+}
 async function analyzeMealWithAI(description) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyze this meal and return ONLY valid JSON (no markdown, no backticks).\nMeal: "' + description + '"\nReturn: {"foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Calculate for exact stated quantities\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Return ONLY the JSON object. Never ask questions, never explain, never apologise, never write a sentence before or after the JSON. If a quantity is ambiguous or the description conflicts with the stated volume, make your best single estimate and proceed.\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyze this meal and return ONLY valid JSON (no markdown, no backticks).\nMeal: "' + description + '"\nReturn: {"foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"freeSugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"freeSugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Calculate for exact stated quantities\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Return ONLY the JSON object. Never ask questions, never explain, never apologise, never write a sentence before or after the JSON. If a quantity is ambiguous or the description conflicts with the stated volume, make your best single estimate and proceed.\n- freeSugar = FREE SUGARS only (UK NHS/SACN definition): sugars added by the manufacturer or cook (table sugar, syrups, sweeteners made of sugar, sugar in chocolate, biscuits, cakes, sweetened yoghurt/kefir, flavoured drinks, sauces, cereals/muesli with added sugar or dried fruit coating), plus honey, maple/agave syrup, fruit juice, smoothies and fruit purees. NOT free sugars: sugar naturally inside whole/intact fresh or frozen fruit, vegetables, and plain unsweetened milk/natural yoghurt/plain kefir. Dried fruit eaten whole is not free sugar. freeSugar must be <= sugar. Dark chocolate 85% has ~1.5g free sugar per 10g square; 70% ~2.5g.\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] })
     });
     var data = await response.json();
     if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
@@ -79,7 +95,7 @@ async function analyzeMealPhoto(base64Data) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } }, { type: "text", text: 'You are a precise UK nutritionist. Look at this meal photo and return ONLY valid JSON (no markdown, no backticks).\nReturn: {"description":"brief meal description","foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Estimate portion sizes from the photo\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Return ONLY the JSON object. Never ask questions, never explain, never apologise, never write a sentence before or after the JSON. If a quantity is ambiguous or the description conflicts with the stated volume, make your best single estimate and proceed.\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } }, { type: "text", text: 'You are a precise UK nutritionist. Look at this meal photo and return ONLY valid JSON (no markdown, no backticks).\nReturn: {"description":"brief meal description","foods":[{"food":"name","emoji":"emoji","per":"portion","multiplier":1,"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"freeSugar":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"freeSugar":0}}\nRules:\n- All values in grams (integers) except calories which are kcal\n- UK English spelling\n- Estimate portion sizes from the photo\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Return ONLY the JSON object. Never ask questions, never explain, never apologise, never write a sentence before or after the JSON. If a quantity is ambiguous or the description conflicts with the stated volume, make your best single estimate and proceed.\n- freeSugar = FREE SUGARS only (UK NHS/SACN definition): sugars added by the manufacturer or cook (table sugar, syrups, sweeteners made of sugar, sugar in chocolate, biscuits, cakes, sweetened yoghurt/kefir, flavoured drinks, sauces, cereals/muesli with added sugar or dried fruit coating), plus honey, maple/agave syrup, fruit juice, smoothies and fruit purees. NOT free sugars: sugar naturally inside whole/intact fresh or frozen fruit, vegetables, and plain unsweetened milk/natural yoghurt/plain kefir. Dried fruit eaten whole is not free sugar. freeSugar must be <= sugar. Dark chocolate 85% has ~1.5g free sugar per 10g square; 70% ~2.5g.\n- Never round small values down to 0\n- Use appropriate emoji per food item' }] }] })
     });
     var data = await response.json();
     if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
@@ -93,7 +109,7 @@ async function analyzeDrinkWithAI(description, volume) {
   try {
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyse this drink and return ONLY valid JSON (no markdown, no backticks).\nDrink: "' + description + '"\nVolume: ' + volume + 'ml\nReturn: {"items":[{"item":"name","emoji":"emoji","per":"portion","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"caffeine":0}}\nRules:\n- All values in grams (integers) except calories (kcal) and caffeine (mg)\n- Calculate for the exact volume specified\n- UK English spelling\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Return ONLY the JSON object. Never ask questions, never explain, never apologise, never write a sentence before or after the JSON. If a quantity is ambiguous or the description conflicts with the stated volume, make your best single estimate and proceed.\n- Never round small values down to 0 (use 1 if tiny)\n- For multi-ingredient drinks (smoothies, lattes, cocktails) break down each component\n- Use an appropriate emoji per item' }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800, messages: [{ role: "user", content: 'You are a precise UK nutritionist. Analyse this drink and return ONLY valid JSON (no markdown, no backticks).\nDrink: "' + description + '"\nVolume: ' + volume + 'ml\nReturn: {"items":[{"item":"name","emoji":"emoji","per":"portion","protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"freeSugar":0,"caffeine":0}],"totals":{"protein":0,"carbs":0,"fibre":0,"calories":0,"sugar":0,"freeSugar":0,"caffeine":0}}\nRules:\n- All values in grams (integers) except calories (kcal) and caffeine (mg)\n- Calculate for the exact volume specified\n- UK English spelling\n- Use real nutritional data\n- Known products the user buys, use these exact figures: Cocos Organic coconut kefir = 79kcal, 1.6g protein, 3.5g carbs, 0.5g sugar per 100ml (coconut-milk based, NOT the ~20kcal water-based type). Biotiful dairy kefir = 59kcal, 3.5g protein per 100ml.\n- Return ONLY the JSON object. Never ask questions, never explain, never apologise, never write a sentence before or after the JSON. If a quantity is ambiguous or the description conflicts with the stated volume, make your best single estimate and proceed.\n- freeSugar = FREE SUGARS only (UK NHS/SACN definition): sugars added by the manufacturer or cook (table sugar, syrups, sweeteners made of sugar, sugar in chocolate, biscuits, cakes, sweetened yoghurt/kefir, flavoured drinks, sauces, cereals/muesli with added sugar or dried fruit coating), plus honey, maple/agave syrup, fruit juice, smoothies and fruit purees. NOT free sugars: sugar naturally inside whole/intact fresh or frozen fruit, vegetables, and plain unsweetened milk/natural yoghurt/plain kefir. Dried fruit eaten whole is not free sugar. freeSugar must be <= sugar. Dark chocolate 85% has ~1.5g free sugar per 10g square; 70% ~2.5g.\n- Never round small values down to 0 (use 1 if tiny)\n- For multi-ingredient drinks (smoothies, lattes, cocktails) break down each component\n- Use an appropriate emoji per item' }] })
     });
     var data = await response.json();
     if (!response.ok) { LAST_AI_ERROR = "API " + response.status + " \u2014 " + ((data && data.error && data.error.message) || (data && data.error && data.error.type) || "request rejected"); return null; }
@@ -131,7 +147,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v78 Oct01 — ON/OFF check-ins 2½h & 3½h after each dose";
+var BUILD_VERSION = "v80 Oct01 — free-sugar tracking (30g NHS limit)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -146,13 +162,13 @@ function prdVal(v, d) { return (v === null || v === undefined || v === "") ? d :
 var TO_ROW = {
   meds: function(d) { return { id: d.id, user_id: CURRENT_UID, name: d.name, dose: d.dose || "", times: d.times || [], items: d.items || null }; },
   logs: function(d) { return { id: d.id, user_id: CURRENT_UID, med_id: d.medId, med_name: d.medName, dose: d.dose || "", taken_at: d.takenAt, effectiveness: d.effectiveness || 0, source: d.source || "logged" }; },
-  meals: function(d) { return { id: d.id, user_id: CURRENT_UID, description: d.description, logged_at: d.loggedAt, protein: d.protein || 0, carbs: d.carbs || 0, fibre: d.fibre || 0, calories: d.calories || 0, sugar: d.sugar || 0, food_breakdown: d.foodBreakdown || [], source: d.source || "logged" }; },
+  meals: function(d) { return { id: d.id, user_id: CURRENT_UID, description: d.description, logged_at: d.loggedAt, protein: d.protein || 0, carbs: d.carbs || 0, fibre: d.fibre || 0, calories: d.calories || 0, sugar: d.sugar || 0, free_sugar: (d.freeSugar == null ? null : d.freeSugar), food_breakdown: d.foodBreakdown || [], source: d.source || "logged" }; },
   ex: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, intensity: d.intensity || "moderate", distance: (d.distance === "" || d.distance === undefined ? null : d.distance), distance_unit: d.distanceUnit || "km", logged_at: d.loggedAt, avg_hr: d.avgHr || null, peak_hr: d.peakHr || null, min_hr: d.minHr || null, category: d.category || null, notes: d.note || null }; },
   sleep: function(d) { return { id: d.id, user_id: CURRENT_UID, hours: d.hours, quality: d.quality, bedtime: d.bedtime, wake_time: d.wakeTime, date: d.date }; },
   sym: function(d) { return { id: d.id, user_id: CURRENT_UID, symptom_id: d.symptomId, severity: d.severity, notes: d.notes || "", logged_at: d.loggedAt }; },
   onoff: function(d) { return { id: d.id, user_id: CURRENT_UID, state: d.state, logged_at: d.loggedAt, source: d.source || "logged" }; },
   fast: function(d) { return { id: d.id, user_id: CURRENT_UID, start_time: d.startTime, end_time: d.endTime, hours: d.hours, date: d.date }; },
-  drinks: function(d) { return { id: d.id, user_id: CURRENT_UID, drink_id: d.drinkId, name: d.name, emoji: d.emoji || "🥤", volume: d.volume || 0, caffeine: d.caffeine || 0, calories: d.calories || 0, sugar: d.sugar || 0, carbs: d.carbs || 0, protein: d.protein || 0, fibre: d.fibre || 0, description: d.description || "", drink_breakdown: d.drinkBreakdown || null, note: d.note || "", logged_at: d.loggedAt }; },
+  drinks: function(d) { return { id: d.id, user_id: CURRENT_UID, drink_id: d.drinkId, name: d.name, emoji: d.emoji || "🥤", volume: d.volume || 0, caffeine: d.caffeine || 0, calories: d.calories || 0, sugar: d.sugar || 0, free_sugar: (d.freeSugar == null ? null : d.freeSugar), carbs: d.carbs || 0, protein: d.protein || 0, fibre: d.fibre || 0, description: d.description || "", drink_breakdown: d.drinkBreakdown || null, note: d.note || "", logged_at: d.loggedAt }; },
   weight: function(d) { return { id: d.id, user_id: CURRENT_UID, weight: d.weight, unit: d.unit || "kg", note: d.note || "", date: d.date }; },
   mood: function(d) { return { id: d.id, user_id: CURRENT_UID, level: d.level, note: d.note || "", date: d.date }; },
   bowel: function(d) { return { id: d.id, user_id: CURRENT_UID, strain: d.strain || false, note: (d.type === "urine" ? "type:urine|" : "type:bowel|") + (d.note || ""), logged_at: d.loggedAt }; },
@@ -161,13 +177,13 @@ var TO_ROW = {
 var FROM_ROW = {
   meds: function(r) { return { id: r.id, name: r.name, dose: r.dose, times: r.times || [], items: r.items || null }; },
   logs: function(r) { return { id: r.id, medId: r.med_id, medName: r.med_name, dose: r.dose, takenAt: r.taken_at, effectiveness: r.effectiveness || 0, source: r.source || "logged" }; },
-  meals: function(r) { return { id: r.id, description: r.description, loggedAt: r.logged_at, protein: Number(r.protein)||0, carbs: Number(r.carbs)||0, fibre: Number(r.fibre)||0, calories: Number(r.calories)||0, sugar: Number(r.sugar)||0, foodBreakdown: r.food_breakdown || [], source: r.source || "logged" }; },
+  meals: function(r) { return { id: r.id, description: r.description, loggedAt: r.logged_at, protein: Number(r.protein)||0, carbs: Number(r.carbs)||0, fibre: Number(r.fibre)||0, calories: Number(r.calories)||0, sugar: Number(r.sugar)||0, freeSugar: (r.free_sugar == null ? null : Number(r.free_sugar)), foodBreakdown: r.food_breakdown || [], source: r.source || "logged" }; },
   ex: function(r) { return { id: r.id, type: r.type, duration: r.duration, intensity: r.intensity, distance: r.distance, distanceUnit: r.distance_unit, loggedAt: r.logged_at, avgHr: r.avg_hr || null, peakHr: r.peak_hr || null, minHr: r.min_hr || null, category: r.category || null, note: r.notes || "" }; },
   sleep: function(r) { return { id: r.id, hours: Number(r.hours), quality: r.quality, bedtime: r.bedtime, wakeTime: r.wake_time, date: r.date }; },
   sym: function(r) { return { id: r.id, symptomId: r.symptom_id, severity: r.severity, notes: r.notes, loggedAt: r.logged_at }; },
   onoff: function(r) { return { id: r.id, state: r.state, loggedAt: r.logged_at, source: r.source || "logged" }; },
   fast: function(r) { return { id: r.id, startTime: r.start_time, endTime: r.end_time, hours: Number(r.hours), date: r.date }; },
-  drinks: function(r) { return { id: r.id, drinkId: r.drink_id, name: r.name, emoji: r.emoji, volume: r.volume, caffeine: r.caffeine, calories: r.calories, sugar: r.sugar || 0, carbs: r.carbs || 0, protein: r.protein || 0, fibre: r.fibre || 0, description: r.description || "", drinkBreakdown: r.drink_breakdown || null, note: r.note, loggedAt: r.logged_at }; },
+  drinks: function(r) { return { id: r.id, drinkId: r.drink_id, name: r.name, emoji: r.emoji, volume: r.volume, caffeine: r.caffeine, calories: r.calories, sugar: r.sugar || 0, freeSugar: (r.free_sugar == null ? null : Number(r.free_sugar)), carbs: r.carbs || 0, protein: r.protein || 0, fibre: r.fibre || 0, description: r.description || "", drinkBreakdown: r.drink_breakdown || null, note: r.note, loggedAt: r.logged_at }; },
   weight: function(r) { return { id: r.id, weight: Number(r.weight), unit: r.unit, note: r.note, date: r.date }; },
   mood: function(r) { return { id: r.id, level: r.level, note: r.note, date: r.date }; },
   bowel: function(r) { var raw = r.note || ""; var type = raw.startsWith("type:urine|") ? "urine" : "bowel"; var note = raw.replace(/^type:(bowel|urine)\|/, ""); return { id: r.id, strain: r.strain, type: type, note: note, loggedAt: r.logged_at }; },
@@ -455,11 +471,11 @@ function MealMod(p) {
   var [desc, setDesc] = useState(edit ? edit.description : "");
   var [time, setTime] = useState(edit ? ft(edit.loggedAt) : (p.defaultDate ? "13:00" : nw()));
   var [date, setDate] = useState(edit ? dateOf(edit.loggedAt) : (p.defaultDate || td()));
-  var [aiResult, setAi] = useState(edit && edit.foodBreakdown && edit.foodBreakdown.length ? { foods: edit.foodBreakdown, totals: { protein: edit.protein, carbs: edit.carbs, fibre: edit.fibre, calories: edit.calories || 0, sugar: edit.sugar } } : null);
+  var [aiResult, setAi] = useState(edit && edit.foodBreakdown && edit.foodBreakdown.length ? { foods: edit.foodBreakdown, totals: { protein: edit.protein, carbs: edit.carbs, fibre: edit.fibre, calories: edit.calories || 0, sugar: edit.sugar, freeSugar: edit.freeSugar } } : null);
   var [loading, setLoad] = useState(false);
   var [error, setErr] = useState(null);
   var [me, setMe] = useState(false);
-  var [mt, setMt] = useState(edit ? { protein: edit.protein, carbs: edit.carbs, fibre: edit.fibre, calories: edit.calories || 0, sugar: edit.sugar } : null);
+  var [mt, setMt] = useState(edit ? { protein: edit.protein, carbs: edit.carbs, fibre: edit.fibre, calories: edit.calories || 0, sugar: edit.sugar, freeSugar: edit.freeSugar } : null);
   var [sp, setSp] = useState(!edit);
   var analyze = async function() { if (!desc.trim()) return; setLoad(true); setErr(null); var r = await analyzeMealWithAI(desc); if (r) { setAi(r); if (!me) setMt(null); } else setErr("Analysis failed: " + (LAST_AI_ERROR || "try again or adjust totals manually")); setLoad(false); };
   var analyzePhoto = async function(file) { setLoad(true); setErr(null); try { var reader = new FileReader(); var b64 = await new Promise(function(res, rej) { reader.onload = function() { res(reader.result.split(",")[1]); }; reader.onerror = rej; reader.readAsDataURL(file); }); var r = await analyzeMealPhoto(b64); if (r) { if (r.description) setDesc(r.description); setAi({ foods: r.foods, totals: r.totals }); if (!me) setMt(null); } else setErr("Photo analysis failed: " + (LAST_AI_ERROR || "try again")); } catch(e) { setErr("Photo error: " + e.message); } setLoad(false); };
@@ -511,9 +527,9 @@ function MealMod(p) {
   var copyMeal = function(m) {
     setDesc(m.description);
     if (m.foodBreakdown && m.foodBreakdown.length) {
-      setAi({ foods: m.foodBreakdown, totals: { protein: m.protein, carbs: m.carbs, fibre: m.fibre, calories: m.calories || 0, sugar: m.sugar } });
+      setAi({ foods: m.foodBreakdown, totals: { protein: m.protein, carbs: m.carbs, fibre: m.fibre, calories: m.calories || 0, sugar: m.sugar, freeSugar: m.freeSugar } });
     } else { setAi(null); }
-    setMt({ protein: m.protein, carbs: m.carbs, fibre: m.fibre, calories: m.calories || 0, sugar: m.sugar });
+    setMt({ protein: m.protein, carbs: m.carbs, fibre: m.fibre, calories: m.calories || 0, sugar: m.sugar, freeSugar: m.freeSugar });
     setSp(false);
   };
 
@@ -561,12 +577,12 @@ function MealMod(p) {
       <button onClick={analyze} disabled={!desc.trim() || loading} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2">{loading ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />Analysing...</> : <>✨ Analyse</>}</button>
       <label className={"py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold flex items-center justify-center gap-1 cursor-pointer " + (loading ? "opacity-50" : "")}>📸 Photo<input type="file" accept="image/*" capture="environment" className="hidden" disabled={loading} onChange={function(e) { if (e.target.files && e.target.files[0]) analyzePhoto(e.target.files[0]); }} /></label>
     </div>
-    <SaveDel canDel={!!edit} color="bg-green-600" label={edit ? "Update" : "Save Meal"} onDel={function() { p.onSave(null, edit.id); p.onClose(); }} onSave={function() { if (!desc.trim()) return; p.onSave({ id: edit ? edit.id : Date.now().toString(), description: desc, loggedAt: new Date(date + "T" + time).toISOString(), protein: fin.protein, carbs: fin.carbs, fibre: fin.fibre, calories: fin.calories || 0, sugar: fin.sugar, foodBreakdown: aiResult ? aiResult.foods : [] }); p.onClose(); }} />
+    <SaveDel canDel={!!edit} color="bg-green-600" label={edit ? "Update" : "Save Meal"} onDel={function() { p.onSave(null, edit.id); p.onClose(); }} onSave={function() { if (!desc.trim()) return; p.onSave({ id: edit ? edit.id : Date.now().toString(), description: desc, loggedAt: new Date(date + "T" + time).toISOString(), protein: fin.protein, carbs: fin.carbs, fibre: fin.fibre, calories: fin.calories || 0, sugar: fin.sugar, freeSugar: (fin.freeSugar == null ? null : fin.freeSugar), foodBreakdown: aiResult ? aiResult.foods : [] }); p.onClose(); }} />
     {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl mb-3">{error}</div>}
     {aiResult && aiResult.foods && aiResult.foods.length > 0 && <div className="mb-3 bg-green-50 rounded-xl p-3 border border-green-200"><span className="text-sm font-semibold text-gray-700 block mb-2">✨ AI Nutrition Breakdown:</span><FoodBreakdown items={aiResult.foods} totals={mt || aiResult.totals} /></div>}
     <div className="mt-3">
       <button onClick={function() { setMe(!me); if (!me && !mt) setMt(Object.assign({}, aiResult ? aiResult.totals : { protein: 0, carbs: 0, fibre: 0, calories: 0, sugar: 0 })); }} className="text-sm text-blue-600 mb-2">{me ? "▲ Hide manual" : "✏️ Adjust totals"}</button>
-      {me && mt && <div className="grid grid-cols-5 gap-2 mb-1">{["protein", "carbs", "fibre", "calories", "sugar"].map(function(k) { return <label key={k} className="text-center"><span className="text-xs text-gray-500 capitalize">{k === "calories" ? "Cal" : k}</span><input type="number" min={0} value={mt[k]} onChange={function(e) { setMt(function(prev) { var n = Object.assign({}, prev); n[k] = parseInt(e.target.value) || 0; return n; }); }} className="w-full border rounded-lg p-2 text-center text-sm" /></label>; })}</div>}
+      {me && mt && <div className="grid grid-cols-3 gap-2 mb-1">{["protein", "carbs", "fibre", "calories", "sugar", "freeSugar"].map(function(k) { return <label key={k} className="text-center"><span className="text-xs text-gray-500 capitalize">{k === "calories" ? "Cal" : k === "freeSugar" ? "Free sugar" : k}</span><input type="number" min={0} value={mt[k] == null ? "" : mt[k]} onChange={function(e) { setMt(function(prev) { var n = Object.assign({}, prev); n[k] = parseInt(e.target.value) || 0; return n; }); }} className="w-full border rounded-lg p-2 text-center text-sm" /></label>; })}</div>}
     </div>
   </Mod>);
 }
@@ -804,11 +820,11 @@ function DrinkMod(p) {
   var [date, sDate] = useState(isEdit ? dateOf(ex.loggedAt) : td());
   var [note, sNote] = useState(isEdit ? (ex.note || "") : "");
   var [desc, setDesc] = useState(isEdit ? (ex.description || "") : "");
-  var [aiResult, setAi] = useState(isEdit && ex.drinkBreakdown && ex.drinkBreakdown.length ? { items: ex.drinkBreakdown, totals: { protein: ex.protein || 0, carbs: ex.carbs || 0, fibre: ex.fibre || 0, calories: ex.calories || 0, sugar: ex.sugar || 0, caffeine: ex.caffeine || 0 } } : null);
+  var [aiResult, setAi] = useState(isEdit && ex.drinkBreakdown && ex.drinkBreakdown.length ? { items: ex.drinkBreakdown, totals: { protein: ex.protein || 0, carbs: ex.carbs || 0, fibre: ex.fibre || 0, calories: ex.calories || 0, sugar: ex.sugar || 0, freeSugar: ex.freeSugar, caffeine: ex.caffeine || 0 } } : null);
   var [loading, setLoad] = useState(false);
   var [aiErr, setAiErr] = useState(null);
   var [me, setMe] = useState(false);
-  var [mt, setMt] = useState(isEdit ? { protein: ex.protein || 0, carbs: ex.carbs || 0, fibre: ex.fibre || 0, calories: ex.calories || 0, sugar: ex.sugar || 0, caffeine: ex.caffeine || 0 } : null);
+  var [mt, setMt] = useState(isEdit ? { protein: ex.protein || 0, carbs: ex.carbs || 0, fibre: ex.fibre || 0, calories: ex.calories || 0, sugar: ex.sugar || 0, freeSugar: ex.freeSugar, caffeine: ex.caffeine || 0 } : null);
   var [saveErr, setSaveErr] = useState(null);
   var info = DRINKS.find(function(d) { return d.id === sel; });
   var ratio = vol / 250;
@@ -858,6 +874,7 @@ function DrinkMod(p) {
         caffeine: fin.caffeine || 0,
         calories: fin.calories || 0,
         sugar: fin.sugar || 0,
+        freeSugar: (fin.freeSugar != null ? fin.freeSugar : drinkFreeSugar({ drinkId: info ? info.id : "other", sugar: fin.sugar || 0 })),
         carbs: fin.carbs || 0,
         protein: fin.protein || 0,
         fibre: fin.fibre || 0,
@@ -2085,6 +2102,29 @@ function TodayPage(p) {
   var drinkCaff = tDr.reduce(function(s, d) { return s + (d.caffeine || 0); }, 0);
   var totalCalsIn = dn.calories + drinkCals;
   var totalSugar = dn.sugar + dnDrink.sugar;
+  // Free sugars today (meals + drinks); null meals = not yet estimated
+  var fsPending = tMl.filter(function(m) { return mealFreeSugar(m) == null && m.description; });
+  var fsMeals = tMl.reduce(function(a, m) { var v = mealFreeSugar(m); return a + (v == null ? 0 : v); }, 0);
+  var fsDrinks = tDr.reduce(function(a, d) { return a + drinkFreeSugar(d); }, 0);
+  var freeSugarToday = Math.round(fsMeals + fsDrinks);
+  var totalSugarToday = Math.round(totalSugar);
+  useEffect(function() {
+    if (!p.onUpdMeal || !fsPending.length) return;
+    var todo = fsPending.filter(function(m) { return !FS_BACKFILL_SEEN[m.id]; });
+    if (!todo.length) return;
+    todo.forEach(function(m) { FS_BACKFILL_SEEN[m.id] = 1; });
+    (async function() {
+      for (var i = 0; i < todo.length; i++) {
+        var m = todo[i];
+        var r = await analyzeMealWithAI(m.description);
+        if (r && r.totals && r.totals.freeSugar != null) {
+          var fs = Number(r.totals.freeSugar) || 0;
+          if (m.sugar > 0) fs = Math.min(fs, m.sugar);
+          p.onUpdMeal(Object.assign({}, m, { freeSugar: fs }));
+        }
+      }
+    })();
+  }, [fsPending.map(function(m) { return m.id; }).join(",")]);
   var totalCarbs = dn.carbs + dnDrink.carbs;
   var totalProtein = dn.protein + dnDrink.protein;
   var calBurned = tE.reduce(function(s, e) { var rate = e.intensity === "vigorous" ? 10 : e.intensity === "moderate" ? 7 : 4; return s + ((e.duration || 0) * rate); }, 0);
@@ -2170,6 +2210,9 @@ function TodayPage(p) {
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-cyan-600">{waterMl >= 1000 ? (waterMl/1000).toFixed(1) + "L" : waterMl + "ml"}</div><div className="text-[10px] text-gray-500">Water · {waterPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (waterPct >= 100 ? "bg-cyan-500" : "bg-cyan-300")} style={{ width: Math.min(waterPct, 100) + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {(waterTarget/1000).toFixed(1)}L</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className="text-lg font-bold text-blue-600">{mdn}</div><div className="text-[10px] text-gray-500">Meds · {mdPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (mdPct >= 100 ? "bg-emerald-500" : "bg-blue-400")} style={{ width: Math.min(mdPct, 100) + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {mdt} doses</div></div>
       <div className="bg-white rounded-xl p-2 text-center shadow-sm"><div className={"text-lg font-bold " + (calOver ? "text-red-600" : "text-pink-600")}>{netCal}</div><div className="text-[10px] text-gray-500">kcal · {calPct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + (calPct >= 100 ? "bg-red-500" : "bg-amber-400")} style={{ width: Math.min(calPct, 100) + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">of {ct}{calBurned > 0 ? " · " + totalCalsIn + " in" : ""}</div></div>
+    </div>); })()}
+    {(function() { var fs = freeSugarToday; var lim = FREE_SUGAR_LIMIT; var pct = Math.round((fs / lim) * 100); var col = fs > lim ? "text-red-600" : fs > FREE_SUGAR_AIM ? "text-amber-600" : "text-emerald-600"; var bar = fs > lim ? "bg-red-500" : fs > FREE_SUGAR_AIM ? "bg-amber-400" : "bg-emerald-500"; var left = lim - fs; return (<div className="grid grid-cols-3 gap-2 mb-2">
+      <div className="col-start-3 bg-white rounded-xl p-2 text-center shadow-sm"><div className={"text-lg font-bold " + col}>{fs}g{fsPending.length ? "…" : ""}</div><div className="text-[10px] text-gray-500">Free sugar · {pct}%</div><div className="w-full bg-gray-100 rounded-full h-1.5 mt-1 overflow-hidden"><div className={"h-full rounded-full " + bar} style={{ width: Math.min(pct, 100) + "%" }} /></div><div className="text-[9px] text-gray-400 mt-0.5">{left >= 0 ? left + "g left of " + lim + "g" : (-left) + "g over " + lim + "g"}</div><div className="text-[9px] text-gray-400">total sugar {totalSugarToday}g{fsPending.length ? " · estimating…" : ""}</div></div>
     </div>); })()}
     {(function() {
       // Personal baseline vs today so far — compares "what I've had/done by now"
@@ -2308,7 +2351,7 @@ function TodayPage(p) {
         var i = it.d;
         if (it._t === "slp") return <button key={i.id || i.date} onClick={function() { setM({ type: "eSlp", data: i }); }} className="w-full bg-indigo-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>😴 {i.hours}h · {["", "😫", "😕", "😐", "😊", "😁"][i.quality]} · {i.bedtime}→{i.wakeTime}</span><span className="text-xs text-gray-400 ml-2">{fdOnly(i.date)}</span></div></button>;
         if (it._t === "med") return <button key={i.id} onClick={function() { setM({ type: "eDose", log: i }); }} className="w-full bg-blue-50 rounded-xl p-2.5 mb-1.5 text-left text-sm"><div className="flex justify-between"><span>💊 {i.medName} {i.dose}</span><span className="text-gray-400 text-xs">{fdt(i.takenAt)}</span></div></button>;
-        if (it._t === "meal") return <button key={i.id} onClick={function() { setM({ type: "eMeal", meal: i }); }} className="w-full bg-green-50 rounded-xl p-2.5 mb-1.5 text-left text-sm"><div className="flex justify-between items-start"><span className="font-medium">🍽️ {i.description}</span><span className="text-xs text-gray-400 shrink-0 ml-2">{fdt(i.loggedAt)}</span></div>{i.calories ? <div className="text-xs text-gray-500 mt-0.5">{i.calories}kcal · P:{i.protein||0}g C:{i.carbs||0}g F:{i.fibre||0}g</div> : null}</button>;
+        if (it._t === "meal") return <button key={i.id} onClick={function() { setM({ type: "eMeal", meal: i }); }} className="w-full bg-green-50 rounded-xl p-2.5 mb-1.5 text-left text-sm"><div className="flex justify-between items-start"><span className="font-medium">🍽️ {i.description}</span><span className="text-xs text-gray-400 shrink-0 ml-2">{fdt(i.loggedAt)}</span></div>{i.calories ? <div className="text-xs text-gray-500 mt-0.5">{i.calories}kcal · P:{i.protein||0}g C:{i.carbs||0}g F:{i.fibre||0}g S:{i.sugar||0}g{mealFreeSugar(i) != null ? " (free " + Math.round(mealFreeSugar(i)) + "g)" : ""}</div> : null}</button>;
         if (it._t === "ex") return <button key={i.id} onClick={function() { setM({ type: "eEx", data: i }); }} className="w-full bg-orange-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>🏃 {i.type}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-600">{i.duration}min{i.distance ? " · " + i.distance + (i.distanceUnit || "km") : ""} · {i.intensity}</div></button>;
         if (it._t === "sym") { var st = SYMS.find(function(t) { return t.id === i.symptomId; }); return <button key={i.id} onClick={function() { setM({ type: "eSym", data: i }); }} className="w-full bg-red-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{st ? st.e : ""} {st ? st.l : i.symptomId}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div></button>; }
         if (it._t === "oo") return <button key={i.id} onClick={function() { setM({ type: "eOo", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.state === "on" ? "bg-green-50" : "bg-red-50")}>{i.state === "on" ? "🟢 ON" : "🔴 OFF"} <span className="text-gray-400 text-xs">{fdt(i.loggedAt)}</span></button>;
@@ -2920,7 +2963,7 @@ function App() {
       var m = noCal[i];
       setReProgress("Analysing " + (i + 1) + "/" + noCal.length + "...");
       var result = await analyzeMealWithAI(m.description);
-      if (result && result.totals) { var updated = Object.assign({}, m, { protein: result.totals.protein, carbs: result.totals.carbs, fibre: result.totals.fibre, calories: result.totals.calories || 0, sugar: result.totals.sugar, foodBreakdown: result.foods || [] }); uMeal(updated); }
+      if (result && result.totals) { var updated = Object.assign({}, m, { protein: result.totals.protein, carbs: result.totals.carbs, fibre: result.totals.fibre, calories: result.totals.calories || 0, sugar: result.totals.sugar, freeSugar: result.totals.freeSugar, foodBreakdown: result.foods || [] }); uMeal(updated); }
     }
     setReProgress(""); setReanalyzing(false);
   };
@@ -2936,7 +2979,7 @@ function App() {
       try {
         var result = await analyzeMealWithAI(m.description);
         if (result && result.totals) {
-          var updated = Object.assign({}, m, { protein: m.protein || result.totals.protein, carbs: m.carbs || result.totals.carbs, fibre: m.fibre || result.totals.fibre, calories: m.calories || result.totals.calories || 0, sugar: m.sugar || result.totals.sugar, foodBreakdown: result.foods || [] });
+          var updated = Object.assign({}, m, { protein: m.protein || result.totals.protein, carbs: m.carbs || result.totals.carbs, fibre: m.fibre || result.totals.fibre, calories: m.calories || result.totals.calories || 0, sugar: m.sugar || result.totals.sugar, freeSugar: (m.freeSugar != null ? m.freeSugar : result.totals.freeSugar), foodBreakdown: result.foods || [] });
           uMeal(updated); ok++;
         }
       } catch(e) {}
@@ -3037,7 +3080,7 @@ function App() {
     </div>)}
     <div style={{position:"fixed",top:0,left:0,right:0,height:"env(safe-area-inset-top, 0px)",background:"#0f172a",zIndex:45}} />
     <div style={{height:"env(safe-area-inset-top, 0px)"}} />
-    {tab === "today" && <TodayPage irCfg={irCfg} onIrOpen={function() { setShowIrPopup(true); }} onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
+    {tab === "today" && <TodayPage irCfg={irCfg} onIrOpen={function() { setShowIrPopup(true); }} onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} onUpdMeal={uMeal} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
     {tab === "history" && <HistoryPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "exercise" && <ExercisePage ex={ex} setM={sModal} dark={dark} cfg={exCfg} setCfg={setExCfg} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
