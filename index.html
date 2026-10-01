@@ -147,7 +147,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v80 Oct01 — free-sugar tracking (30g NHS limit)";
+var BUILD_VERSION = "v81 Oct01 — Stair Master exercise type";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -592,7 +592,7 @@ function MealMod(p) {
 // category explicitly in the modal; legacy rows without one are inferred by name.
 var EX_TYPES = [
   { n: "Run", c: "aerobic", e: "🏃" }, { n: "Spin", c: "aerobic", e: "🚴" },
-  { n: "Boxercise", c: "aerobic", e: "🥊" },
+  { n: "Boxercise", c: "aerobic", e: "🥊" }, { n: "Stair Master", c: "aerobic", e: "🪜" },
   { n: "Strength", c: "strength", e: "🏋️" }, { n: "Balance", c: "balance", e: "🧘" },
   { n: "Yoga", c: "flexibility", e: "🧘‍♂️" }, { n: "Flexibility", c: "flexibility", e: "🤸" }
 ];
@@ -613,7 +613,7 @@ function irNextDue(cfg) { var d = new Date(); for (var i = 0; i < 400; i++) { va
 function irPastTime(cfg) { var now = new Date(); var t = (cfg.time || "06:30").split(":"); return now.getHours() * 60 + now.getMinutes() >= (parseInt(t[0])||0) * 60 + (parseInt(t[1])||0); }
 function exInferCat(type) {
   var t = (type || "").toLowerCase();
-  if (/run|jog|spin|cycl|bike|swim|row|walk|hike|hiit|box|boxercise|parkrun|ellip|tread|danc|squash|tennis|cardio/.test(t)) return "aerobic";
+  if (/run|jog|spin|cycl|bike|swim|row|walk|hike|hiit|box|boxercise|parkrun|ellip|tread|stair|step|danc|squash|tennis|cardio/.test(t)) return "aerobic";
   if (/strength|weight|gym|resist|lift|press|squat/.test(t)) return "strength";
   if (/balance|tai chi|taichi|stand/.test(t)) return "balance";
   if (/flex|stretch|yoga|pilates|mobility/.test(t)) return "flexibility";
