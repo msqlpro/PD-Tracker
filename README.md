@@ -38,6 +38,12 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-03
+- **Safe-to-eat alert (v82)** — Today screen shows a banner after each levodopa dose: amber "Hold food until HH:MM" countdown for the first 30 min, then green "Safe to eat since HH:MM" with a protein cut-off (next estimated dose − 90 min) so a protein meal doesn't blunt the following dose. Browser notification fires at the safe time while the app is open. Hidden once a meal/snack is logged after the dose.
+- **Email** — `dose-alert` edge function now returns a `meal` window; the hourly scheduled task emails "Safe to eat" once per dose (deduped in new `meal_alerts` table).
+- **Fix** — levodopa logs within 15 min of each other now count as one dose event for timing (a duplicate log was making the planner think an extra dose had been taken).
+- Edge function source now versioned in `supabase/functions/dose-alert/`.
+
 ### 2026-06-15
 - **Protein timing (levodopa)** — new Settings card to set daytime protein targets (breakfast / lunch / daytime total) and the evening cut-off, for protein-redistribution to protect levodopa absorption
 - **Over-target alerts** — Today screen shows a live daytime-vs-evening protein readout that turns red and lists the breach the moment a logged meal pushes you over a daytime target (no push needed — surfaces in-app at log time)

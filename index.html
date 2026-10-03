@@ -147,7 +147,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v81 Oct01 — Stair Master exercise type";
+var BUILD_VERSION = "v82 Oct03 — Safe-to-eat alert after each dose";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -219,6 +219,41 @@ function isLevodopaLog(l) {
   if (id.indexOf("supplement_stack_") === 0 || id.indexOf("magnesium_night_") === 0) return false;
   return /sinemet|levodopa|co-?careldopa|madopar|stalevo|sastravi|mucuna/i.test(l.medName || "");
 }
+// Meal window after a levodopa dose (same rule as the dose-alert edge function).
+// Safe to eat from 30 min after the latest dose. If another dose is due today, a
+// protein meal (15-29 g) should be finished ~90 min before it so it doesn't blunt
+// that dose. Heuristic, not a clinical rule.
+var MEAL_AFTER_DOSE = 30, MEAL_PROT_CLEAR = 90;
+function mealWindow(logs, meals, drinks, maxDoses) {
+  var now = new Date(), today = td();
+  var dayOf = function(iso) { return iso ? dateOf(iso) : ""; };
+  var minsOf = function(iso) { var d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); };
+  var lev = (logs || []).filter(isLevodopaLog);
+  var doses = lev.filter(function(l) { return dayOf(l.takenAt) === today; }).map(function(l) { return minsOf(l.takenAt); }).sort(function(a, b) { return a - b; })
+    .filter(function(m, i, a) { return i === 0 || m - a[i - 1] >= 15; }); // logs within 15 min = one dose event
+  if (!doses.length) return null;
+  var last = doses[doses.length - 1], nowM = now.getHours() * 60 + now.getMinutes();
+  var eatFrom = last + MEAL_AFTER_DOSE;
+  var eaten = (meals || []).concat((drinks || []).filter(function(d) { return !/^Auto-logged with/.test(d.note || ""); }))
+    .some(function(x) { return x.loggedAt && dayOf(x.loggedAt) === today && minsOf(x.loggedAt) >= last && ((x.protein || 0) >= 5 || (x.calories || 0) >= 150); });
+  var nextEst = null, proteinBy = null;
+  if (doses.length < (maxDoses || 4)) {
+    var gap;
+    if (doses.length >= 2) gap = Math.round((last - doses[0]) / (doses.length - 1));
+    else {
+      var byDay = {};
+      REAL(lev).forEach(function(l) { var d = dayOf(l.takenAt); if (d && d !== today) (byDay[d] = byDay[d] || []).push(minsOf(l.takenAt)); });
+      var h = Object.keys(byDay).map(function(k) { return byDay[k].sort(function(a, b) { return a - b; }); }).filter(function(a) { return a.length >= 2; })
+        .map(function(a) { return a[1] - a[0]; }).filter(function(g) { return g >= 90 && g <= 360; }).sort(function(a, b) { return a - b; });
+      gap = h.length ? h[Math.floor(h.length / 2)] : 210;
+    }
+    gap = Math.max(150, Math.min(270, gap));
+    nextEst = last + gap;
+    if (nextEst - MEAL_PROT_CLEAR > eatFrom) proteinBy = nextEst - MEAL_PROT_CLEAR;
+  }
+  return { doseNo: doses.length, last: last, eatFrom: eatFrom, safe: nowM >= eatFrom, minsLeft: eatFrom - nowM, eaten: eaten, nextEst: nextEst, proteinBy: proteinBy };
+}
+function hmStr(m) { m = Math.round(m); return String(Math.floor(m / 60) % 24).padStart(2, "0") + ":" + String(((m % 60) + 60) % 60).padStart(2, "0"); }
 function td() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function nw() { return new Date().toTimeString().slice(0, 5); }
 function ft(iso) { try { return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
@@ -2183,6 +2218,19 @@ function TodayPage(p) {
       })()}
 
 
+    {(function() {
+      var mw = mealWindow(logs, meals, drinks, p.medTarget || 4);
+      if (!mw || mw.eaten) return null;
+      if (mw.safe && mw.minsLeft < -180) return null;
+      var tip = mw.proteinBy ? "Keep protein light after " + hmStr(mw.proteinBy) + " (next dose ~" + hmStr(mw.nextEst) + ")" : mw.nextEst ? "Next dose close (~" + hmStr(mw.nextEst) + "): keep protein light" : "Last dose of the day: good time for your main protein";
+      if (!mw.safe) return (<div className="rounded-xl p-2.5 mb-2 shadow-sm flex items-center justify-between bg-amber-50 border border-amber-200">
+        <div className="flex items-center gap-2"><span className="text-base">⏳</span><div><div className="text-xs font-bold text-amber-800">Hold food until {hmStr(mw.eatFrom)}</div><div className="text-[10px] text-amber-600">Letting dose {mw.doseNo} absorb · {tip}</div></div></div>
+        <div className="text-sm font-bold text-amber-700">{mw.minsLeft}m</div>
+      </div>);
+      return (<div className="rounded-xl p-2.5 mb-2 shadow-sm flex items-center justify-between bg-emerald-50 border border-emerald-200">
+        <div className="flex items-center gap-2"><span className="text-base">🍽️</span><div><div className="text-xs font-bold text-emerald-800">Safe to eat since {hmStr(mw.eatFrom)}</div><div className="text-[10px] text-emerald-600">{tip}</div></div></div>
+      </div>);
+    })()}
     {(function(){if (!p.prdOn) return null;var eveH = parseInt(prdVal(p.prdEveStart, PRD.eveStart).split(":")[0]); if (isNaN(eveH)) eveH = 17;var bfMax = prdVal(p.prdBfMax, PRD.bf), luMax = prdVal(p.prdLunchMax, PRD.lunch), dayMax = prdVal(p.prdDayMax, PRD.day), eveTgt = prdVal(p.prdEveTarget, PRD.eve);var bf = 0, lu = 0, eve = 0;function add(arr){ arr.forEach(function(x){ if(!x.loggedAt) return; var h = new Date(x.loggedAt).getHours(); var pr = x.protein || 0; if (h < 11) bf += pr; else if (h < eveH) lu += pr; else eve += pr; }); }add(tMl); add(tDr);bf = Math.round(bf); lu = Math.round(lu); eve = Math.round(eve); var day = bf + lu;var breaches = [];if (bf > bfMax) breaches.push("Breakfast " + bf + "g (target ≤" + bfMax + "g)");if (lu > luMax) breaches.push("Lunch/daytime " + lu + "g (target ≤" + luMax + "g)");if (day > dayMax) breaches.push("Daytime total " + day + "g (target ≤" + dayMax + "g)");var total = day + eve;var under = (eve > 0 && eve < eveTgt) ? "Evening " + eve + "g \u2014 aim " + eveTgt + "g" : "";var over = breaches.length > 0;var dayColor = day > dayMax ? "text-red-600" : day > dayMax*0.8 ? "text-amber-600" : "text-green-600";return (<div className={"rounded-2xl p-3 mb-2 shadow-sm " + (over ? "" : "bg-white")} style={over ? {background:"#fff1f2", border:"2px solid #fb7185"} : {}}><div className="flex items-center justify-between mb-1"><span className="text-xs font-bold text-gray-600">🍳 Protein timing</span>{(function(){ var ld = tLD.slice().sort(function(a, b) { return (b.takenAt || "").localeCompare(a.takenAt || ""); })[0]; if (!ld) return null; var mA = Math.floor((Date.now() - new Date(ld.takenAt)) / 60000); var disp = mA < 60 ? mA + "m ago" : Math.floor(mA / 60) + "h " + (mA % 60) + "m ago"; var urg = mA >= 240; return <span className={"text-[11px] font-bold " + (urg ? "text-orange-600" : "text-indigo-600")}>💊 {ld.medName} {ft(ld.takenAt)} · {disp}</span>; })()}</div><div className="flex items-baseline gap-3"><span className={"text-lg font-bold " + dayColor}>{day}g<span className="text-[10px] font-normal text-gray-400"> / ≤{dayMax}g day</span></span><span className={"text-lg font-bold " + (eve >= eveTgt ? "text-green-600" : "text-gray-700")}>{eve}g<span className="text-[10px] font-normal text-gray-400"> / {eveTgt}g evening</span></span></div>{over && <div style={{marginTop:"6px"}}><div style={{fontWeight:600, fontSize:"13px", color:"#be123c", marginBottom:"2px"}}>⚠️ Over your daytime protein target</div>{breaches.map(function(b,i){ return <div key={i} style={{fontSize:"12px", color:"#e11d48"}}>{b}</div>; })}</div>}{!over && under && <div style={{marginTop:"6px"}}><div style={{fontWeight:600, fontSize:"13px", color:"#b45309"}}>⬇️ Under target</div><div style={{fontSize:"12px", color:"#d97706"}}>{under}</div><div style={{fontSize:"11px", color:"#fb7185", marginTop:"3px", fontStyle:"italic"}}>Shift protein to your evening meal to protect your daytime doses.</div></div>}</div>);})()}
     {!p.prdOn && (function() {
       var lastDose = tLD.slice().sort(function(a, b) { return (b.takenAt || "").localeCompare(a.takenAt || ""); })[0];
@@ -2817,6 +2865,24 @@ function App() {
     var t2 = setInterval(check, 60000);
     return function() { clearInterval(t2); };
   }, [ooReminderOn, ooReminderInterval]);
+
+  // Safe-to-eat alert: popup notification 30 min after each levodopa dose (while the app is open).
+  var mealRef = React.useRef({});
+  mealRef.current = { logs: logs, meals: meals, drinks: drinks, medTarget: medTarget };
+  useEffect(function() {
+    var check = function() {
+      var r = mealRef.current, mw = mealWindow(r.logs, r.meals, r.drinks, r.medTarget || 4);
+      if (!mw || !mw.safe || mw.eaten || mw.minsLeft < -60) return;
+      var key = "pd_meal_ok_" + td() + "_" + mw.doseNo;
+      try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch(e) {}
+      if ("Notification" in window && Notification.permission === "granted") {
+        try { new Notification("🍽️ Safe to eat", { body: "30 min since dose " + mw.doseNo + " (" + hmStr(mw.last) + ")." + (mw.proteinBy ? " Keep protein light after " + hmStr(mw.proteinBy) + "." : ""), tag: key }); } catch(e) {}
+      }
+    };
+    check();
+    var t = setInterval(check, 30000);
+    return function() { clearInterval(t); };
+  }, []);
 
   // Infrared reminder — on a due day, pops up at the set time (or on first open after it) until marked done.
   useEffect(function() {
