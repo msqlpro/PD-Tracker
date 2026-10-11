@@ -171,7 +171,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v87 Oct11 — Calories burned and Caffeine in the free sugar row";
+var BUILD_VERSION = "v88 Oct11 — dose gaps capped at 4h, protein delay 45 min, ON/OFF check-ins at 2h and 3h, 4th dose aimed at 18:00";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity" };
 
@@ -271,8 +271,10 @@ function mealWindow(logs, meals, drinks, maxDoses) {
         .map(function(a) { return a[1] - a[0]; }).filter(function(g) { return g >= 90 && g <= 360; }).sort(function(a, b) { return a - b; });
       gap = h.length ? h[Math.floor(h.length / 2)] : 210;
     }
-    gap = Math.max(150, Math.min(270, gap));
+    gap = Math.max(150, Math.min(240, gap));
     nextEst = last + gap;
+    // 4th dose: aim for 18:00, but never more than 4h after the 3rd (same rule as dose-alert)
+    if (doses.length === 3 && nextEst < 1080) nextEst = Math.min(1080, last + 240);
     if (nextEst - MEAL_PROT_CLEAR > eatFrom) proteinBy = nextEst - MEAL_PROT_CLEAR;
   }
   return { doseNo: doses.length, last: last, eatFrom: eatFrom, safe: nowM >= eatFrom, minsLeft: eatFrom - nowM, eaten: eaten, nextEst: nextEst, proteinBy: proteinBy };
@@ -1298,7 +1300,7 @@ function Setup(p) {
       {p.ooReminderOn && <div className="mt-3">
         <p className="text-xs font-medium text-gray-600 mb-2">Remind me every:</p>
         <select value={p.ooReminderInterval} onChange={function(e) { p.setOoReminderInterval(parseFloat(e.target.value)); }} className="w-full border rounded-xl p-2.5 text-sm">
-          <option value={0}>2½h and 3½h after each dose (recommended)</option>
+          <option value={0}>2h and 3h after each dose (recommended)</option>
           <option value={0.5}>30 minutes</option>
           <option value={1}>1 hour</option>
           <option value={2}>2 hours</option>
@@ -2908,7 +2910,7 @@ function App() {
         .map(function(l) { return new Date(l.takenAt).getTime(); }).sort(function(a, b) { return a - b; });
       if (!doses.length) return;
       var last = doses[doses.length - 1], due = null;
-      [150, 210].forEach(function(off) { var c = last + off * 60000; if (now.getTime() >= c && now.getTime() < c + 60 * 60000) due = { c: c, off: off }; });
+      [120, 180].forEach(function(off) { var c = last + off * 60000; if (now.getTime() >= c && now.getTime() < c + 60 * 60000) due = { c: c, off: off }; });
       if (!due) return;
       var recent = (ooRef.current.oo || []).some(function(o) { var t = new Date(o.loggedAt).getTime(); return t >= due.c - 30 * 60000 && t <= now.getTime(); });
       if (recent) return;

@@ -13,15 +13,15 @@
 // Rules (heuristic — the minute values are NOT from a trial):
 //   gap   = average of today's logged intervals so far; for dose 2 (only one dose
 //           logged today) the median dose1→dose2 gap from recent days' logs;
-//           210 min if no history. Clamped 150–270 min. No saved alarm slots used.
+//           210 min if no history. Clamped 150–240 min (Oct 2026 data: benefit mostly gone by 3h). No saved alarm slots used.
 //   base  = previous dose + gap
 //   exercise: if a moderate/vigorous session is planned after the previous dose,
 //           aim for the dose 45 min before it starts (so it's kicking in), but never
 //           earlier than prev + 150 or more than 60 min before base
 //   protein: each intake >=5 g blocks dosing until 60/90/120 min after it
 //           (5-14 / 15-29 / 30 g+), +30 if >=700 kcal; rec is pushed past blocks,
-//           capped at +90 min after base (wearing-off risk outweighs protein)
-var DT_MAX_DELAY = 90, DT_MAX_DOSE = 4, DT_EX_LEAD = 45;
+//           capped at +45 min after base (wearing-off risk outweighs protein)
+var DT_MAX_DELAY = 45, DT_MAX_DOSE = 4, DT_EX_LEAD = 45, DT_MAX_GAP = 240, DT_EVE_TARGET = 1080;
 function dtWait(p, cal) {
   if (!(p >= 5)) return 0;
   var w = p >= 30 ? 120 : p >= 15 ? 90 : 60;
@@ -42,8 +42,13 @@ function recommendDose(doses, intakes, history, nowM, exercise) {
     var h = history.slice().sort(function(a, b) { return a - b; });
     gap = h[Math.floor(h.length / 2)]; gapSrc = "your usual 1st→2nd gap (last " + h.length + " days)";
   } else { gap = 210; gapSrc = "default 3h30 interval"; }
-  gap = Math.max(150, Math.min(270, gap));
-  var base = prev + gap;
+  gap = Math.max(150, Math.min(DT_MAX_GAP, gap));
+  var base = prev + gap, eveNote = null;
+  // 4th dose: aim for 18:00 to cover the evening, but never more than 4h after the 3rd
+  if (n === 4 && base < DT_EVE_TARGET) {
+    var eb = Math.min(DT_EVE_TARGET, prev + DT_MAX_GAP);
+    if (eb > base) { eveNote = (eb >= DT_EVE_TARGET ? "evening dose aimed at 18:00" : "evening dose moved later towards 18:00 (kept within 4h of your 3rd)") + " to cover your evening"; base = eb; }
+  }
   var rec = base, exNote = null;
   // Exercise: planned (future) moderate/vigorous session after the previous dose
   var planned = (exercise || []).filter(function(e) { return e.m > nowM && e.m > prev && !/light/i.test(e.intensity || ""); })
@@ -77,6 +82,7 @@ function recommendDose(doses, intakes, history, nowM, exercise) {
     if (capped) reason += "; capped at +" + DT_MAX_DELAY + " min — absorption may be weaker";
   }
   reason = "interval based on " + gapSrc + " (" + Math.floor(gap / 60) + "h" + String(gap % 60).padStart(2, "0") + "); " + reason;
+  if (eveNote) reason += "; " + eveNote;
   if (exNote) reason += "; " + exNote + (hit && rec > start ? " (protein pushed it back to " + dtFmt(rec) + ")" : "");
   if (planned && rec > planned.m - 20) reason += "; heads-up: this is close to your " + (planned.type || "exercise") + " at " + dtFmt(planned.m);
   return {
@@ -86,10 +92,10 @@ function recommendDose(doses, intakes, history, nowM, exercise) {
     recStr: dtFmt(rec), baseStr: dtFmt(base)
   };
 }
-// ON/OFF check-ins: at last dose + 150 and + 210 min (the window where wearing-off
+// ON/OFF check-ins: at last dose + 120 and + 180 min (the window where wearing-off
 // shows up). Skipped if an ON/OFF was logged in the 30 min before the check-in or since.
 // Returns the latest check-in that is due now (due <= now < due + 60), or null.
-var OO_OFFSETS = [150, 210];
+var OO_OFFSETS = [120, 180];
 function ooCheckin(doses, ooTimes, nowM) {
   var ds = (doses || []).slice().sort(function(a, b) { return a - b; });
   if (!ds.length) return null;
