@@ -160,6 +160,7 @@ async function generateReport(period, data) {
     if (data.mood && data.mood.length) { summary += "\nMOOD (" + data.mood.length + " entries):\n"; data.mood.forEach(function(m) { summary += "- " + m.date + " " + ["", "Awful", "Low", "OK", "Good", "Great"][m.level] + " " + m.level + "/5\n"; }); var avg = (data.mood.reduce(function(s, m) { return s + m.level; }, 0) / data.mood.length).toFixed(1); summary += "Average mood: " + avg + "/5\n"; }
     if (data.bowel && data.bowel.length) { summary += "\nBOWEL (" + data.bowel.length + " entries):\n"; data.bowel.forEach(function(b) { summary += "- " + (b.loggedAt || "").slice(0, 16) + (b.strain ? " STRAINING" : "") + " " + (b.note || "") + "\n"; }); }
     if (data.taps && data.taps.length) { summary += "\nFINGER TAPPING TESTS (" + data.taps.length + ", " + TAP_SECS + "s two-target alternating; more taps = less bradykinesia, lower CV = steadier rhythm):\n"; data.taps.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(t) { summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + t.hand + " hand " + t.taps + " taps CV:" + (t.cvPct == null ? "?" : t.cvPct + "%") + " misses:" + (t.misses || 0) + " " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; }); }
+    if (data.pf && data.pf.length) { var pfS = data.pf.filter(function(x) { return x.kind !== "urge"; }), pfU = data.pf.filter(function(x) { return x.kind === "urge"; }); summary += "\nPELVIC FLOOR TRAINING (" + pfS.length + " sessions, target 3/day; " + pfU.length + " urge drills):\n"; data.pf.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(x) { summary += "- " + (x.loggedAt || "").slice(0, 16) + (x.kind === "urge" ? " URGE DRILL outcome=" + (x.urgeOutcome || "?") : " " + x.longReps + "x" + x.holdS + "s holds + " + x.quickReps + " quick, " + (x.position || "") + ", effort=" + (x.effort || "?") + (x.completed === false ? ", stopped early" : "")) + (x.minsSinceDose != null ? ", " + x.minsSinceDose + " min after levodopa" : "") + "\n"; }); }
     if (data.activity && data.activity.length) { summary += "\nACTIVITIES/THERAPIES (" + data.activity.length + "):\n"; data.activity.forEach(function(a) { summary += "- " + (a.loggedAt || "").slice(0, 16) + " " + a.type + " " + a.duration + "min\n"; }); }
     var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
@@ -172,9 +173,9 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v91 Oct17 — pinned breakfast updated to current recipe";
+var BUILD_VERSION = "v92 Oct17 — pelvic floor trainer (adaptive sessions + urge drill)";
 
-var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests" };
+var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
 // Protein-redistribution defaults — ONE source of truth. These were previously
 // duplicated in four places (useState, load fallbacks, Settings inputs, the
@@ -198,7 +199,8 @@ var TO_ROW = {
   mood: function(d) { return { id: d.id, user_id: CURRENT_UID, level: d.level, note: d.note || "", date: d.date }; },
   bowel: function(d) { return { id: d.id, user_id: CURRENT_UID, strain: d.strain || false, note: (d.type === "urine" ? "type:urine|" : "type:bowel|") + (d.note || ""), logged_at: d.loggedAt }; },
   activity: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, note: d.note || "", logged_at: d.loggedAt }; },
-  tap: function(d) { return { id: d.id, user_id: CURRENT_UID, logged_at: d.loggedAt, hand: d.hand, duration_s: d.durationS || TAP_SECS, taps: d.taps, mean_iti_ms: d.meanItiMs, cv_pct: d.cvPct, misses: d.misses || 0, mins_since_dose: (d.minsSinceDose == null ? null : d.minsSinceDose), oo_state: d.ooState || null, note: d.note || "", source: d.source || "logged" }; }
+  tap: function(d) { return { id: d.id, user_id: CURRENT_UID, logged_at: d.loggedAt, hand: d.hand, duration_s: d.durationS || TAP_SECS, taps: d.taps, mean_iti_ms: d.meanItiMs, cv_pct: d.cvPct, misses: d.misses || 0, mins_since_dose: (d.minsSinceDose == null ? null : d.minsSinceDose), oo_state: d.ooState || null, note: d.note || "", source: d.source || "logged" }; },
+  pf: function(d) { return { id: d.id, user_id: CURRENT_UID, logged_at: d.loggedAt, kind: d.kind || "session", position: d.position || null, long_reps: d.longReps == null ? null : d.longReps, long_hold_s: d.holdS == null ? null : d.holdS, quick_reps: d.quickReps == null ? null : d.quickReps, completed: d.completed !== false, effort: d.effort || null, urge_outcome: d.urgeOutcome || null, mins_since_dose: (d.minsSinceDose == null ? null : d.minsSinceDose), note: d.note || "", source: d.source || "logged" }; }
 };
 var FROM_ROW = {
   meds: function(r) { return { id: r.id, name: r.name, dose: r.dose, times: r.times || [], items: r.items || null }; },
@@ -214,13 +216,14 @@ var FROM_ROW = {
   mood: function(r) { return { id: r.id, level: r.level, note: r.note, date: r.date }; },
   bowel: function(r) { var raw = r.note || ""; var type = raw.startsWith("type:urine|") ? "urine" : "bowel"; var note = raw.replace(/^type:(bowel|urine)\|/, ""); return { id: r.id, strain: r.strain, type: type, note: note, loggedAt: r.logged_at }; },
   activity: function(r) { return { id: r.id, type: r.type, duration: r.duration, note: r.note, loggedAt: r.logged_at }; },
-  tap: function(r) { return { id: r.id, loggedAt: r.logged_at, hand: r.hand, durationS: r.duration_s, taps: r.taps, meanItiMs: (r.mean_iti_ms == null ? null : Number(r.mean_iti_ms)), cvPct: (r.cv_pct == null ? null : Number(r.cv_pct)), misses: r.misses || 0, minsSinceDose: r.mins_since_dose, ooState: r.oo_state, note: r.note || "", source: r.source || "logged" }; }
+  tap: function(r) { return { id: r.id, loggedAt: r.logged_at, hand: r.hand, durationS: r.duration_s, taps: r.taps, meanItiMs: (r.mean_iti_ms == null ? null : Number(r.mean_iti_ms)), cvPct: (r.cv_pct == null ? null : Number(r.cv_pct)), misses: r.misses || 0, minsSinceDose: r.mins_since_dose, ooState: r.oo_state, note: r.note || "", source: r.source || "logged" }; },
+  pf: function(r) { return { id: r.id, loggedAt: r.logged_at, kind: r.kind || "session", position: r.position, longReps: r.long_reps, holdS: r.long_hold_s, quickReps: r.quick_reps, completed: r.completed !== false, effort: r.effort, urgeOutcome: r.urge_outcome, minsSinceDose: r.mins_since_dose, note: r.note || "", source: r.source || "logged" }; }
 };
 var LOAD_FAILED = {};
 async function dbLoad(key) { var t = TBL[key]; if (!t) return []; try { var { data, error } = await sb.from(t).select("*").eq("user_id", CURRENT_UID); if (error) { console.error("Load " + key, error); LOAD_FAILED[key] = true; return []; } LOAD_FAILED[key] = false; return (data || []).map(FROM_ROW[key]); } catch(e) { console.error("Load " + key, e); LOAD_FAILED[key] = true; return []; } }
 async function dbSave(key, item) { var t = TBL[key]; if (!t) return; var row = TO_ROW[key](item); var { error } = await sb.from(t).upsert(row); if (error) console.error("Save " + key, error); }
 async function dbDel(key, id) { var t = TBL[key]; if (!t) return; var { error } = await sb.from(t).delete().eq("id", id); if (error) console.error("Del " + key, error); }
-var K = { tap: "tap", meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval", bowelReminderOn: "bowelReminderOn", bowelReminderTime: "bowelReminderTime", weeBtnOn: "weeBtnOn", prdOn: "prdOn", prdBfMax: "prdBfMax", prdLunchMax: "prdLunchMax", prdDayMax: "prdDayMax", prdEveStart: "prdEveStart", prdEveTarget: "prdEveTarget", carbTarget: "carbTarget", fibreTarget: "fibreTarget", weightGoal: "weightGoal", mealTarget: "mealTarget" };
+var K = { pf: "pf", tap: "tap", meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval", bowelReminderOn: "bowelReminderOn", bowelReminderTime: "bowelReminderTime", weeBtnOn: "weeBtnOn", prdOn: "prdOn", prdBfMax: "prdBfMax", prdLunchMax: "prdLunchMax", prdDayMax: "prdDayMax", prdEveStart: "prdEveStart", prdEveTarget: "prdEveTarget", carbTarget: "carbTarget", fibreTarget: "fibreTarget", weightGoal: "weightGoal", mealTarget: "mealTarget" };
 async function ld(k, fb) {
   if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime || k === K.weeBtnOn || k === K.prdOn || k === K.prdBfMax || k === K.prdLunchMax || k === K.prdDayMax || k === K.prdEveStart || k === K.prdEveTarget || k === K.carbTarget || k === K.fibreTarget || k === K.weightGoal || k === K.mealTarget) {
     try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); if (data && data.settings) { var s = data.settings; if (k === K.waterTarget) return s.waterTarget || fb; if (k === K.calTarget) return s.calTarget || fb; if (k === K.protTarget) return s.protTarget || fb; if (k === K.medTarget) return s.medTarget || fb; if (k === K.darkMode) return s.darkMode || fb; if (k === K.companionDrinks) return s.companionDrinks || fb; if (k === K.cex) return s.cex || fb; if (k === K.cact) return s.cact || fb; if (k === K.alarms) return s.alarms || fb; if (k === K.alarmTimes) return s.alarmTimes || fb; if (k === K.ooReminderOn) return s.ooReminderOn !== undefined ? s.ooReminderOn : fb; if (k === K.ooReminderInterval) return s.ooReminderInterval || fb; if (k === K.bowelReminderOn) return s.bowelReminderOn !== undefined ? s.bowelReminderOn : fb; if (k === K.bowelReminderTime) return s.bowelReminderTime || fb; if (k === K.weeBtnOn) return s.weeBtnOn !== undefined ? s.weeBtnOn : fb; if (k === K.prdOn) return s.prdOn !== undefined ? s.prdOn : fb; if (k === K.prdBfMax) return (s.prdBfMax === undefined || s.prdBfMax === null || s.prdBfMax === "") ? fb : s.prdBfMax; if (k === K.prdLunchMax) return (s.prdLunchMax === undefined || s.prdLunchMax === null || s.prdLunchMax === "") ? fb : s.prdLunchMax; if (k === K.prdDayMax) return (s.prdDayMax === undefined || s.prdDayMax === null || s.prdDayMax === "") ? fb : s.prdDayMax; if (k === K.prdEveStart) return s.prdEveStart || fb; if (k === K.prdEveTarget) return (s.prdEveTarget === undefined || s.prdEveTarget === null || s.prdEveTarget === "") ? fb : s.prdEveTarget; if (k === K.carbTarget) return (s.carbTarget === undefined || s.carbTarget === null || s.carbTarget === "") ? fb : s.carbTarget; if (k === K.mealTarget) return s.mealTarget || fb; if (k === K.weightGoal) return (s.weightGoal === undefined || s.weightGoal === null || s.weightGoal === "") ? fb : s.weightGoal; if (k === K.fibreTarget) return (s.fibreTarget === undefined || s.fibreTarget === null || s.fibreTarget === "") ? fb : s.fibreTarget; } } catch(e) {}
@@ -1959,6 +1962,253 @@ function TapTestMod(p) {
   </Mod>);
 }
 
+// ── Pelvic floor trainer ────────────────────────────────────────────
+// Guided long holds + quick squeezes (the NHS / Squeezy programme:
+// work up to 10 x 10s holds and 10 quick squeezes, 3 times a day, for
+// at least 3 months). Differences from Squeezy: the plan adapts from
+// your Easy/OK/Hard rating after each session, there is an Urge Drill
+// for sudden urgency (logs held/leaked and minutes since levodopa), and
+// everything is stored in pelvic_floor alongside your PD data.
+var PF_TARGET = { longReps: 10, holdS: 10, quickReps: 10, perDay: 3 };
+var PF_START = { longReps: 5, holdS: 5, quickReps: 5 };
+var PF_POS = [{ id: "lying", e: "🛌", l: "Lying" }, { id: "sitting", e: "🪑", l: "Sitting" }, { id: "standing", e: "🧍", l: "Standing" }];
+function pfDay(iso) { var d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function pfSessions(pf) { return REAL(pf).filter(function(s) { return s.kind !== "urge"; }).sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); }); }
+function pfSame(a, b) { return a.longReps === b.longReps && a.holdS === b.holdS && a.quickReps === b.quickReps; }
+function pfNextPlan(pf) {
+  var s = pfSessions(pf);
+  if (!s.length) return Object.assign({}, PF_START, { why: "Starting level. It adjusts as you rate each session." });
+  var last = s[0];
+  var plan = { longReps: last.longReps || PF_START.longReps, holdS: last.holdS || PF_START.holdS, quickReps: last.quickReps || PF_START.quickReps, why: "Same as last time." };
+  if (last.completed === false || last.effort === "hard") {
+    if (plan.holdS > 3) plan.holdS--; else if (plan.longReps > 3) plan.longReps--;
+    plan.why = last.completed === false ? "Eased back one step after an unfinished session." : "Eased back one step after a hard session.";
+  } else if (s.length >= 2 && s[0].effort === "easy" && s[1].effort === "easy" && s[1].completed !== false && pfSame(s[0], s[1])) {
+    var before = pfSame(plan, PF_TARGET);
+    if (plan.holdS < PF_TARGET.holdS) plan.holdS++; else if (plan.longReps < PF_TARGET.longReps) plan.longReps++;
+    if (plan.quickReps < PF_TARGET.quickReps) plan.quickReps++;
+    plan.why = before ? "You're at the full level. Keep it up, ideally standing." : "Stepped up: your last two sessions at this level felt easy.";
+  }
+  return plan;
+}
+function pfSuggestPos(pf, plan) {
+  if (plan.holdS >= PF_TARGET.holdS && plan.longReps >= PF_TARGET.longReps) return "standing";
+  var recent = pfSessions(pf).slice(0, 6), c = { lying: 0, sitting: 0, standing: 0 };
+  recent.forEach(function(s) { if (c[s.position] !== undefined) c[s.position]++; });
+  var opts = plan.holdS < 6 ? ["sitting", "lying"] : ["sitting", "lying", "standing"];
+  return opts.sort(function(a, b) { return c[a] - c[b]; })[0];
+}
+function pfStats(pf) {
+  var s = pfSessions(pf), byDay = {};
+  s.forEach(function(x) { var d = pfDay(x.loggedAt); byDay[d] = (byDay[d] || 0) + 1; });
+  var week = []; for (var i = 6; i >= 0; i--) { var d = dAgo(i); week.push({ d: d, n: byDay[d] || 0 }); }
+  var streak = 0, j = byDay[td()] ? 0 : 1; while (byDay[dAgo(j)]) { streak++; j++; }
+  var n28 = 0; for (var k = 0; k < 28; k++) n28 += Math.min(PF_TARGET.perDay, byDay[dAgo(k)] || 0);
+  var firstDay = s.length ? pfDay(s[s.length - 1].loggedAt) : null;
+  var days = firstDay ? Math.min(28, Math.round((new Date(td()) - new Date(firstDay)) / 86400000) + 1) : 0;
+  var urges = REAL(pf).filter(function(x) { return x.kind === "urge" && x.loggedAt && pfDay(x.loggedAt) >= dAgo(29); });
+  return { today: byDay[td()] || 0, week: week, streak: streak, adherence: days ? Math.round(n28 / (days * PF_TARGET.perDay) * 100) : null, total: s.length, urges: urges };
+}
+var pfAudio = null;
+function pfCue(kind, mode) {
+  if (mode === "off") return;
+  try { if (navigator.vibrate) navigator.vibrate(kind === "squeeze" ? 120 : 60); } catch (e) {}
+  if (mode === "voice" && kind !== "tick" && window.speechSynthesis) {
+    try { var words = { squeeze: "Squeeze and lift", quick: "Squeeze", relax: "Relax", rest: "Let go", breakq: "Now quick squeezes", breathe: "Breathe slowly", done: "Well done", freeze: "Stop. Stay still." }[kind]; if (words) { window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(words); u.lang = "en-GB"; u.rate = 1.05; window.speechSynthesis.speak(u); return; } } catch (e) {}
+  }
+  try {
+    if (!pfAudio) pfAudio = new (window.AudioContext || window.webkitAudioContext)();
+    if (pfAudio.state === "suspended") pfAudio.resume();
+    var f = { squeeze: 880, quick: 880, relax: 523, rest: 523, breakq: 660, done: 1047, freeze: 660, breathe: 440, tick: 1320 }[kind] || 660;
+    var o = pfAudio.createOscillator(), g = pfAudio.createGain(), t = pfAudio.currentTime;
+    o.frequency.value = f; o.type = "sine"; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === "tick" ? 0.08 : 0.25, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === "tick" ? 0.08 : 0.25));
+    o.connect(g); g.connect(pfAudio.destination); o.start(t); o.stop(t + 0.3);
+  } catch (e) {}
+}
+function pfBuildSteps(plan, urge) {
+  var st = [];
+  if (urge) {
+    st.push({ ph: "freeze", d: 4, label: "Stop. Stand still or sit down", cue: "freeze" });
+    for (var u = 1; u <= 5; u++) { st.push({ ph: "squeeze", d: 1, set: "quick", rep: u, of: 5, cue: "quick" }); st.push({ ph: "relax", d: 1, set: "quick", rep: u, of: 5, cue: "tick" }); }
+    st.push({ ph: "breathe", d: 30, label: "Slow breaths. Let the urge fade", cue: "breathe" });
+    return st;
+  }
+  st.push({ ph: "ready", d: 3, label: "Get comfortable" });
+  var rest = Math.max(4, plan.holdS);
+  for (var i = 1; i <= plan.longReps; i++) { st.push({ ph: "squeeze", d: plan.holdS, set: "long", rep: i, of: plan.longReps, cue: "squeeze" }); st.push({ ph: "relax", d: rest, set: "long", rep: i, of: plan.longReps, cue: "relax" }); }
+  if (plan.quickReps > 0) {
+    st.push({ ph: "ready", d: 5, label: "Now quick squeezes", cue: "breakq" });
+    for (var q = 1; q <= plan.quickReps; q++) { st.push({ ph: "squeeze", d: 1, set: "quick", rep: q, of: plan.quickReps, cue: "quick" }); st.push({ ph: "relax", d: 2, set: "quick", rep: q, of: plan.quickReps, cue: "tick" }); }
+  }
+  return st;
+}
+function PelvicMod(p) {
+  var ex = p.existing || null;
+  var plan0 = React.useMemo(function() { return pfNextPlan(p.pf); }, []);
+  var [plan, sPlan] = useState(plan0);
+  var [pos, sPos] = useState(function() { return pfSuggestPos(p.pf, plan0); });
+  var [mode, sMode] = useState(function() { try { return localStorage.getItem("pd_pf_sound") || "beep"; } catch (e) { return "beep"; } });
+  var [phase, sPhase] = useState(ex ? "edit" : (p.urge ? "urgeIntro" : "home"));
+  var [info, sInfo] = useState(false);
+  var [tick, sTick] = useState(0);
+  var [paused, sPaused] = useState(false);
+  var [res, sRes] = useState(null);
+  var [note, sNote] = useState(ex ? (ex.note || "") : "");
+  var [effort, sEffort] = useState(ex ? ex.effort : null);
+  var R = React.useRef({ steps: [], idx: 0, stepT0: 0, pausedAt: 0, timer: null, urge: false, lock: null, done: 0 });
+  var stopTimer = function() { var s = R.current; clearInterval(s.timer); s.timer = null; try { if (s.lock) { s.lock.release(); s.lock = null; } } catch (e) {} };
+  useEffect(function() { return function() { stopTimer(); try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {} }; }, []);
+  var setModeSave = function(m) { sMode(m); try { localStorage.setItem("pd_pf_sound", m); } catch (e) {} };
+  var finish = function(completed) {
+    var s = R.current; stopTimer();
+    var ctx = tapContext(p.logs, p.oo);
+    var longDone = 0, quickDone = 0;
+    s.steps.slice(0, completed ? s.steps.length : s.idx).forEach(function(x) { if (x.ph === "relax" && x.set === "long") longDone++; if (x.ph === "relax" && x.set === "quick") quickDone++; });
+    var base = { id: Date.now().toString() + (s.urge ? "_pfu" : "_pf"), loggedAt: new Date().toISOString(), minsSinceDose: ctx.minsSinceDose, note: "", source: "logged" };
+    if (s.urge) { sRes(Object.assign(base, { kind: "urge", position: null, longReps: 0, holdS: null, quickReps: quickDone, completed: completed })); sPhase("urgeDone"); }
+    else { sRes(Object.assign(base, { kind: "session", position: pos, longReps: plan.longReps, holdS: plan.holdS, quickReps: plan.quickReps, completed: completed, doneLong: longDone, doneQuick: quickDone })); sEffort(null); sNote(completed ? "" : "Stopped after " + longDone + " holds, " + quickDone + " quick"); sPhase("done"); }
+    pfCue("done", mode);
+  };
+  var go = function(urge) {
+    var s = R.current; s.urge = !!urge; s.steps = pfBuildSteps(plan, urge); s.idx = 0; s.stepT0 = performance.now();
+    try { if (pfAudio && pfAudio.state === "suspended") pfAudio.resume(); } catch (e) {}
+    pfCue(s.steps[0].cue || "tick", mode);
+    try { if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function(l) { s.lock = l; }).catch(function() {}); } catch (e) {}
+    sPaused(false); sPhase("run");
+    s.timer = setInterval(function() {
+      if (s.pausedAt) return;
+      var el = (performance.now() - s.stepT0) / 1000, cur = s.steps[s.idx];
+      if (el >= cur.d) {
+        s.idx++;
+        if (s.idx >= s.steps.length) { finish(true); return; }
+        s.stepT0 = performance.now(); var nx = s.steps[s.idx];
+        var c = nx.cue; if (mode === "voice" && nx.set === "quick") c = nx.ph === "squeeze" ? "quick" : "tick"; pfCue(c || "tick", mode);
+      }
+      sTick(function(t) { return t + 1; });
+    }, 100);
+  };
+  var togglePause = function() { var s = R.current; if (s.pausedAt) { s.stepT0 += performance.now() - s.pausedAt; s.pausedAt = 0; sPaused(false); } else { s.pausedAt = performance.now(); sPaused(true); } };
+  var stat = pfStats(p.pf);
+  var stepper = function(label, key, min, max, unit) {
+    return <div className="flex items-center justify-between py-1.5"><span className="text-sm">{label}</span><div className="flex items-center gap-2">
+      <button onClick={function() { sPlan(Object.assign({}, plan, (function() { var o = {}; o[key] = Math.max(min, plan[key] - 1); return o; })(), { why: "Set by you." })); }} className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 font-bold">−</button>
+      <span className="w-12 text-center font-bold">{plan[key]}{unit}</span>
+      <button onClick={function() { sPlan(Object.assign({}, plan, (function() { var o = {}; o[key] = Math.min(max, plan[key] + 1); return o; })(), { why: "Set by you." })); }} className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 font-bold">+</button>
+    </div></div>;
+  };
+  var running = phase === "run";
+  var closeX = <button onClick={running ? function() {} : p.onClose} style={{ visibility: running ? "hidden" : "visible", fontSize: "1.75rem", lineHeight: 1, width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#f3f4f6", border: "none", color: "#6b7280" }}>×</button>;
+  var saveRes = function(item) { p.onSave(item); };
+
+  // ── Running view ──
+  var runView = null;
+  if (running) {
+    var s = R.current, cur = s.steps[s.idx] || s.steps[s.steps.length - 1];
+    var el = s.pausedAt ? (s.pausedAt - s.stepT0) / 1000 : (performance.now() - s.stepT0) / 1000;
+    var left = Math.max(0, cur.d - el), frac = Math.min(1, el / cur.d);
+    var scale = 1, col = "#94a3b8", big = "", trans = "transform 0.5s ease";
+    if (cur.ph === "squeeze") { scale = 0.55; col = cur.set === "quick" ? "#db2777" : "#7c3aed"; big = cur.set === "quick" ? "SQUEEZE" : "SQUEEZE & LIFT"; trans = "transform " + (cur.set === "quick" ? "0.25s" : "0.8s") + " ease"; }
+    else if (cur.ph === "relax") { scale = 1; col = "#0d9488"; big = "RELAX"; trans = "transform " + (cur.set === "quick" ? "0.4s" : "1.2s") + " ease"; }
+    else if (cur.ph === "breathe") { var cyc = el % 10; var inh = cyc < 4; scale = inh ? 0.6 + 0.4 * (cyc / 4) : 1 - 0.4 * ((cyc - 4) / 6); col = "#0284c7"; big = inh ? "BREATHE IN" : "BREATHE OUT"; trans = "transform 0.1s linear"; }
+    else { scale = 0.85; col = "#64748b"; big = (cur.label || "GET READY").toUpperCase(); }
+    var R0 = 92, C = 2 * Math.PI * R0;
+    var done = s.steps.slice(0, s.idx).filter(function(x) { return x.ph === "relax"; }).length;
+    var reps = s.steps.filter(function(x) { return x.ph === "relax"; }).length;
+    runView = <div className="text-center" style={{ touchAction: "none" }}>
+      <div className="text-xs text-gray-500 mb-1">{cur.set ? (cur.set === "long" ? "Long holds" : "Quick squeezes") + " · " + cur.rep + " of " + cur.of : (s.urge ? "Urge drill" : "")}</div>
+      <div style={{ position: "relative", width: "220px", height: "220px", margin: "0 auto" }}>
+        <svg width="220" height="220" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}><circle cx="110" cy="110" r={R0} fill="none" stroke="#e5e7eb" strokeWidth="8" /><circle cx="110" cy="110" r={R0} fill="none" stroke={col} strokeWidth="8" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * frac} /></svg>
+        <div style={{ position: "absolute", left: "30px", top: "30px", width: "160px", height: "160px", borderRadius: "50%", background: col, opacity: 0.9, transform: "scale(" + scale + ") translateY(" + (cur.ph === "squeeze" ? "-12px" : "0") + ")", transition: trans, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ color: "#fff", fontSize: "2.5rem", fontWeight: 800 }}>{Math.ceil(left)}</span>
+        </div>
+      </div>
+      <div className="text-2xl font-extrabold mt-3" style={{ color: col }}>{big}</div>
+      <div className="text-xs text-gray-500 mt-1 h-4">{cur.ph === "squeeze" && cur.set === "long" ? "Keep breathing. Buttocks, thighs and tummy stay soft" : cur.ph === "relax" && cur.set === "long" ? "Let go fully before the next one" : ""}</div>
+      <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-2 bg-violet-500" style={{ width: (reps ? done / reps * 100 : 0) + "%" }}></div></div>
+      <div className="flex gap-2 mt-4">
+        <button onClick={function() { finish(false); }} className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl font-semibold text-sm">Stop</button>
+        <button onClick={togglePause} className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-bold text-sm">{paused ? "Resume" : "Pause"}</button>
+      </div>
+    </div>;
+  }
+
+  return (<Mod onClose={running ? function() {} : p.onClose}>
+    <div className="flex justify-between items-center mb-3">
+      <h3 className="text-lg font-bold">🌀 Pelvic Floor</h3>{closeX}
+    </div>
+
+    {phase === "home" && <div>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="bg-violet-50 dark:bg-violet-900/30 rounded-xl p-2 text-center"><div className="flex justify-center gap-1 my-1">{[0, 1, 2].map(function(i) { return <span key={i} style={{ width: "14px", height: "14px", borderRadius: "50%", background: i < stat.today ? "#7c3aed" : "#ddd6fe" }}></span>; })}</div><div className="text-[10px] text-gray-500">today{stat.today > 3 ? " (" + stat.today + ")" : ""}</div></div>
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-2 text-center"><div className="text-2xl font-bold">{stat.streak}</div><div className="text-[10px] text-gray-500">day streak</div></div>
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-2 text-center"><div className="text-2xl font-bold">{stat.adherence == null ? "–" : stat.adherence + "%"}</div><div className="text-[10px] text-gray-500">of 3/day (4 wks)</div></div>
+      </div>
+      <div className="flex items-end justify-between gap-1 mb-1 px-1" style={{ height: "44px" }}>{stat.week.map(function(w) { return <div key={w.d} className="flex-1 flex flex-col items-center justify-end h-full"><div style={{ width: "100%", maxWidth: "26px", height: Math.max(3, Math.min(3, w.n) / 3 * 40) + "px", borderRadius: "4px", background: w.n >= 3 ? "#7c3aed" : w.n ? "#c4b5fd" : "#e5e7eb" }}></div></div>; })}</div>
+      <div className="flex justify-between gap-1 mb-4 px-1">{stat.week.map(function(w) { return <div key={w.d} className="flex-1 text-center text-[10px] text-gray-400">{["S", "M", "T", "W", "T", "F", "S"][new Date(w.d + "T12:00").getDay()]}</div>; })}</div>
+
+      <div className="border rounded-xl p-3 mb-3 dark:border-gray-600">
+        <div className="flex justify-between items-baseline mb-1"><span className="font-semibold text-sm">This session</span><span className="text-[11px] text-gray-500">Goal 10 × 10s + 10 quick</span></div>
+        {stepper("Long holds", "longReps", 1, 15, "")}
+        {stepper("Hold for", "holdS", 2, 15, "s")}
+        {stepper("Quick squeezes", "quickReps", 0, 20, "")}
+        <p className="text-[11px] text-violet-700 dark:text-violet-300 mt-1">{plan.why}</p>
+        <div className="flex gap-2 mt-3">{PF_POS.map(function(x) { return <button key={x.id} onClick={function() { sPos(x.id); }} className={"flex-1 py-2 rounded-xl text-xs font-semibold " + (pos === x.id ? "bg-violet-600 text-white" : "bg-gray-100 dark:bg-gray-700")}>{x.e} {x.l}</button>; })}</div>
+        <div className="flex gap-2 mt-2">{[["beep", "🔔 Beeps"], ["voice", "🗣️ Voice"], ["off", "🔕 Silent"]].map(function(x) { return <button key={x[0]} onClick={function() { setModeSave(x[0]); }} className={"flex-1 py-1.5 rounded-lg text-[11px] font-semibold " + (mode === x[0] ? "bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900" : "bg-gray-100 dark:bg-gray-700")}>{x[1]}</button>; })}</div>
+        <p className="text-[11px] text-gray-500 mt-2 text-center">About {Math.round((3 + plan.longReps * (plan.holdS + Math.max(4, plan.holdS)) + (plan.quickReps ? 5 + plan.quickReps * 3 : 0)) / 60 * 2) / 2} min</p>
+      </div>
+      <button onClick={function() { go(false); }} className="w-full py-4 bg-violet-600 text-white rounded-xl font-bold mb-2">Start session</button>
+      <button onClick={function() { sPhase("urgeIntro"); }} className="w-full py-3 bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200 rounded-xl font-semibold text-sm mb-3">🚨 Sudden urge? Urge drill</button>
+      {stat.urges.length > 0 && <p className="text-xs text-gray-500 mb-3 text-center">Urge drills, last 30 days: {stat.urges.length} · held {stat.urges.filter(function(u) { return u.urgeOutcome === "held"; }).length} · leaked {stat.urges.filter(function(u) { return u.urgeOutcome === "leak"; }).length}</p>}
+      <button onClick={function() { sInfo(!info); }} className="w-full text-left text-sm font-semibold text-violet-700 dark:text-violet-300 py-1">{info ? "▾" : "▸"} How to do it right</button>
+      {info && <div className="text-xs text-gray-600 dark:text-gray-300 space-y-1.5 mt-1">
+        <p><b>Find the muscles:</b> squeeze as if stopping yourself passing wind and stopping your wee at the same time, then lift up and in. In men the base of the penis draws in and the scrotum lifts slightly.</p>
+        <p><b>Isolate:</b> keep breathing normally. Buttocks, thighs and tummy stay relaxed.</p>
+        <p><b>Don't</b> practise by stopping your wee mid flow. Use that once at most to find the muscles.</p>
+        <p><b>Let go fully</b> between squeezes. Relaxing is half the exercise.</p>
+        <p><b>The Knack:</b> squeeze just before you cough, sneeze, lift or stand up.</p>
+        <p><b>After weeing:</b> a firm squeeze at the end helps clear the last drops and stops after dribble.</p>
+        <p><b>Timescale:</b> three sessions a day for at least three months before judging results. If you feel pain or can't feel a squeeze, a pelvic health physio can check your technique.</p>
+      </div>}
+    </div>}
+
+    {phase === "urgeIntro" && <div>
+      <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Don't rush to the toilet. Rushing makes the urge stronger. Stop, stay still, do five quick squeezes, then breathe slowly while the urge fades. Walk calmly once it settles.</p>
+      <button onClick={function() { go(true); }} className="w-full py-4 bg-rose-600 text-white rounded-xl font-bold mb-2">Start urge drill</button>
+      <button onClick={function() { sPhase(p.urge ? "home" : "home"); }} className="w-full py-2.5 bg-gray-100 dark:bg-gray-700 rounded-xl font-semibold text-sm">Back</button>
+    </div>}
+
+    {running && runView}
+
+    {phase === "done" && res && <div>
+      <div className="text-center mb-3"><div className="text-4xl mb-1">{res.completed ? "🎉" : "⏹️"}</div><div className="font-bold">{res.completed ? "Session done" : "Stopped early"}</div>
+        <div className="text-sm text-gray-500">{res.completed ? res.longReps : res.doneLong + "/" + res.longReps} × {res.holdS}s holds · {res.quickReps} quick · {(PF_POS.find(function(x) { return x.id === res.position; }) || {}).l}</div>
+        <div className="text-xs text-gray-400 mt-1">{tapSinceLabel(res.minsSinceDose)} · session {stat.today + 1} today</div></div>
+      <div className="text-sm font-medium mb-2 text-center">How did it feel?</div>
+      <div className="flex gap-2 mb-3">{[["easy", "😌 Easy"], ["ok", "🙂 OK"], ["hard", "😣 Hard"]].map(function(x) { return <button key={x[0]} onClick={function() { sEffort(x[0]); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (effort === x[0] ? "bg-violet-600 text-white" : "bg-gray-100 dark:bg-gray-700")}>{x[1]}</button>; })}</div>
+      <p className="text-[11px] text-gray-500 mb-2 text-center">Easy twice in a row at the same level steps you up. Hard eases you back.</p>
+      <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mb-2 dark:bg-gray-700 dark:border-gray-600" />
+      <div className="flex gap-2"><button onClick={p.onClose} className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded-xl font-semibold text-sm">Discard</button>
+        <button onClick={function() { saveRes(Object.assign({}, res, { effort: effort || "ok", note: note })); p.onClose(); }} className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-bold text-sm">Save</button></div>
+    </div>}
+
+    {phase === "urgeDone" && res && <div>
+      <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 text-center">How did it go? Logged with {tapSinceLabel(res.minsSinceDose)}.</p>
+      {[["held", "✅ Urge passed, no leak", "bg-green-600"], ["toilet", "🚶 Walked to the toilet in time", "bg-teal-600"], ["leak", "💧 Leaked", "bg-amber-600"]].map(function(x) { return <button key={x[0]} onClick={function() { saveRes(Object.assign({}, res, { urgeOutcome: x[0], note: note })); p.onClose(); }} className={"w-full py-3 mb-2 text-white rounded-xl font-bold text-sm " + x[2]}>{x[1]}</button>; })}
+      <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mt-1 dark:bg-gray-700 dark:border-gray-600" />
+    </div>}
+
+    {phase === "edit" && ex && <div>
+      <div className="text-sm mb-2">{ex.kind === "urge" ? "🚨 Urge drill · " + ({ held: "passed, no leak", toilet: "reached toilet", leak: "leaked" }[ex.urgeOutcome] || "no outcome") : "🌀 " + ex.longReps + " × " + ex.holdS + "s holds · " + ex.quickReps + " quick · " + ((PF_POS.find(function(x) { return x.id === ex.position; }) || {}).l || "")}</div>
+      <div className="text-xs text-gray-500 mb-3">{fdt(ex.loggedAt)} · {tapSinceLabel(ex.minsSinceDose)}{ex.completed === false ? " · stopped early" : ""}</div>
+      {ex.kind !== "urge" && <div className="flex gap-2 mb-3">{[["easy", "😌 Easy"], ["ok", "🙂 OK"], ["hard", "😣 Hard"]].map(function(x) { return <button key={x[0]} onClick={function() { sEffort(x[0]); }} className={"flex-1 py-2.5 rounded-xl font-bold text-sm " + (effort === x[0] ? "bg-violet-600 text-white" : "bg-gray-100 dark:bg-gray-700")}>{x[1]}</button>; })}</div>}
+      <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm dark:bg-gray-700 dark:border-gray-600" />
+      <SaveDel canDel={true} color="bg-violet-600" label="Update" onDel={function() { p.onDelete(ex.id); p.onClose(); }} onSave={function() { p.onSave(Object.assign({}, ex, { note: note, effort: effort })); p.onClose(); }} />
+    </div>}
+  </Mod>);
+}
+function pfLabel(i) { return i.kind === "urge" ? "🚨 Urge drill · " + ({ held: "passed", toilet: "reached toilet", leak: "leaked" }[i.urgeOutcome] || "logged") : "🌀 Pelvic floor · " + i.longReps + "×" + i.holdS + "s + " + i.quickReps + " quick"; }
+function pfSub(i) { return (i.kind === "urge" ? "" : ((PF_POS.find(function(x) { return x.id === i.position; }) || {}).l || "") + (i.effort ? " · " + i.effort : "") + (i.completed === false ? " · stopped early" : "") + " · ") + tapSinceLabel(i.minsSinceDose); }
+
 var DEF_APP_BUTTONS = [
   { id: "meal",     emoji: "🍽️", label: "Meal",      grad: "from-emerald-500 to-teal-500" },
   { id: "drink",    emoji: "🥤", label: "Drink",     grad: "from-cyan-500 to-sky-500" },
@@ -1972,6 +2222,7 @@ var DEF_APP_BUTTONS = [
   { id: "onoff_pie", emoji: "", label: "ON/OFF",    grad: "from-gray-200 to-gray-300", isPie: true },
   { id: "quick_sym", emoji: "⚡", label: "Quick Sym", grad: "from-red-600 to-pink-500", isQuickSym: true },
   { id: "tap",      emoji: "👆", label: "Tap Test",  grad: "from-teal-600 to-emerald-500" },
+  { id: "pf",       emoji: "🌀", label: "Pelvic Floor", grad: "from-violet-600 to-fuchsia-500" },
 ];
 
 
@@ -2557,7 +2808,8 @@ function TodayPage(p) {
         mood.filter(function(m) { return m.date === td(); }).map(function(m) { var ii = idIso(m.id); return { _t: "mood", _d: (ii && dateOf(ii) === m.date) ? ii : m.date + "T08:00", d: m }; }),
         bowel.filter(function(b) { return b.loggedAt && isT(b.loggedAt); }).map(function(b) { return { _t: "bowel", _d: b.loggedAt, d: b }; }),
         activity.filter(function(a) { return a.loggedAt && isT(a.loggedAt); }).map(function(a) { return { _t: "activity", _d: a.loggedAt, d: a }; }),
-        (p.taps || []).filter(function(t) { return t.loggedAt && isT(t.loggedAt); }).map(function(t) { return { _t: "tap", _d: t.loggedAt, d: t }; })
+        (p.taps || []).filter(function(t) { return t.loggedAt && isT(t.loggedAt); }).map(function(t) { return { _t: "tap", _d: t.loggedAt, d: t }; }),
+        (p.pf || []).filter(function(t) { return t.loggedAt && isT(t.loggedAt); }).map(function(t) { return { _t: "pf", _d: t.loggedAt, d: t }; })
       ).sort(function(a, b) { return (b._d).localeCompare(a._d); });
       if (todayAll.length === 0) return <p className="text-gray-400 text-center py-4 text-sm">No entries yet today</p>;
       return todayAll.map(function(it) {
@@ -2573,6 +2825,7 @@ function TodayPage(p) {
         if (it._t === "weight") return <button key={i.id} onClick={function() { setM({ type: "eWeight", data: i }); }} className="w-full bg-violet-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>⚖️ {i.weight}kg</span><span className="text-xs text-gray-400 ml-2">{(function(){ var ii = idIso(i.id); return (ii && dateOf(ii) === i.date) ? fdt(ii) : fdOnly(i.date); })()}</span></div></button>;
         if (it._t === "mood") return <button key={i.id} onClick={function() { setM({ type: "eMood", data: i }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{MOOD_EMOJI[i.level]} {MOOD_LABELS[i.level]}</span><span className="text-xs text-gray-400 ml-2">{(function(){ var ii = idIso(i.id); return (ii && dateOf(ii) === i.date) ? fdt(ii) : fdOnly(i.date); })()}</span></div></button>;
         if (it._t === "bowel") return <button key={i.id} onClick={function() { setM({ type: "eBowel", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}><span>{i.type === "urine" ? "💛 Urine" : "💩 Bowel" + (i.strain ? " ⚠️" : "")}</span><span className="text-xs text-gray-400 ml-2">{fdt(i.loggedAt)}</span></button>;
+        if (it._t === "pf") return <button key={i.id} onClick={function() { setM({ type: "ePf", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.kind === "urge" ? "bg-rose-50" : "bg-violet-50")}><div className="flex justify-between"><span>{pfLabel(i)}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{pfSub(i)}</div></button>;
         if (it._t === "tap") return <button key={i.id} onClick={function() { setM({ type: "eTap", data: i }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>👆 {i.taps} taps · {i.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(i.minsSinceDose)}{i.cvPct != null ? " · rhythm " + i.cvPct + "%" : ""}</div></button>;
         if (it._t === "activity") return <button key={i.id} onClick={function() { setM({ type: "eActivity", data: i }); }} className="w-full bg-pink-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>🧘 {i.type}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-600">{i.duration}min</div></button>;
         return null;
@@ -2605,7 +2858,8 @@ function HistoryPage(p) {
     mood.map(function(m) { return Object.assign({}, m, { _t: "mood", _d: (m.date || "") + "T08:00" }); }),
     bowel.map(function(b) { return Object.assign({}, b, { _t: "bowel", _d: b.loggedAt || "" }); }),
     activity.map(function(a) { return Object.assign({}, a, { _t: "activity", _d: a.loggedAt || "" }); }),
-    (p.taps || []).map(function(t) { return Object.assign({}, t, { _t: "tap", _d: t.loggedAt || "" }); })
+    (p.taps || []).map(function(t) { return Object.assign({}, t, { _t: "tap", _d: t.loggedAt || "" }); }),
+    (p.pf || []).map(function(t) { return Object.assign({}, t, { _t: "pf", _d: t.loggedAt || "" }); })
   ).filter(function(i) { return i._d; }).sort(function(a, b) { return (b._d).localeCompare(a._d); });
   var groups = {}; all.forEach(function(i) { var d = i._d.slice(0, 10); if (!groups[d]) groups[d] = []; groups[d].push(i); });
   var sortedDays = Object.entries(groups).sort(function(a, b) { return b[0].localeCompare(a[0]); }).filter(function(e) { return e[0] !== td(); });
@@ -2627,6 +2881,7 @@ function HistoryPage(p) {
           if (it._t === "weight") return <button key={it.id} onClick={function() { setM({ type: "eWeight", data: it }); }} className="w-full bg-violet-50 rounded-xl p-2.5 mb-1 text-left text-sm">⚖️ {it.weight}kg{it.note ? " · " + it.note : ""}</button>;
           if (it._t === "mood") return <button key={it.id} onClick={function() { setM({ type: "eMood", data: it }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1 text-left text-sm">{MOOD_EMOJI[it.level]} {MOOD_LABELS[it.level]} ({it.level}/5)</button>;
           if (it._t === "bowel") return <button key={it.id} onClick={function() { setM({ type: "eBowel", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}>{it.type === "urine" ? "💛 Urine" : "💩 Bowel" + (it.strain ? " ⚠️" : "")}{it.note ? " · " + it.note : ""}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
+          if (it._t === "pf") return <button key={it.id} onClick={function() { setM({ type: "ePf", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (it.kind === "urge" ? "bg-rose-50" : "bg-violet-50")}><div className="flex justify-between"><span>{pfLabel(it)}</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{pfSub(it)}</div></button>;
           if (it._t === "tap") return <button key={it.id} onClick={function() { setM({ type: "eTap", data: it }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>👆 {it.taps} taps · {it.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(it.minsSinceDose)}{it.cvPct != null ? " · rhythm " + it.cvPct + "%" : ""}</div></button>;
           if (it._t === "activity") return <button key={it.id} onClick={function() { setM({ type: "eActivity", data: it }); }} className="w-full bg-pink-50 rounded-xl p-2.5 mb-1 text-left text-sm">🧘 {it.type} · {it.duration}min<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           return null;
@@ -2644,7 +2899,7 @@ function ReportPage(p) {
     var days = period === "daily" ? 1 : period === "weekly" ? 7 : period === "monthly" ? 30 : 9999;
     var dates = Array.from({ length: days }, function(_, i) { return dAgo(i); });
     var inRange = function(iso, df) { return dates.indexOf(df ? iso : (iso || "").slice(0, 10)) >= 0; };
-    return { logs: REAL(p.logs).filter(function(l) { return l.takenAt && inRange(l.takenAt); }), meals: REAL(p.meals).filter(function(m) { return m.loggedAt && inRange(m.loggedAt); }), ex: p.ex.filter(function(e) { return e.loggedAt && inRange(e.loggedAt); }), slp: p.slp.filter(function(s) { return s.date && inRange(s.date, true); }), sym: p.sym.filter(function(s) { return s.loggedAt && inRange(s.loggedAt); }), oo: REAL(p.oo).filter(function(o) { return o.loggedAt && inRange(o.loggedAt); }), fast: p.fast.filter(function(f) { return f.date && inRange(f.date, true); }), drinks: p.drinks.filter(function(d) { return d.loggedAt && inRange(d.loggedAt); }), weight: (p.weight || []).filter(function(w) { return w.date && inRange(w.date, true); }), mood: (p.mood || []).filter(function(m) { return m.date && inRange(m.date, true); }), bowel: (p.bowel || []).filter(function(b) { return b.loggedAt && inRange(b.loggedAt); }), activity: (p.activity || []).filter(function(a) { return a.loggedAt && inRange(a.loggedAt); }), taps: REAL(p.taps || []).filter(function(t) { return t.loggedAt && inRange(t.loggedAt); }) };
+    return { logs: REAL(p.logs).filter(function(l) { return l.takenAt && inRange(l.takenAt); }), meals: REAL(p.meals).filter(function(m) { return m.loggedAt && inRange(m.loggedAt); }), ex: p.ex.filter(function(e) { return e.loggedAt && inRange(e.loggedAt); }), slp: p.slp.filter(function(s) { return s.date && inRange(s.date, true); }), sym: p.sym.filter(function(s) { return s.loggedAt && inRange(s.loggedAt); }), oo: REAL(p.oo).filter(function(o) { return o.loggedAt && inRange(o.loggedAt); }), fast: p.fast.filter(function(f) { return f.date && inRange(f.date, true); }), drinks: p.drinks.filter(function(d) { return d.loggedAt && inRange(d.loggedAt); }), weight: (p.weight || []).filter(function(w) { return w.date && inRange(w.date, true); }), mood: (p.mood || []).filter(function(m) { return m.date && inRange(m.date, true); }), bowel: (p.bowel || []).filter(function(b) { return b.loggedAt && inRange(b.loggedAt); }), activity: (p.activity || []).filter(function(a) { return a.loggedAt && inRange(a.loggedAt); }), taps: REAL(p.taps || []).filter(function(t) { return t.loggedAt && inRange(t.loggedAt); }), pf: REAL(p.pf || []).filter(function(t) { return t.loggedAt && inRange(t.loggedAt); }) };
   }
   var doReport = async function() { sLoading(true); sReport(null); var data = getData(); var total = data.logs.length + data.meals.length + data.ex.length + data.slp.length + data.sym.length + data.oo.length + data.fast.length + data.drinks.length + data.weight.length + data.mood.length + data.bowel.length + data.activity.length; if (total === 0) { sReport("No data found for this period. Start logging to generate a report!"); sLoading(false); return; } var result = await generateReport(period, data); sReport(result); sLoading(false); };
   var counts = getData();
@@ -2832,6 +3087,7 @@ function App() {
   var [bowel, sBowel] = useState([]);
   var [activity, sActivity] = useState([]);
   var [taps, sTaps] = useState([]);
+  var [pf, sPf] = useState([]);
   var [waterTarget, sWaterTarget] = useState(2000);
   var [calTarget, sCalTarget] = useState(2000);
   var [protTarget, sProtTarget] = useState(50);
@@ -2894,6 +3150,7 @@ function App() {
       exCfgLoad().then(setExCfg);
       irCfgLoad().then(setIrCfgState);
       ld(K.tap, []).then(function(tp) { sTaps(tp || []); });
+      ld(K.pf, []).then(function(x) { sPf(x || []); });
       var r = await Promise.all([ld(K.meds, []), ld(K.logs, []), ld(K.meals, []), ld(K.ex, []), ld(K.sleep, []), ld(K.sym, []), ld(K.onoff, []), ld(K.fast, []), ld(K.drinks, []), ld(K.waterTarget, 2000), ld(K.weight, []), ld(K.mood, []), ld(K.bowel, []), ld(K.darkMode, false), ld(K.activity, []), ld(K.calTarget, 2000), ld(K.protTarget, 50), ld(K.medTarget, 4), ld(K.companionDrinks, {}), ld(K.cex, []), ld(K.cact, []), ld(K.alarms, false), ld(K.alarmTimes, ["08:00","12:00","17:00","22:00"]), ld(K.ooReminderOn, false), ld(K.ooReminderInterval, 0), ld(K.bowelReminderOn, false), ld(K.bowelReminderTime, "08:30"), ld(K.weeBtnOn, true), ld(K.prdOn, true), ld(K.prdBfMax, PRD.bf), ld(K.prdLunchMax, PRD.lunch), ld(K.prdDayMax, PRD.day), ld(K.prdEveStart, PRD.eveStart), ld(K.prdEveTarget, PRD.eve), ld(K.carbTarget, 260), ld(K.fibreTarget, 30), ld(K.weightGoal, null), ld(K.mealTarget, 3)]);
       var m = r[0], l = r[1], ml = r[2], e = r[3], s = r[4], sy = r[5], o = r[6], fa = r[7], dr = r[8], wt = r[9], wg = r[10], mo = r[11], bw = r[12], dk = r[13], ac = r[14], ct = r[15], pt = r[16], mt = r[17], cdMap = r[18], cexList = r[19], cactList = r[20], alarmsOn = r[21], alarmTimesList = r[22];
       var medsLoadFailed = !!LOAD_FAILED[K.meds];
@@ -3152,6 +3409,7 @@ function App() {
   var aBowel = add(sBowel, K.bowel), uBowel = upd(sBowel, K.bowel), dBowel = del(sBowel, K.bowel);
   var aAct = add(sActivity, K.activity), uAct = upd(sActivity, K.activity), dAct = del(sActivity, K.activity);
   var aTap = add(sTaps, K.tap), uTap = upd(sTaps, K.tap), dTap = del(sTaps, K.tap);
+  var aPf = add(sPf, K.pf), uPf = upd(sPf, K.pf), dPf = del(sPf, K.pf);
   var toggleDark = function() { var nd = !dark; sDark(nd); sv(K.darkMode, nd); };
   var setWT = function(v) { sWaterTarget(v); sv(K.waterTarget, v); };
   var setCT = function(v) { sCalTarget(v); sv(K.calTarget, v); };
@@ -3318,11 +3576,11 @@ function App() {
     </div>)}
     <div style={{position:"fixed",top:0,left:0,right:0,height:"env(safe-area-inset-top, 0px)",background:"#0f172a",zIndex:45}} />
     <div style={{height:"env(safe-area-inset-top, 0px)"}} />
-    {tab === "today" && <TodayPage taps={taps} irCfg={irCfg} onIrOpen={function() { setShowIrPopup(true); }} onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} onUpdMeal={uMeal} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
-    {tab === "history" && <HistoryPage taps={taps} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
+    {tab === "today" && <TodayPage pf={pf} taps={taps} irCfg={irCfg} onIrOpen={function() { setShowIrPopup(true); }} onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} onUpdMeal={uMeal} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
+    {tab === "history" && <HistoryPage pf={pf} taps={taps} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "exercise" && <ExercisePage ex={ex} setM={sModal} dark={dark} cfg={exCfg} setCfg={setExCfg} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
-    {tab === "report" && <ReportPage taps={taps} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
+    {tab === "report" && <ReportPage pf={pf} taps={taps} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
     {tab === "setup" && <Setup irCfg={irCfg} setIrCfg={setIrCfg} meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} carbTarget={carbTarget} setCarbTarget={function(v){setCarbTarget(v); sv(K.carbTarget,v);}} fibreTarget={fibreTarget} setFibreTarget={function(v){setFibreTarget(v); sv(K.fibreTarget,v);}} weightGoal={weightGoal} setWeightGoal={function(v){setWeightGoal(v); sv(K.weightGoal,v);}} mealTarget={mealTarget} setMealTarget={function(v){setMealTarget(v); sv(K.mealTarget,v);}} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} bowelReminderOn={bowelReminderOn} setBowelReminderOn={function(v) { setBowelReminderOn(v); sv(K.bowelReminderOn, v); }} bowelReminderTime={bowelReminderTime} setBowelReminderTime={function(v) { setBowelReminderTime(v); sv(K.bowelReminderTime, v); }} weeBtnOn={weeBtnOn} setWeeBtnOn={function(v) { setWeeBtnOn(v); sv(K.weeBtnOn, v); }} prdOn={prdOn} setPrdOn={function(v){setPrdOn(v); sv(K.prdOn,v);}} prdBfMax={prdBfMax} setPrdBfMax={function(v){setPrdBfMax(v); sv(K.prdBfMax,v);}} prdLunchMax={prdLunchMax} setPrdLunchMax={function(v){setPrdLunchMax(v); sv(K.prdLunchMax,v);}} prdDayMax={prdDayMax} setPrdDayMax={function(v){setPrdDayMax(v); sv(K.prdDayMax,v);}} prdEveTarget={prdEveTarget} setPrdEveTarget={function(v){setPrdEveTarget(v); sv(K.prdEveTarget,v);}} prdEveStart={prdEveStart} setPrdEveStart={function(v){setPrdEveStart(v); sv(K.prdEveStart,v);}} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 py-2 mx-4 rounded-xl flex justify-between items-center" style={{marginTop:"-5rem",marginBottom:"10.5rem"}}>
       <div className="min-w-0"><div className="text-sm font-bold">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></div><div className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</div><div className="text-[10px] text-indigo-400 truncate">Build {BUILD_VERSION}</div></div>
@@ -3412,6 +3670,8 @@ function App() {
     {modal && modal.type === "eMood" && <MoodMod existing={modal.data} onSave={function(m) { uMood(m); close(); }} onDelete={function(id) { dMood(id); close(); }} onClose={close} />}
     {modal && modal.type === "bowel" && <BowelMod onSave={function(b) { aBowel(b); close(); }} onClose={close} />}
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
+    {modal && modal.type === "pf" && <PelvicMod logs={logs} oo={oo} pf={pf} onSave={function(t) { aPf(t); }} onClose={close} />}
+    {modal && modal.type === "ePf" && <PelvicMod existing={modal.data} logs={logs} oo={oo} pf={pf} onSave={function(t) { uPf(t); }} onDelete={function(id) { dPf(id); }} onClose={close} />}
     {modal && modal.type === "tap" && <TapTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "eTap" && <TapTestMod existing={modal.data} logs={logs} oo={oo} taps={taps} onSave={function(t) { uTap(t); }} onDelete={function(id) { dTap(id); }} onClose={close} />}
     {modal && modal.type === "activity" && <ActivityMod cactList={cactList} onSaveCact={function(v) { setCactList(v); sv(K.cact, v); }} onSave={function(a) { aAct(a); close(); }} onClose={close} />}
