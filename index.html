@@ -172,7 +172,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v90 Oct13 — Rowing added as an aerobic exercise type";
+var BUILD_VERSION = "v91 Oct17 — pinned breakfast updated to current recipe";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests" };
 
@@ -564,16 +564,15 @@ function MealMod(p) {
   // Pinned meals: always shown at the top of quick-pick, regardless of recent frequency.
   var PINNED_MEALS = [
     { id: "pinned-usual-breakfast", pinned: true,
-      description: "Flaxseed 30g, Walnut halves 6, Chia seeds 30g, Blackberries 6, Blueberries 10g, Muesli 30g, 200ml Cocos Organic coconut kefir",
-      protein: 20, carbs: 51, fibre: 22, calories: 688, sugar: 9,
+      description: "Flaxseed 30g, Chia seeds 30g, Blackberries 6, Blueberries 10g, Muesli 30g, 200ml Cocos Organic coconut kefir açai",
+      protein: 18, carbs: 47, fibre: 22, calories: 596, sugar: 10, freeSugar: 2,
       foodBreakdown: [
-        { food: "Flaxseed", emoji: "🌾", per: "30g", multiplier: 1, protein: 6, carbs: 9, fibre: 8, calories: 161, sugar: 1 },
-        { food: "Walnut halves", emoji: "🌰", per: "6 halves (~15g)", multiplier: 1, protein: 2, carbs: 2, fibre: 1, calories: 98, sugar: 0 },
-        { food: "Chia seeds", emoji: "🌱", per: "30g", multiplier: 1, protein: 5, carbs: 11, fibre: 10, calories: 146, sugar: 0 },
-        { food: "Blackberries", emoji: "🫐", per: "6 berries", multiplier: 1, protein: 1, carbs: 2, fibre: 1, calories: 10, sugar: 1 },
-        { food: "Blueberries", emoji: "🫐", per: "10g", multiplier: 1, protein: 0, carbs: 1, fibre: 0, calories: 6, sugar: 1 },
-        { food: "Muesli", emoji: "🥣", per: "30g", multiplier: 1, protein: 3, carbs: 19, fibre: 2, calories: 109, sugar: 5 },
-        { food: "Cocos Organic coconut kefir", emoji: "🥥", per: "200ml", multiplier: 1, protein: 3, carbs: 7, fibre: 0, calories: 158, sugar: 1 }
+        { food: "Flaxseed", emoji: "🌾", per: "30g", multiplier: 1, protein: 6, carbs: 5, fibre: 8, calories: 161, sugar: 0, freeSugar: 0 },
+        { food: "Chia seeds", emoji: "🌱", per: "30g", multiplier: 1, protein: 5, carbs: 11, fibre: 10, calories: 146, sugar: 0, freeSugar: 0 },
+        { food: "Blackberries", emoji: "🫐", per: "6 berries (~36g)", multiplier: 1, protein: 1, carbs: 4, fibre: 2, calories: 18, sugar: 4, freeSugar: 0 },
+        { food: "Blueberries", emoji: "🫐", per: "10g", multiplier: 1, protein: 0, carbs: 1, fibre: 0, calories: 6, sugar: 1, freeSugar: 0 },
+        { food: "Muesli", emoji: "🥣", per: "30g", multiplier: 1, protein: 3, carbs: 19, fibre: 2, calories: 107, sugar: 4, freeSugar: 2 },
+        { food: "Cocos Organic coconut kefir açai", emoji: "🥥", per: "200ml", multiplier: 1, protein: 3, carbs: 7, fibre: 0, calories: 158, sugar: 1, freeSugar: 0 }
       ] }
   ];
   var pinnedDescs = {};
