@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v94 Oct18 — Cam Tap home button, hands-free start and voice prompts";
+var BUILD_VERSION = "v95 Oct18 — Cam Tap: softer voice, start/stop only, offers other hand";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -2039,7 +2039,25 @@ function camAnalyse(raw, secs) {
 // commands (webkit SpeechRecognition, where the phone supports it).
 // cb runs once speech has finished (or after a fallback delay), so the mic
 // never starts while the phone is still talking and hears its own prompt.
-function camSay(t, cb) { var done = false, fin = function() { if (done) return; done = true; if (cb) setTimeout(cb, 400); }; try { var u = new SpeechSynthesisUtterance(t); u.rate = 1.05; u.lang = "en-GB"; u.onend = fin; u.onerror = fin; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) { fin(); } if (cb) setTimeout(fin, 1500 + t.length * 90); }
+// Softest available voice: prefer the phone's Enhanced/Premium English voices
+// (more natural), British first, spoken a little slower and quieter.
+var _camVoice = null;
+function camPickVoice() {
+  try {
+    var vs = speechSynthesis.getVoices() || []; if (!vs.length) return null;
+    var en = vs.filter(function(v) { return /^en/i.test(v.lang); });
+    var score = function(v) { var n = v.name || "", sc = 0;
+      if (/premium/i.test(n)) sc += 40; else if (/enhanced|natural|neural/i.test(n)) sc += 30;
+      if (/en[-_]GB/i.test(v.lang)) sc += 10;
+      if (/serena|kate|stephanie|martha|samantha|ava|zoe|moira|karen|tessa|daniel|jamie|oliver/i.test(n)) sc += 8;
+      if (/compact|eloquence|grandma|grandpa|rocko|shelley|flo|reed|sandy|bad news|bahh|bells|boing|bubbles|cellos|wobble|zarvox|trinoids|whisper|albert|fred|jester|junior|ralph|organ|superstar/i.test(n)) sc -= 50;
+      return sc; };
+    en.sort(function(a, b) { return score(b) - score(a); });
+    return en[0] || null;
+  } catch (e) { return null; }
+}
+try { speechSynthesis.onvoiceschanged = function() { _camVoice = camPickVoice(); }; } catch (e) {}
+function camSay(t, cb) { var done = false, fin = function() { if (done) return; done = true; if (cb) setTimeout(cb, 400); }; try { if (!_camVoice) _camVoice = camPickVoice(); var u = new SpeechSynthesisUtterance(t); if (_camVoice) { u.voice = _camVoice; u.lang = _camVoice.lang; } else u.lang = "en-GB"; u.rate = 0.88; u.pitch = 1.0; u.volume = 0.75; u.onend = fin; u.onerror = fin; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) { fin(); } if (cb) setTimeout(fin, 1500 + t.length * 90); }
 function camVoice(onWord) {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return null;
   var r = null, on = true;
@@ -2118,7 +2136,7 @@ function CamTapMod(p) {
       sMsg("Loading hand tracking (first time can take a few seconds)…");
       var det = await mpLoad();
       sPhase("aim"); R.current.seenSince = 0; loop(det);
-      camSay("Hold your " + hand + " hand up to the camera, or say start.", function() { if (R.current.phase !== "aim") return; stopVoice(); R.current.voice = camVoice(function(w) { sHeard(w); if (/\b(start|go|ready|yes)\b/.test(w) && R.current.act.go && R.current.phase === "aim") { R.current.act.go(); return true; } if (/\bcancel\b/.test(w)) { R.current.act.close && R.current.act.close(); return true; } return false; }); });
+      camSay("When you're ready, hold your " + hand + " hand up to the camera.", function() { if (R.current.phase !== "aim") return; stopVoice(); R.current.voice = camVoice(function(w) { sHeard(w); if (/\b(start|go|ready|yes)\b/.test(w) && R.current.act.go && R.current.phase === "aim") { R.current.act.go(); return true; } if (/\bcancel\b/.test(w)) { R.current.act.close && R.current.act.close(); return true; } return false; }); });
     } catch (e) {
       stop(); sPhase("error");
       sMsg(e && e.name === "NotAllowedError" ? "Camera permission was refused. Allow camera access for this app in Settings, then try again." : "Couldn't start the camera test: " + (e && e.message ? e.message : e));
@@ -2134,20 +2152,16 @@ function CamTapMod(p) {
       minsSinceDose: ctx.minsSinceDose, ooState: ctx.ooState, note: "", _series: a.series });
     sNote(""); sPhase("done");
     try { if (navigator.vibrate) navigator.vibrate(200); } catch (e) {}
-    camSay("Stop. Well done. " + a.taps + " taps. Say save, other hand, or discard.", function() { if (R.current.phase !== "done") return; R.current.voice = camVoice(function(w) { sHeard(w); var A = R.current.act;
-      if (/other hand|again|next/.test(w)) { A.save && A.save(true); return true; }
-      if (/\b(save|yes)\b/.test(w)) { A.save && A.save(false); return true; }
-      if (/\b(discard|delete)\b/.test(w)) { A.discard && A.discard(); return true; }
-      return false; }); });
+    camSay("And stop. Well done.");
   };
   var go = function() {
     var s = R.current; if (s.phase !== "aim") return; stopVoice(); s.phase = "count"; s.said10 = false;
-    sPhase("count"); sCount(3); var c = 3; camSay("Three");
+    sPhase("count"); sCount(3); var c = 3; camSay("Three...");
     s.timer = setInterval(function() {
-      c--; if (c > 0) { sCount(c); camSay(c === 2 ? "Two" : "One"); return; }
-      clearInterval(s.timer); camSay("Go");
+      c--; if (c > 0) { sCount(c); camSay(c === 2 ? "Two..." : "One..."); return; }
+      clearInterval(s.timer); camSay("And go.");
       s.samples = []; s.live = { seek: "max", cur: null, peak: null, n: 0 }; sLive(0); s.t0 = performance.now(); s.rec = true; sLeft(CAM_TAP_SECS); sPhase("run");
-      s.timer = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sLeft(Math.max(0, Math.ceil(CAM_TAP_SECS - el))); if (!s.said10 && CAM_TAP_SECS - el <= 10) { s.said10 = true; camSay("Ten seconds"); } if (el >= CAM_TAP_SECS) finish(); }, 100);
+      s.timer = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sLeft(Math.max(0, Math.ceil(CAM_TAP_SECS - el))); if (el >= CAM_TAP_SECS) finish(); }, 100);
     }, 1000);
   };
   var prev = (p.taps || []).filter(function(t) { return t.method === "camera" && t.hand === (res ? res.hand : hand) && (!res || t.id !== res.id) && t.source !== "estimated"; })
@@ -2155,10 +2169,15 @@ function CamTapMod(p) {
   var med = tapMedian(prev.slice(0, 20).map(function(t) { return t.taps; }));
   var medAmp = tapMedian(prev.slice(0, 20).filter(function(t) { return t.ampMean != null; }).map(function(t) { return Number(t.ampMean); }));
   var clean = function(r) { var o = Object.assign({}, r, { note: note }); delete o._series; return o; };
-  var save = function(again) { stopVoice(); p.onSave(clean(res)); if (again) { var nh = res.hand === "right" ? "left" : "right"; sHand(nh); sRes(null); openCamFor(nh); } else { camSay("Saved."); p.onClose(); } };
-  var discard = function() { stopVoice(); sRes(null); sPhase("setup"); camSay("Discarded."); };
+  var [doneHands, sDoneHands] = useState([]);
+  var otherHand = res ? (res.hand === "right" ? "left" : "right") : null;
+  // After saving, offer the other hand (as the screen test does) unless it was already tested in this sitting.
+  var save = function() { stopVoice(); p.onSave(clean(res)); var dh = doneHands.concat([res.hand]); sDoneHands(dh);
+    if (!ex && dh.indexOf(otherHand) < 0) { sPhase("next"); } else p.onClose(); };
+  var testOther = function() { var nh = otherHand; sHand(nh); sRes(null); openCamFor(nh); };
+  var discard = function() { stopVoice(); sRes(null); sPhase("setup"); };
   var busy = phase === "run" || phase === "count";
-  R.current.act = { go: go, save: save, discard: discard, close: function() { stop(); p.onClose(); } };
+  R.current.act = { go: go, close: function() { stop(); p.onClose(); } };
   var showCam = phase === "loading" || phase === "aim" || phase === "count" || phase === "run";
   var closeAll = function() { stop(); p.onClose(); };
   var pctTxt = function(x) { return x == null ? "–" : Math.round(x * 100) + "%"; };
@@ -2172,7 +2191,7 @@ function CamTapMod(p) {
       <p className="text-sm text-gray-600 mb-3">Tap your thumb and index finger together, opening as <b>wide</b> and as <b>fast</b> as you can, for {CAM_TAP_SECS} seconds. Keep the other fingers out of the way.</p>
       <div className="text-sm font-medium mb-2">Which hand?</div>
       <div className="flex gap-2 mb-4">{["left", "right"].map(function(h) { return <button key={h} onClick={function() { sHand(h); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (hand === h ? "bg-teal-600 text-white" : "bg-gray-100")}>{h === "left" ? "✋ Left" : "🤚 Right"}</button>; })}</div>
-      <p className="text-xs text-gray-500 mb-4">Hands free: once the camera is open, just hold your hand in view for 2 seconds and it counts you in out loud. Turn the sound up. The video stays on your phone; only the measurements are saved.</p>
+      <p className="text-xs text-gray-500 mb-4">Hands free: once the camera is open, just hold your hand in view for 2 seconds and it counts you in out loud. The video stays on your phone; only the measurements are saved.</p>
       <button onClick={openCam} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold">Open camera</button>
       {p.onBack && <button onClick={p.onBack} className="w-full mt-2 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Use the screen tap test instead</button>}
     </div>}
@@ -2212,9 +2231,14 @@ function CamTapMod(p) {
       {res.taps < 10 && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mb-3">Very few taps were detected. If you were tapping normally, the camera probably couldn't see the fingers clearly: retest.</p>}
       <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mb-1" />
       {ex ? <SaveDel canDel={true} color="bg-teal-600" label="Update" onDel={function() { p.onDelete(ex.id); p.onClose(); }} onSave={function() { p.onSave(clean(ex)); p.onClose(); }} />
-        : <div><div className="flex gap-2 mt-3"><button onClick={discard} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Discard</button><button onClick={function() { save(false); }} className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold text-sm">Save</button></div>
-          <button onClick={function() { save(true); }} className="w-full mt-2 py-2.5 bg-teal-50 text-teal-700 rounded-xl font-semibold text-sm">Save and test {res.hand === "right" ? "left" : "right"} hand</button>
-          {hasVoice && <p className="text-xs text-gray-400 text-center mt-2">🎙️ Say "save", "other hand" or "discard"</p>}</div>}
+        : <div><div className="flex gap-2 mt-3"><button onClick={discard} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Discard</button><button onClick={save} className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold text-sm">Save</button></div></div>}
+    </div>}
+    {phase === "next" && <div className="text-center py-6">
+      <div className="text-5xl mb-3">{otherHand === "left" ? "✋" : "🤚"}</div>
+      <div className="text-lg font-bold mb-1">Saved. Test your {otherHand} hand now?</div>
+      <p className="text-sm text-gray-500 mb-5">Same as before: hold it up to the camera and it starts by itself.</p>
+      <button onClick={testOther} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold mb-2">Yes, test {otherHand} hand</button>
+      <button onClick={function() { p.onClose(); }} className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">No, finish</button>
     </div>}
   </Mod>);
 }

@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v95)
+- **Cam Tap tweaks**: voice now only at start (prompt and countdown) and stop; no listening or spoken results after the test. Softer voice: picks the phone's Enhanced/Premium English voice if installed, slower and quieter. After saving one hand it asks whether to test the other hand now.
+
 ### 2026-10-18 (v94)
 - **Cam Tap button and hands-free start**: own 📷 Cam Tap home button. Once the camera is open, holding the hand in view for 2s starts a spoken 3, 2, 1 countdown; spoken ten-second warning and result. Voice commands where the phone supports speech recognition: "start", "save", "other hand" (saves then reopens the camera for the other hand), "discard", "cancel". The mic only listens after the app finishes speaking.
 
