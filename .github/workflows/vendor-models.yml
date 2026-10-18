@@ -1,0 +1,44 @@
+# Copies the MediaPipe model files PD Tracker's camera tests use from Google's
+# official model storage into vendor/mediapipe/models, records their SHA-256,
+# commits them, then redeploys the site. Runs when this file changes or by hand.
+name: Vendor MediaPipe models
+
+on:
+  push:
+    branches: ["main"]
+    paths: [".github/workflows/vendor-models.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download models from Google
+        run: |
+          set -euo pipefail
+          mkdir -p vendor/mediapipe/models
+          cd vendor/mediapipe/models
+          base=https://storage.googleapis.com/mediapipe-models
+          curl -fsSL -o hand_landmarker.task      "$base/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+          curl -fsSL -o pose_landmarker_lite.task "$base/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+          curl -fsSL -o face_landmarker.task      "$base/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+          sha256sum *.task > SHA256SUMS
+          cat SHA256SUMS
+          ls -l
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add vendor/mediapipe/models
+          if git diff --cached --quiet; then echo "Models unchanged"; exit 0; fi
+          git commit -m "Vendor MediaPipe model files from storage.googleapis.com"
+          git push
+      - name: Redeploy site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run static.yml --ref main

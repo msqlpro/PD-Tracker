@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v98)
+- **Self-hosted tracking**: MediaPipe library and wasm copied into `vendor/mediapipe` (checksum verified against npm). Model files are copied from Google by the `vendor-models` workflow. Camera tests no longer load code from jsDelivr; Google's model storage is only a fallback until the copied models exist.
+
 ### 2026-10-18 (v97)
 - **Motor Tests hub**: one 🧪 home button replaces Tap Test, Cam Tap and Arm Turns, and lists every test. New camera tests on a shared engine (`MotorCamMod` + `MOTOR_SPECS`): hand open/close (60s, per hand), tremor at rest / arms out (30s, both hands, size as % of hand size and frequency 3 to 12 Hz), sit to stand ×5 (pose tracking, auto-stops after the fifth sit), walk and arm swing (30s, cadence, per-arm swing, asymmetry), blink and expression (face blendshapes, 60s talking). New `tap_tests` columns `condition`, `total_s`, `extra` (jsonb).
 

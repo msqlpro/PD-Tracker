@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v97 Oct18 — Motor Tests hub: open/close, tremor, sit-to-stand, walk, face";
+var BUILD_VERSION = "v98 Oct18 — camera tests load tracking from the app's own site";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -1983,8 +1983,15 @@ function ScreenTapMod(p) {
 // (gaps more than twice the usual tap interval).
 var CAM_TAP_SECS = 60;
 var MP_VER = "0.10.14";
-var MP_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MP_VER;
-var MP_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+// Self-hosted copy of @mediapipe/tasks-vision (vendor/mediapipe, checksums in
+// SHA256SUMS) so the camera tests don't depend on outside code hosts.
+var MP_BASE = new URL("vendor/mediapipe", document.baseURI).href;
+var MP_GOOGLE = "https://storage.googleapis.com/mediapipe-models/";
+// Models are copied into vendor/mediapipe/models by the vendor-models workflow.
+// Google's copy is only a fallback until that copy exists.
+function mpModelUrls(path) { var name = path.split("/").pop(); return [MP_BASE + "/models/" + name, MP_GOOGLE + path]; }
+async function mpCreate(makeWith, urls) { var last = null; for (var i = 0; i < urls.length; i++) { for (var d of ["GPU", "CPU"]) { try { return await makeWith(urls[i], d); } catch (e) { last = e; } } } throw last; }
+var MP_MODEL = "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 var _mpLandmarker = {};
 async function mpLoad(nHands) {
   var nh = nHands || 1;
@@ -1992,8 +1999,8 @@ async function mpLoad(nHands) {
   // Function wrapper keeps Babel from rewriting the dynamic import.
   var vision = await (new Function("u", "return import(u)"))(MP_BASE + "/vision_bundle.mjs");
   var fs = await vision.FilesetResolver.forVisionTasks(MP_BASE + "/wasm");
-  var make = function(dlg) { return vision.HandLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: MP_MODEL, delegate: dlg }, runningMode: "VIDEO", numHands: nh, minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5 }); };
-  try { _mpLandmarker[nh] = await make("GPU"); } catch (e) { _mpLandmarker[nh] = await make("CPU"); }
+  var make = function(url, dlg) { return vision.HandLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: url, delegate: dlg }, runningMode: "VIDEO", numHands: nh, minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5 }); };
+  _mpLandmarker[nh] = await mpCreate(make, mpModelUrls(MP_MODEL));
   return _mpLandmarker[nh];
 }
 function camAperture(lm, w, h) {
@@ -2492,8 +2499,8 @@ function RotTestMod(p) {
 // swing (3.10), and blink rate / facial expression (3.2). All tracking runs
 // on the phone (MediaPipe); no video is stored. Results go in tap_tests with
 // method = spec key; test-specific numbers live in tap_tests.extra (jsonb).
-var MP_POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-var MP_FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+var MP_POSE_MODEL = "pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+var MP_FACE_MODEL = "face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 var _mpVis = null, _mpFs = null, _mpOther = {};
 async function mpLoadKind(kind) {
   if (kind === "hand1") return mpLoad(1);
@@ -2501,11 +2508,11 @@ async function mpLoadKind(kind) {
   if (_mpOther[kind]) return _mpOther[kind];
   if (!_mpVis) { _mpVis = await (new Function("u", "return import(u)"))(MP_BASE + "/vision_bundle.mjs"); _mpFs = await _mpVis.FilesetResolver.forVisionTasks(MP_BASE + "/wasm"); }
   var v = _mpVis;
-  var make = function(dlg) {
-    if (kind === "pose") return v.PoseLandmarker.createFromOptions(_mpFs, { baseOptions: { modelAssetPath: MP_POSE_MODEL, delegate: dlg }, runningMode: "VIDEO", numPoses: 1 });
-    return v.FaceLandmarker.createFromOptions(_mpFs, { baseOptions: { modelAssetPath: MP_FACE_MODEL, delegate: dlg }, runningMode: "VIDEO", numFaces: 1, outputFaceBlendshapes: true });
+  var make = function(url, dlg) {
+    if (kind === "pose") return v.PoseLandmarker.createFromOptions(_mpFs, { baseOptions: { modelAssetPath: url, delegate: dlg }, runningMode: "VIDEO", numPoses: 1 });
+    return v.FaceLandmarker.createFromOptions(_mpFs, { baseOptions: { modelAssetPath: url, delegate: dlg }, runningMode: "VIDEO", numFaces: 1, outputFaceBlendshapes: true });
   };
-  try { _mpOther[kind] = await make("GPU"); } catch (e) { _mpOther[kind] = await make("CPU"); }
+  _mpOther[kind] = await mpCreate(make, mpModelUrls(kind === "pose" ? MP_POSE_MODEL : MP_FACE_MODEL));
   return _mpOther[kind];
 }
 // ---- signal helpers ----
