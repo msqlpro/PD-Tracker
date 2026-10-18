@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v106)
+- **Arm Turns**: says "I can't see your left/right hand" if a hand is out of view for 1.5 s during the test; results flag an arm with under 40% of the other arm's turns as a likely tracking problem (prompted by a both-arms run of 193 v 2).
+
 ### 2026-10-18 (v105)
 - **No more silent save failures**: any record the database rejects (or that fails offline) is queued in localStorage (`pd_save_queue`), retried on load, when back online, or from an amber banner showing how many are unsaved. Root cause today: `tap_tests_hand_check` only allowed left/right, so walk, sit to stand and face results were rejected; constraint now allows body and face.
 

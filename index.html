@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v105 Oct18 — failed saves queued on the phone, retried, and flagged with a banner";
+var BUILD_VERSION = "v106 Oct18 — Arm Turns: lost-hand warning and lopsided-result check";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -2373,6 +2373,9 @@ function RotTestMod(p) {
       }
       if (s.rec) {
         var changed = false;
+        // Spoken warning if either hand is out of view for over 1.5 s (once per loss).
+        s.seenAt = s.seenAt || {}; s.lostSaid = s.lostSaid || {};
+        need.forEach(function(k) { if (by[k] || !s.seenAt[k]) { s.seenAt[k] = now; s.lostSaid[k] = false; } else if (now - s.seenAt[k] > 1500 && !s.lostSaid[k]) { s.lostSaid[k] = true; camSay("I can't see your " + k + " hand."); } });
         need.forEach(function(k) {
           var a = by[k] ? rotAngle(by[k], W, H) : null;
           s.samples[k].push({ t: now, a: a });
@@ -2425,7 +2428,7 @@ function RotTestMod(p) {
     s.timer = setInterval(function() {
       c--; if (c > 0) { sCount(c); camSay(c === 2 ? "Two..." : "One..."); return; }
       clearInterval(s.timer); camSay("And go.");
-      s.samples = { left: [], right: [] }; s.liveA = {}; sLive({ left: 0, right: 0 }); s.t0 = performance.now(); s.rec = true; sLeft(ROT_SECS); sPhase("run");
+      s.samples = { left: [], right: [] }; s.liveA = {}; s.seenAt = {}; s.lostSaid = {}; sLive({ left: 0, right: 0 }); s.t0 = performance.now(); s.rec = true; sLeft(ROT_SECS); sPhase("run");
       s.timer = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sLeft(Math.max(0, Math.ceil(ROT_SECS - el))); if (el >= ROT_SECS) finish(); }, 100);
     }, 1000);
   };
@@ -2493,6 +2496,7 @@ function RotTestMod(p) {
             : <p className="text-xs text-gray-500">First {r.hand} arm test. Comparisons start from the next one.</p>}
           {r.trackPct != null && r.trackPct < 80 && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-2">The camera lost this hand for {100 - r.trackPct}% of the test, so these numbers are less reliable.</p>}
           {r.taps < 10 && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-2">Very few turns were detected. Keep the arm pointing at the camera and retest.</p>}
+          {(function() { var o = res.find(function(x) { return x.hand !== r.hand; }); return (o && o.taps >= 20 && r.taps < o.taps * 0.4) ? <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-2">This arm recorded far fewer turns than your {o.hand} arm ({r.taps} against {o.taps}). That is usually the camera losing this hand rather than a real difference, so consider discarding and retesting with both hands well inside the frame.</p> : null; })()}
         </div>; })}
       <div className="text-sm text-gray-600 mb-2">{tapSinceLabel(res[0].minsSinceDose)}{res[0].ooState ? " · " + (res[0].ooState === "on" ? "🟢 ON" : "🔴 OFF") : ""}</div>
       <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mb-1" />
