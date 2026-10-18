@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18
+- **Camera tap test (v93)**: Tap Test now offers a 60s camera mode. The front camera tracks thumb and index fingertips on the phone (MediaPipe Hand Landmarker; no video stored). Saves taps, rhythm CV, average opening (fraction of hand size), amplitude decrement first vs last 10 taps, hesitations and % of frames tracked to `tap_tests` (new columns `method`, `amp_mean`, `amp_first`, `amp_last`, `amp_decrement_pct`, `hesitations`, `track_pct`). Camera and screen results are compared only with their own kind.
+
 ### 2026-10-03
 - **Safe-to-eat alert (v82)** — Today screen shows a banner after each levodopa dose: amber "Hold food until HH:MM" countdown for the first 30 min, then green "Safe to eat since HH:MM" with a protein cut-off (next estimated dose − 90 min) so a protein meal doesn't blunt the following dose. Browser notification fires at the safe time while the app is open. Hidden once a meal/snack is logged after the dose.
 - **Email** — `dose-alert` edge function now returns a `meal` window; the hourly scheduled task emails "Safe to eat" once per dose (deduped in new `meal_alerts` table).
