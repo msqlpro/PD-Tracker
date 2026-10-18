@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v101 Oct18 — walk test: spoken turn cues and out-of-view warning";
+var BUILD_VERSION = "v102 Oct18 — spoken distance guidance before walk and sit to stand tests";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -2552,6 +2552,18 @@ function mVis(lm, idx) { return idx.every(function(i) { return lm[i] && (lm[i].v
 function mHands2(lms) { var o = {}; if (!lms || !lms.length) return o; if (lms.length === 1) { o[lms[0][0].x < 0.5 ? "right" : "left"] = lms[0]; return o; } var s = lms.slice(0, 2).sort(function(a, b) { return a[0].x - b[0].x; }); o.right = s[0]; o.left = s[1]; return o; }
 function mR1(x) { return x == null ? null : Math.round(x * 10) / 10; }
 function mTrack(samples, key) { if (!samples.length) return 0; return Math.round(samples.filter(function(s) { return key(s); }).length / samples.length * 100); }
+// Distance guidance for whole-body tests. Torso height as a fraction of the
+// frame tells us roughly how far away the person is; head and feet must both
+// be inside the frame.
+function mPosition(lm, lo, hi, need, tooClose, tooFar, cut) {
+  if (!lm) return { key: "none", ok: false, msg: "Can't see you yet." };
+  var sx = (lm[11].y + lm[12].y) / 2, hx = (lm[23].y + lm[24].y) / 2, tn = Math.abs(hx - sx);
+  var inFrame = need.every(function(i) { var q = lm[i]; return q && (q.visibility == null || q.visibility > 0.5) && q.y > 0.02 && q.y < 0.97 && q.x > 0.02 && q.x < 0.98; });
+  if (!inFrame) return { key: "cut", ok: false, msg: cut, say: cut };
+  if (tn > hi) return { key: "close", ok: false, msg: tooClose, say: tooClose };
+  if (tn < lo) return { key: "far", ok: false, msg: tooFar, say: tooFar };
+  return { key: "ok", ok: true, msg: "That's a good spot.", say: "That's good. Stay there." };
+}
 var POSE_LINKS = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
 function mDrawPose(g, lm, w, h) { if (!lm) return; g.strokeStyle = "rgba(99,102,241,0.9)"; g.lineWidth = 5; POSE_LINKS.forEach(function(l) { var a = lm[l[0]], b = lm[l[1]]; if (!a || !b || (a.visibility != null && a.visibility < 0.5) || (b.visibility != null && b.visibility < 0.5)) return; g.beginPath(); g.moveTo(a.x * w, a.y * h); g.lineTo(b.x * w, b.y * h); g.stroke(); }); }
 function mDrawHand(g, lm, w, h, col) { if (!lm) return; g.strokeStyle = col; g.lineWidth = 4; [[0, 4], [0, 8], [0, 12], [0, 16], [0, 20]].forEach(function(l) { g.beginPath(); g.moveTo(lm[l[0]].x * w, lm[l[0]].y * h); g.lineTo(lm[l[1]].x * w, lm[l[1]].y * h); g.stroke(); }); }
@@ -2622,6 +2634,9 @@ var MOTOR_SPECS = {
     frame: function(out, w, h) { var lm = out && out.landmarks && out.landmarks[0]; if (!lm || !mVis(lm, [11, 12, 23, 24])) return { ready: false, sample: { hy: null }, lm: lm };
       var sy = (lm[11].y + lm[12].y) / 2 * h, hy = (lm[23].y + lm[24].y) / 2 * h; return { ready: true, sample: { hy: hy, T: Math.abs(hy - sy) }, lm: lm }; },
     draw: function(g, f, w, h) { mDrawPose(g, f.lm, w, h); },
+    // Seated, the torso should be about 8 to 24% of the frame height so you
+    // still fit when standing; head, hips, knees and feet all in view.
+    position: function(f) { return mPosition(f.lm, 0.08, 0.24, [0, 11, 12, 23, 24, 25, 26, 27, 28], "Too close. Move the phone or the chair back a little.", "Too far. Bring the phone a little closer.", "I can't see all of you. Move the phone or the chair back a bit."); },
     live: function(L, smp, t) { L.S = L.S || []; L.S.push({ t: t, hy: smp.hy, T: smp.T }); var r = stsRun(L.S); if (r.sits.length >= 5) L.done = true; return "Stands " + r.stands; },
     analyse: function(S) { var r = stsRun(S); var done = r.sits.length >= 5; var reps = []; for (var i = 0; i < Math.min(5, r.sits.length); i++) reps.push(Math.round((r.sits[i] - (i ? r.sits[i - 1] : 0)) / 100) / 10);
       var c = r.sits.length > 2 ? tapCalc(r.sits.slice(0, 5)) : { cvPct: null };
@@ -2642,6 +2657,9 @@ var MOTOR_SPECS = {
       var sx = (lm[11].x + lm[12].x) / 2 * w, sy = (lm[11].y + lm[12].y) / 2 * h, hx = (lm[23].x + lm[24].x) / 2 * w, hy = (lm[23].y + lm[24].y) / 2 * h, T = Math.sqrt((sx - hx) * (sx - hx) + (sy - hy) * (sy - hy)) || 1;
       return { ready: true, lm: lm, sample: { ok: true, tn: T / h, ay: Math.max(lm[27].y, lm[28].y), ad: (lm[27].y - lm[28].y) * h / T, lx: (lm[15].x - lm[11].x) * w / T, ly: (lm[15].y - lm[11].y) * h / T, rx: (lm[16].x - lm[12].x) * w / T, ry: (lm[16].y - lm[12].y) * h / T } }; },
     draw: function(g, f, w, h) { mDrawPose(g, f.lm, w, h); },
+    // Before starting: far enough back that walking towards the phone has room
+    // (torso about 7 to 15% of the frame height), whole body in view.
+    position: function(f) { return mPosition(f.lm, 0.07, 0.15, [0, 11, 12, 23, 24, 27, 28], "Step back a little.", "Come forward a little.", "Step back a bit. I can't see all of you."); },
     // Spoken guidance while walking. Distance is judged from how tall the torso
     // looks: near the phone it fills more of the frame. Says "Turn" near the
     // phone (or when the feet reach the bottom edge) and again back at the
@@ -2732,6 +2750,7 @@ function MotorCamMod(p) {
   var [clock, sClock] = useState(spec.countUp ? 0 : spec.secs);
   var [live, sLive] = useState("");
   var [ready, sReady] = useState(false);
+  var [posMsg, sPosMsg] = useState("");
   var [hold, sHold] = useState(0);
   var [heard, sHeard] = useState("");
   var [hasVoice] = useState(function() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); });
@@ -2753,9 +2772,18 @@ function MotorCamMod(p) {
       try { out = det.detectForVideo(v, now); } catch (e) {}
       var f = spec.frame(out, W, H);
       var cv = cRef.current; if (cv) { var g = cv.getContext("2d"); cv.width = W; cv.height = H; g.clearRect(0, 0, W, H); spec.draw(g, f, W, H); }
-      if (f.ready !== s.readyShown) { s.readyShown = f.ready; sReady(f.ready); }
+      var pz = (spec.position && s.phase === "aim") ? spec.position(f, W, H) : null;
+      var rdy = f.ready && (!pz || pz.ok);
+      if (rdy !== s.readyShown) { s.readyShown = rdy; sReady(rdy); }
+      if (pz) {
+        if (pz.msg !== s.posMsg) { s.posMsg = pz.msg; sPosMsg(pz.msg); }
+        // Speak when the advice changes (at most every 2.5 s), and repeat it if
+        // nothing has changed for 7 s. Wait until the opening prompt is done.
+        if (pz.say && now > (s.posQuietUntil || 0) && (pz.key !== s.posKey ? now - (s.posSaidAt || 0) > 2500 : now - (s.posSaidAt || 0) > 7000)) { s.posKey = pz.key; s.posSaidAt = now; camSay(pz.say); }
+        if (pz.key !== s.posKey && !pz.say) s.posKey = pz.key;
+      }
       if (s.phase === "aim") {
-        if (f.ready) { if (!s.seenSince) s.seenSince = now; } else s.seenSince = 0;
+        if (rdy) { if (!s.seenSince) s.seenSince = now; } else s.seenSince = 0;
         var hh = s.seenSince ? Math.min(1, (now - s.seenSince) / CAM_HOLD_MS) : 0, hs = Math.round(hh * 10) / 10;
         if (hs !== s.holdShown) { s.holdShown = hs; sHold(hs); }
         if (hh >= 1 && s.act.go) { s.seenSince = 0; s.act.go(); }
@@ -2776,7 +2804,7 @@ function MotorCamMod(p) {
       R.current.stream = stream; var v = vRef.current; v.srcObject = stream; await v.play();
       sMsg("Loading tracking (first time can take a few seconds)…");
       var det = await mpLoadKind(spec.model);
-      sPhase("aim"); R.current.phase = "aim"; R.current.seenSince = 0; R.current.readyShown = null; loop(det);
+      sPhase("aim"); R.current.phase = "aim"; R.current.seenSince = 0; R.current.readyShown = null; R.current.posKey = null; R.current.posMsg = null; R.current.posQuietUntil = performance.now() + 4000; loop(det);
       camSay(spec.prompt({ side: sd, cond: cond }), function() { if (R.current.phase !== "aim") return; stopVoice(); R.current.voice = camVoice(function(w) { sHeard(w); if (/\b(start|go|ready|yes)\b/.test(w) && R.current.act.go && R.current.phase === "aim") { R.current.act.go(); return true; } if (/\bcancel\b/.test(w)) { R.current.act.close && R.current.act.close(); return true; } return false; }); });
     } catch (e) {
       stop(); sPhase("error");
@@ -2830,11 +2858,11 @@ function MotorCamMod(p) {
       <canvas ref={cRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "scaleX(-1)" }} />
       {phase === "count" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "4rem", fontWeight: 800, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}>{count}</div>}
       {phase === "run" && <div style={{ position: "absolute", top: 8, left: 12, right: 12, display: "flex", justifyContent: "space-between", color: "#fff", fontWeight: 800, fontSize: "1.4rem", textShadow: "0 2px 6px rgba(0,0,0,0.7)" }}><span>{live}</span><span>{clock}s</span></div>}
-      {(phase === "aim" || phase === "run") && !ready && <div style={{ position: "absolute", bottom: 8, left: 8, right: 8, background: "rgba(220,38,38,0.85)", color: "#fff", borderRadius: "10px", padding: "6px 10px", fontSize: "0.8rem", textAlign: "center" }}>{spec.model === "face" ? "Can't see your face" : spec.model === "pose" ? "Can't see enough of you. Step back so your whole body is in view." : spec.sides === "both" ? "Need both hands in view" : "Can't see your hand"}</div>}
+      {(phase === "aim" || phase === "run") && !ready && <div style={{ position: "absolute", bottom: 8, left: 8, right: 8, background: (phase === "aim" && spec.position) ? "rgba(79,70,229,0.88)" : "rgba(220,38,38,0.85)", color: "#fff", borderRadius: "10px", padding: "6px 10px", fontSize: "0.8rem", textAlign: "center" }}>{(phase === "aim" && spec.position && posMsg) ? posMsg : spec.model === "face" ? "Can't see your face" : spec.model === "pose" ? "Can't see enough of you. Step back so your whole body is in view." : spec.sides === "both" ? "Need both hands in view" : "Can't see your hand"}</div>}
     </div>
     {phase === "loading" && <p className="text-sm text-gray-500 text-center">{msg}</p>}
     {phase === "aim" && <div>
-      <p className="text-sm text-gray-600 mb-2">{ready ? "Got you. Keep still and the test starts by itself." : spec.prompt({ side: side, cond: cond }) + " No need to touch the phone."}</p>
+      <p className="text-sm text-gray-600 mb-2">{ready ? "Got you. Keep still and the test starts by itself." : (spec.position && posMsg) ? <b>{posMsg}</b> : spec.prompt({ side: side, cond: cond }) + " No need to touch the phone."}</p>
       <div style={{ height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden", marginBottom: "8px" }}><div style={{ width: Math.round(hold * 100) + "%", height: "100%", background: "#6366f1", transition: "width 0.1s" }} /></div>
       {hasVoice && <p className="text-xs text-gray-400 mb-3">🎙️ Or say "start". {heard ? "Heard: “" + heard.slice(-40) + "”" : ""}</p>}
       <button onClick={function() { stop(); sPhase("setup"); }} className="w-full mt-2 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Back</button>

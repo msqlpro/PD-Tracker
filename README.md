@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v102)
+- **Distance guidance**: before the walk and sit to stand tests start, the app says step back / come forward (or move the phone or chair) until the whole body is in frame at a suitable distance, then "That's good. Stay there." The test only counts in once the position is right.
+
 ### 2026-10-18 (v101)
 - **Walk test guidance**: says "Turn" when you get close to the phone (torso fills about a quarter of the frame or feet reach the bottom edge) and again back at the starting distance; says "I can't see you" after 1.2 s out of view. Turning stretches are excluded from the analysis; steps are now counted from foot changeovers within clean stretches, so short walks still give a step rate.
 
