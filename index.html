@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v100 Oct18 — tracking library updated to 0.10.35 (self-hosted, no usage reporting)";
+var BUILD_VERSION = "v101 Oct18 — walk test: spoken turn cues and out-of-view warning";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -2521,6 +2521,13 @@ function sigResample(arr, hz) {
   for (var t = pts[0].t; t <= tEnd; t += dt) { while (j < pts.length - 2 && pts[j + 1].t < t) j++; var a = pts[j], b = pts[j + 1]; var f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t); out.push(a.v + (b.v - a.v) * Math.max(0, Math.min(1, f))); }
   return out;
 }
+// Split into stretches of good samples (at least minMs long), resample each.
+function sigSegments(S, ok, val, hz, minMs) {
+  var segs = [], cur = [];
+  var flush = function() { if (cur.length && cur[cur.length - 1].t - cur[0].t >= minMs) segs.push(sigResample(cur, hz)); cur = []; };
+  S.forEach(function(s) { if (ok(s)) cur.push({ t: s.t, v: val(s) }); else flush(); }); flush();
+  return segs;
+}
 function sigHighpass(v, win) {
   var h = Math.floor(win / 2);
   return v.map(function(x, i) { var lo = Math.max(0, i - h), hi = Math.min(v.length - 1, i + h), s = 0; for (var k = lo; k <= hi; k++) s += v[k]; return x - s / (hi - lo + 1); });
@@ -2629,19 +2636,55 @@ var MOTOR_SPECS = {
   },
   gait: {
     title: "Walk & Arm Swing", emoji: "🚶", model: "pose", sides: "none", secs: 30,
-    setup: ["You need about 5 metres of clear floor, like a hallway. Prop the phone at the far end at about waist height, facing you.", "Stand at the other end so your whole body is in view. When it says go, walk towards the phone at your normal pace, letting your arms swing naturally, turn round, walk back, and keep going for 30 seconds."],
+    setup: ["You need about 5 metres of clear floor, like a hallway. Prop the phone at the far end at about waist height, facing you.", "Stand at the other end so your whole body is in view. When it says go, walk towards the phone at your normal pace, letting your arms swing naturally. It will say \u201cTurn\u201d when you are close, and \u201cTurn\u201d again when you are back at the start. Keep going for 30 seconds. If it loses sight of you it will tell you."],
     prompt: function() { return "When you're ready, stand so the camera can see all of you."; },
     frame: function(out, w, h) { var lm = out && out.landmarks && out.landmarks[0]; if (!lm || !mVis(lm, [11, 12, 15, 16, 23, 24, 27, 28])) return { ready: false, sample: { ok: false }, lm: lm };
       var sx = (lm[11].x + lm[12].x) / 2 * w, sy = (lm[11].y + lm[12].y) / 2 * h, hx = (lm[23].x + lm[24].x) / 2 * w, hy = (lm[23].y + lm[24].y) / 2 * h, T = Math.sqrt((sx - hx) * (sx - hx) + (sy - hy) * (sy - hy)) || 1;
-      return { ready: true, lm: lm, sample: { ok: true, ad: (lm[27].y - lm[28].y) * h / T, lx: (lm[15].x - lm[11].x) * w / T, ly: (lm[15].y - lm[11].y) * h / T, rx: (lm[16].x - lm[12].x) * w / T, ry: (lm[16].y - lm[12].y) * h / T } }; },
+      return { ready: true, lm: lm, sample: { ok: true, tn: T / h, ay: Math.max(lm[27].y, lm[28].y), ad: (lm[27].y - lm[28].y) * h / T, lx: (lm[15].x - lm[11].x) * w / T, ly: (lm[15].y - lm[11].y) * h / T, rx: (lm[16].x - lm[12].x) * w / T, ry: (lm[16].y - lm[12].y) * h / T } }; },
     draw: function(g, f, w, h) { mDrawPose(g, f.lm, w, h); },
+    // Spoken guidance while walking. Distance is judged from how tall the torso
+    // looks: near the phone it fills more of the frame. Says "Turn" near the
+    // phone (or when the feet reach the bottom edge) and again back at the
+    // starting distance; warns if the body is out of view for over a second.
+    // Samples within about a second of each turn are marked tr and left out
+    // of the analysis, because turning distorts steps and arm swing.
+    live: function(L, smp, t) {
+      L.all = L.all || []; L.all.push(smp);
+      if (L.dir == null) { L.dir = "toward"; L.turns = 0; L.lastOk = t; L.lastCue = -9999; L.trUntil = -1; L.firstT = []; }
+      if (t < L.trUntil) smp.tr = true;
+      if (!smp.ok) {
+        if (t - L.lastOk > 1200 && !L.warned) { L.warned = true; camSay("I can't see you. Step back into view."); }
+        return (L.dir === "toward" ? "→ " : "← ") + L.turns + " turns";
+      }
+      L.lastOk = t; L.warned = false;
+      if (L.firstT.length < 15) { L.firstT.push(smp.tn); L.startTn = tapMedian(L.firstT); }
+      var near = Math.max(0.26, (L.startTn || 0.1) * 1.8), far = (L.startTn || 0.1) * 1.15;
+      var cue = function(nd) { L.dir = nd; L.turns++; L.lastCue = t; L.trUntil = t + 1500; camSay("Turn");
+        for (var i = L.all.length - 1; i >= 0 && L.all[i].t >= t - 800; i--) L.all[i].tr = true; };
+      if (t - L.lastCue > 3000 && t > 1500) {
+        if (L.dir === "toward" && (smp.tn >= near || smp.ay >= 0.95)) cue("away");
+        else if (L.dir === "away" && smp.tn <= far) cue("toward");
+      }
+      return (L.dir === "toward" ? "→ " : "← ") + L.turns + " turns";
+    },
     analyse: function(S) {
-      var rs = function(k) { return sigHighpass(sigResample(S.map(function(s) { return { t: s.t, v: s.ok ? s[k] : null }; }), 30), 45); };
-      var ad = rs("ad"), sp = sigSpectrum([ad], 30, 0.4, 1.6);
-      var sw = function(a, b) { var x = rs(a), y = rs(b); return mR1((sigRms(x.map(function(v, i) { return Math.sqrt(v * v + (y[i] || 0) * (y[i] || 0)); })) || 0) * 100); };
+      // Only clean walking stretches (in view, not turning, 2 s or longer) are measured.
+      var good = function(s) { return s.ok && !s.tr; };
+      var segs = function(k) { return sigSegments(S, good, function(s) { return s[k]; }, 30, 1500).map(function(v) { return sigHighpass(v, 45); }); };
+      // Steps: each time the leading foot swaps over, the left/right ankle height
+      // difference crosses zero. Count crossings (with hysteresis) in each clean
+      // stretch and divide by the clean walking time.
+      var steps = 0, secs = 0;
+      sigSegments(S, good, function(s) { return s.ad; }, 30, 1500).forEach(function(v) {
+        var m = v.reduce(function(z, x) { return z + x; }, 0) / v.length, d = v.map(function(x) { return x - m; });
+        var a = d.map(Math.abs).sort(function(p, q) { return p - q; }), th = Math.max(0.03, 0.3 * (a[Math.floor(a.length * 0.9)] || 0));
+        var sign = 0; d.forEach(function(x) { if (x > th && sign !== 1) { if (sign) steps++; sign = 1; } else if (x < -th && sign !== -1) { if (sign) steps++; sign = -1; } });
+        secs += v.length / 30; });
+      var sp = { ratio: secs >= 4 ? 99 : 0, hz: secs ? steps / secs / 2 : null };
+      var sw = function(a, b) { var xs = segs(a), ys = segs(b), all = []; xs.forEach(function(x, j) { var y = ys[j] || []; x.forEach(function(v, i) { all.push(Math.sqrt(v * v + (y[i] || 0) * (y[i] || 0))); }); }); return all.length ? mR1(sigRms(all) * 100) : null; };
       var L = sw("lx", "ly"), R = sw("rx", "ry"), asym = (L && R) ? Math.round(Math.abs(L - R) / Math.max(L, R) * 100) : null;
       var cad = sp.ratio >= 3 ? Math.round(sp.hz * 2 * 60) : null;
-      return [{ hand: "body", taps: null, ampMean: asym, trackPct: mTrack(S, function(s) { return s.ok; }), extra: { cadence: cad, swingL: L, swingR: R, asymPct: asym, less: L == null || R == null ? null : (L < R ? "left" : "right"), peakRatio: sp.ratio } }]; },
+      return [{ hand: "body", taps: null, ampMean: asym, trackPct: mTrack(S, function(s) { return s.ok; }), extra: { turns: S.filter(function(s, i) { return s.tr && !(S[i - 1] && S[i - 1].tr); }).length, cadence: cad, swingL: L, swingR: R, asymPct: asym, less: L == null || R == null ? null : (L < R ? "left" : "right"), peakRatio: sp.ratio } }]; },
     stats: function(r) { var e = r.extra || {}; return [[mStat("steps per minute", e.cadence, true), mStat("left arm swing", e.swingL, true), mStat("right arm swing", e.swingR, true)],
       [mStat("arm swing difference", e.asymPct == null ? null : e.asymPct + "%", false, e.asymPct != null && e.asymPct >= 25), mStat("smaller swing", e.less), mStat("body tracked", r.trackPct == null ? null : r.trackPct + "%")]]; },
     main: { label: "arm swing difference", get: function(r) { return r.extra ? r.extra.asymPct : null; }, higher: false },

@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v101)
+- **Walk test guidance**: says "Turn" when you get close to the phone (torso fills about a quarter of the frame or feet reach the bottom edge) and again back at the starting distance; says "I can't see you" after 1.2 s out of view. Turning stretches are excluded from the analysis; steps are now counted from foot changeovers within clean stretches, so short walks still give a step rate.
+
 ### 2026-10-18 (v100)
 - MediaPipe library updated 0.10.14 to 0.10.35 (checksum verified). Deliberately not 1.x, which reports usage to Google.
 
