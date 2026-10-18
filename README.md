@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v107)
+- **Walk test**: 60 s instead of 30. Step rate now from the torso's up-and-down bob (visible even when the feet are out of frame near the phone), with foot changeovers as fallback; values outside 50 to 160 steps/min are discarded. Prompted by five real runs where only 0 to 3 s of clean foot data survived per run.
+
 ### 2026-10-18 (v106)
 - **Arm Turns**: says "I can't see your left/right hand" if a hand is out of view for 1.5 s during the test; results flag an arm with under 40% of the other arm's turns as a likely tracking problem (prompted by a both-arms run of 193 v 2).
 

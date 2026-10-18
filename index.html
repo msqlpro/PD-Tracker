@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v106 Oct18 — Arm Turns: lost-hand warning and lopsided-result check";
+var BUILD_VERSION = "v107 Oct18 — walk test 60s, step rate from body bob";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -2552,6 +2552,8 @@ function sigSegments(S, ok, val, hz, minMs, maxGap) {
   S.forEach(function(s) { if (!ok(s)) return; if (cur.length && s.t - cur[cur.length - 1].t > gap) flush(); cur.push({ t: s.t, v: val(s) }); }); flush();
   return segs;
 }
+// Remove a straight-line trend (e.g. drift from walking towards the camera).
+function sigDetrend(v) { var n = v.length; if (n < 3) return v.slice(); var mx = (n - 1) / 2, my = v.reduce(function(z, x) { return z + x; }, 0) / n, sxy = 0, sxx = 0; v.forEach(function(y, i) { sxy += (i - mx) * (y - my); sxx += (i - mx) * (i - mx); }); var b = sxx ? sxy / sxx : 0; return v.map(function(y, i) { return y - my - b * (i - mx); }); }
 function sigHighpass(v, win) {
   var h = Math.floor(win / 2);
   return v.map(function(x, i) { var lo = Math.max(0, i - h), hi = Math.min(v.length - 1, i + h), s = 0; for (var k = lo; k <= hi; k++) s += v[k]; return x - s / (hi - lo + 1); });
@@ -2674,8 +2676,8 @@ var MOTOR_SPECS = {
     summary: function(t) { var e = t.extra || {}; return "SIT-TO-STAND x5 " + (t.totalS != null ? t.totalS + "s total" : "incomplete (" + t.taps + " stands)") + " reps:" + (e.repTimes || []).join("/") + "s"; }
   },
   gait: {
-    title: "Walk & Arm Swing", emoji: "🚶", model: "pose", sides: "none", secs: 30,
-    setup: ["You need about 5 metres of clear floor, like a hallway. Prop the phone at the far end at about waist height, facing you.", "Stand at the other end so your whole body is in view. When it says go, walk towards the phone at your normal pace, letting your arms swing naturally. It will say \u201cTurn\u201d when you are close, and \u201cTurn\u201d again when you are back at the start. Keep going for 30 seconds. If it loses sight of you it will tell you."],
+    title: "Walk & Arm Swing", emoji: "🚶", model: "pose", sides: "none", secs: 60,
+    setup: ["You need about 5 metres of clear floor, like a hallway. Prop the phone at the far end at about waist height, facing you.", "Stand at the other end so your whole body is in view. When it says go, walk towards the phone at your normal pace, letting your arms swing naturally. It will say \u201cTurn\u201d when you are close, and \u201cTurn\u201d again when you are back at the start. Keep going for 60 seconds. If it loses sight of you it will tell you."],
     prompt: function() { return "When you're ready, stand so the camera can see all of you."; },
     // Each measure only needs its own landmarks: steps need the feet, each arm
     // needs its own wrist. Wrists often vanish briefly behind the hips when
@@ -2684,7 +2686,7 @@ var MOTOR_SPECS = {
       if (!lm || !mVis(lm, [11, 12, 23, 24])) return { ready: false, sample: { ok: false }, lm: lm };
       var sx = (lm[11].x + lm[12].x) / 2 * w, sy = (lm[11].y + lm[12].y) / 2 * h, hx = (lm[23].x + lm[24].x) / 2 * w, hy = (lm[23].y + lm[24].y) / 2 * h, T = Math.sqrt((sx - hx) * (sx - hx) + (sy - hy) * (sy - hy)) || 1;
       var legs = mVis(lm, [27, 28]) && lm[27].y < 0.99 && lm[28].y < 0.99, lw = mVis(lm, [11, 15], 0.35), rw = mVis(lm, [12, 16], 0.35);
-      var smp = { ok: legs, upper: !legs, tn: T / h, ay: legs ? Math.max(lm[27].y, lm[28].y) : 1, ad: legs ? (lm[27].y - lm[28].y) * h / T : null,
+      var smp = { ok: legs, upper: !legs, tn: T / h, hb: (sy + hy) / 2 / T, ay: legs ? Math.max(lm[27].y, lm[28].y) : 1, ad: legs ? (lm[27].y - lm[28].y) * h / T : null,
         lx: lw ? (lm[15].x - lm[11].x) * w / T : null, ly: lw ? (lm[15].y - lm[11].y) * h / T : null, rx: rw ? (lm[16].x - lm[12].x) * w / T : null, ry: rw ? (lm[16].y - lm[12].y) * h / T : null };
       return { ready: legs && lw && rw, lm: lm, sample: smp }; },
     draw: function(g, f, w, h) { mDrawPose(g, f.lm, w, h); },
@@ -2726,21 +2728,27 @@ var MOTOR_SPECS = {
       // Only clean walking stretches (in view, not turning, 2 s or longer) are measured.
       var good = function(k) { return function(s) { return !s.tr && s[k] != null && (s.ok || s.upper); }; };
       var segs = function(k) { return sigSegments(S, good(k), function(s) { return s[k]; }, 30, 1000).map(function(v) { return sigHighpass(v, 45); }); };
-      // Steps: each time the leading foot swaps over, the left/right ankle height
-      // difference crosses zero. Count crossings (with hysteresis) in each clean
-      // stretch and divide by the clean walking time.
-      var steps = 0, secs = 0;
-      sigSegments(S, good("ad"), function(s) { return s.ad; }, 30, 1000).forEach(function(v) {
-        var m = v.reduce(function(z, x) { return z + x; }, 0) / v.length, d = v.map(function(x) { return x - m; });
-        var a = d.map(Math.abs).sort(function(p, q) { return p - q; }), th = Math.max(0.03, 0.3 * (a[Math.floor(a.length * 0.9)] || 0));
-        // Time from the first to the last foot changeover, so part-steps at the ends don't bias it.
-        var sign = 0, cross = []; d.forEach(function(x, i) { if (x > th && sign !== 1) { if (sign) cross.push(i); sign = 1; } else if (x < -th && sign !== -1) { if (sign) cross.push(i); sign = -1; } });
-        if (cross.length >= 2) { steps += cross.length - 1; secs += (cross[cross.length - 1] - cross[0]) / 30; } });
-      var sp = { ratio: secs >= 3 ? 99 : 0, hz: secs ? steps / secs / 2 : null };
+      // Count rhythm cycles in each clean stretch: time from the first to the last
+      // crossing, so part-cycles at the ends don't bias it. perCycle = crossings per step.
+      var rhythm = function(k, minTh, hp) { var n = 0, sec = 0;
+        sigSegments(S, good(k), function(s) { return s[k]; }, 30, 1000).forEach(function(v0) {
+          var v = hp ? sigHighpass(sigDetrend(v0), hp) : v0, m = v.reduce(function(z, x) { return z + x; }, 0) / v.length, d = v.map(function(x) { return x - m; });
+          var a = d.map(Math.abs).sort(function(p, q) { return p - q; }), th = Math.max(minTh, 0.3 * (a[Math.floor(a.length * 0.9)] || 0));
+          var sign = 0, cross = []; d.forEach(function(x, i) { if (x > th && sign !== 1) { if (sign) cross.push(i); sign = 1; } else if (x < -th && sign !== -1) { if (sign) cross.push(i); sign = -1; } });
+          if (cross.length >= 3) { n += cross.length - 1; sec += (cross[cross.length - 1] - cross[0]) / 30; } });
+        return { n: n, secs: sec }; };
+      // Body bob: the torso rises and falls once per step and stays in view even
+      // close to the phone. Feet: the leading foot swaps once per step.
+      var bob = rhythm("hb", 0.004, 30), ft = rhythm("ad", 0.03, 0);
+      var bobCad = bob.secs >= 4 ? Math.round(bob.n / 2 / bob.secs * 60) : null, ftCad = ft.secs >= 3 ? Math.round(ft.n / ft.secs * 60) : null;
+      var okCad = function(c) { return c != null && c >= 50 && c <= 160 ? c : null; };
+      var cadBest = okCad(bobCad) != null ? okCad(bobCad) : okCad(ftCad), cadFrom = okCad(bobCad) != null ? "body" : okCad(ftCad) != null ? "feet" : null;
+      var steps = ft.n, secs = Math.max(bob.secs, ft.secs);
+
       var sw = function(a, b) { var xs = segs(a), ys = segs(b), all = []; xs.forEach(function(x, j) { var y = ys[j] || []; x.forEach(function(v, i) { all.push(Math.sqrt(v * v + (y[i] || 0) * (y[i] || 0))); }); }); return all.length ? mR1(sigRms(all) * 100) : null; };
       var L = sw("lx", "ly"), R = sw("rx", "ry"), asym = (L && R) ? Math.round(Math.abs(L - R) / Math.max(L, R) * 100) : null;
-      var cad = sp.ratio >= 3 ? Math.round(sp.hz * 2 * 60) : null;
-      return [{ hand: "body", taps: null, ampMean: asym, trackPct: mTrack(S, function(s) { return s.ok; }), extra: { seen: { body: mTrack(S, function(s) { return s.ok || s.upper; }), feet: mTrack(S, function(s) { return s.ad != null; }), leftWrist: mTrack(S, function(s) { return s.lx != null; }), rightWrist: mTrack(S, function(s) { return s.rx != null; }), turning: mTrack(S, function(s) { return !!s.tr; }), cleanSecs: Math.round(secs) }, turns: S.filter(function(s, i) { return s.tr && !(S[i - 1] && S[i - 1].tr); }).length, cadence: cad, swingL: L, swingR: R, asymPct: asym, less: L == null || R == null ? null : (L < R ? "left" : "right"), peakRatio: sp.ratio } }]; },
+      var cad = cadBest;
+      return [{ hand: "body", taps: null, ampMean: asym, trackPct: mTrack(S, function(s) { return s.ok; }), extra: { seen: { body: mTrack(S, function(s) { return s.ok || s.upper; }), feet: mTrack(S, function(s) { return s.ad != null; }), leftWrist: mTrack(S, function(s) { return s.lx != null; }), rightWrist: mTrack(S, function(s) { return s.rx != null; }), turning: mTrack(S, function(s) { return !!s.tr; }), cleanSecs: Math.round(secs), bobSecs: Math.round(bob.secs), feetSecs: Math.round(ft.secs), cadBody: bobCad, cadFeet: ftCad, cadFrom: cadFrom }, turns: S.filter(function(s, i) { return s.tr && !(S[i - 1] && S[i - 1].tr); }).length, cadence: cad, swingL: L, swingR: R, asymPct: asym, less: L == null || R == null ? null : (L < R ? "left" : "right") } }]; },
     stats: function(r) { var e = r.extra || {}; return [[mStat("steps per minute", e.cadence, true), mStat("left arm swing", e.swingL, true), mStat("right arm swing", e.swingR, true)],
       [mStat("arm swing difference", e.asymPct == null ? null : e.asymPct + "%", false, e.asymPct != null && e.asymPct >= 25), mStat("smaller swing", e.less), mStat("body tracked", r.trackPct == null ? null : r.trackPct + "%")]]; },
     main: { label: "arm swing difference", get: function(r) { return r.extra ? r.extra.asymPct : null; }, higher: false },
