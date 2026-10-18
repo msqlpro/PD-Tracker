@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v99)
+- Model files now in `vendor/mediapipe/models` (verified as genuine model bundles); Google fallback removed, so camera tests load only from this site.
+
 ### 2026-10-18 (v98)
 - **Self-hosted tracking**: MediaPipe library and wasm copied into `vendor/mediapipe` (checksum verified against npm). Model files are copied from Google by the `vendor-models` workflow. Camera tests no longer load code from jsDelivr; Google's model storage is only a fallback until the copied models exist.
 

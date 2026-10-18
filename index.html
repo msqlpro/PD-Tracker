@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v98 Oct18 — camera tests load tracking from the app's own site";
+var BUILD_VERSION = "v99 Oct18 — camera tests fully self-hosted (library + models)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -1986,10 +1986,9 @@ var MP_VER = "0.10.14";
 // Self-hosted copy of @mediapipe/tasks-vision (vendor/mediapipe, checksums in
 // SHA256SUMS) so the camera tests don't depend on outside code hosts.
 var MP_BASE = new URL("vendor/mediapipe", document.baseURI).href;
-var MP_GOOGLE = "https://storage.googleapis.com/mediapipe-models/";
-// Models are copied into vendor/mediapipe/models by the vendor-models workflow.
-// Google's copy is only a fallback until that copy exists.
-function mpModelUrls(path) { var name = path.split("/").pop(); return [MP_BASE + "/models/" + name, MP_GOOGLE + path]; }
+// Models were copied from Google's official storage into vendor/mediapipe/models
+// by the vendor-models workflow (hashes in models/SHA256SUMS). Self-hosted only.
+function mpModelUrls(path) { return [MP_BASE + "/models/" + path.split("/").pop()]; }
 async function mpCreate(makeWith, urls) { var last = null; for (var i = 0; i < urls.length; i++) { for (var d of ["GPU", "CPU"]) { try { return await makeWith(urls[i], d); } catch (e) { last = e; } } } throw last; }
 var MP_MODEL = "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 var _mpLandmarker = {};
