@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v93 Oct18 — camera finger tapping test (60s, opening size + decrement)";
+var BUILD_VERSION = "v94 Oct18 — Cam Tap home button, hands-free start and voice prompts";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -2035,6 +2035,22 @@ function camAnalyse(raw, secs) {
   return { taps: taps.length, meanItiMs: c.meanItiMs, cvPct: c.cvPct, ampMean: r2(avg(amps)), ampFirst: r2(first), ampLast: r2(last),
     ampDecrementPct: (first && last) ? Math.round((first - last) / first * 1000) / 10 : null, hesitations: hes, trackPct: trackPct, rateHz: Math.round(taps.length / secs * 100) / 100, series: taps };
 }
+// Hands-free helpers: spoken prompts (speechSynthesis) and optional voice
+// commands (webkit SpeechRecognition, where the phone supports it).
+// cb runs once speech has finished (or after a fallback delay), so the mic
+// never starts while the phone is still talking and hears its own prompt.
+function camSay(t, cb) { var done = false, fin = function() { if (done) return; done = true; if (cb) setTimeout(cb, 400); }; try { var u = new SpeechSynthesisUtterance(t); u.rate = 1.05; u.lang = "en-GB"; u.onend = fin; u.onerror = fin; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) { fin(); } if (cb) setTimeout(fin, 1500 + t.length * 90); }
+function camVoice(onWord) {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return null;
+  var r = null, on = true;
+  var begin = function() { if (!on) return; try { r = new SR(); r.lang = "en-GB"; r.continuous = true; r.interimResults = true;
+    r.onresult = function(e) { for (var i = e.resultIndex; i < e.results.length; i++) { var w = (e.results[i][0].transcript || "").toLowerCase(); if (onWord(w)) return; } };
+    r.onend = function() { if (on) setTimeout(begin, 300); }; r.onerror = function(e) { if (e && (e.error === "not-allowed" || e.error === "service-not-allowed")) on = false; };
+    r.start(); } catch (e) { on = false; } };
+  begin();
+  return { stop: function() { on = false; try { r && r.abort(); } catch (e) {} } };
+}
+var CAM_HOLD_MS = 2000;
 function CamTapMod(p) {
   var ex = p.existing || null;
   var [hand, sHand] = useState(function() { if (ex) return ex.hand; try { return localStorage.getItem("pd_tap_hand") || "right"; } catch (e) { return "right"; } });
@@ -2046,9 +2062,14 @@ function CamTapMod(p) {
   var [seen, sSeen] = useState(false);
   var [res, sRes] = useState(ex);
   var [note, sNote] = useState(ex ? (ex.note || "") : "");
+  var [hold, sHold] = useState(0);
+  var [heard, sHeard] = useState("");
+  var [hasVoice] = useState(function() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); });
   var vRef = React.useRef(null), cRef = React.useRef(null);
-  var R = React.useRef({ stream: null, raf: 0, timer: null, rec: false, t0: 0, samples: [], lastTs: -1, live: { seek: "max", cur: null, peak: null, n: 0 } });
-  var stop = function() { var s = R.current; cancelAnimationFrame(s.raf); clearInterval(s.timer); s.rec = false; if (s.stream) { s.stream.getTracks().forEach(function(t) { t.stop(); }); s.stream = null; } };
+  var R = React.useRef({ stream: null, raf: 0, timer: null, rec: false, t0: 0, samples: [], lastTs: -1, live: { seek: "max", cur: null, peak: null, n: 0 }, phase: "", seenSince: 0, holdShown: 0, voice: null, said10: false, act: {} });
+  R.current.phase = phase;
+  var stopVoice = function() { var s = R.current; if (s.voice) { s.voice.stop(); s.voice = null; } };
+  var stop = function() { var s = R.current; cancelAnimationFrame(s.raf); clearInterval(s.timer); s.rec = false; stopVoice(); if (s.stream) { s.stream.getTracks().forEach(function(t) { t.stop(); }); s.stream = null; } };
   useEffect(function() { return stop; }, []);
   var draw = function(lm, w, h) {
     var cv = cRef.current; if (!cv) return; var g = cv.getContext("2d"); cv.width = w; cv.height = h; g.clearRect(0, 0, w, h);
@@ -2067,6 +2088,13 @@ function CamTapMod(p) {
       var lm = out && out.landmarks && out.landmarks[0];
       var d = lm ? camAperture(lm, v.videoWidth, v.videoHeight) : null;
       draw(lm, v.videoWidth, v.videoHeight); sSeen(!!lm);
+      if (s.phase === "aim") {
+        // Hands-free start: keep the hand in view for CAM_HOLD_MS.
+        if (lm) { if (!s.seenSince) s.seenSince = now; } else s.seenSince = 0;
+        var h = s.seenSince ? Math.min(1, (now - s.seenSince) / CAM_HOLD_MS) : 0, hs = Math.round(h * 10) / 10;
+        if (hs !== s.holdShown) { s.holdShown = hs; sHold(hs); }
+        if (h >= 1 && s.act.go) { s.seenSince = 0; s.act.go(); }
+      }
       if (s.rec) {
         s.samples.push({ t: now, d: d });
         // Rough live counter; the saved result comes from the full analysis.
@@ -2080,20 +2108,23 @@ function CamTapMod(p) {
     }
     s.raf = requestAnimationFrame(function() { loop(det); });
   };
-  var openCam = async function() {
+  var openCamFor = async function(hh) {
+    var hand = hh;
     try { localStorage.setItem("pd_tap_hand", hand); } catch (e) {}
-    sPhase("loading"); sMsg("Starting camera…");
+    camSay(" "); sPhase("loading"); sMsg("Starting camera…");
     try {
       var stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
       R.current.stream = stream; var v = vRef.current; v.srcObject = stream; await v.play();
       sMsg("Loading hand tracking (first time can take a few seconds)…");
       var det = await mpLoad();
-      sPhase("aim"); loop(det);
+      sPhase("aim"); R.current.seenSince = 0; loop(det);
+      camSay("Hold your " + hand + " hand up to the camera, or say start.", function() { if (R.current.phase !== "aim") return; stopVoice(); R.current.voice = camVoice(function(w) { sHeard(w); if (/\b(start|go|ready|yes)\b/.test(w) && R.current.act.go && R.current.phase === "aim") { R.current.act.go(); return true; } if (/\bcancel\b/.test(w)) { R.current.act.close && R.current.act.close(); return true; } return false; }); });
     } catch (e) {
       stop(); sPhase("error");
       sMsg(e && e.name === "NotAllowedError" ? "Camera permission was refused. Allow camera access for this app in Settings, then try again." : "Couldn't start the camera test: " + (e && e.message ? e.message : e));
     }
   };
+  var openCam = function() { openCamFor(hand); };
   var finish = function() {
     var s = R.current; s.rec = false; clearInterval(s.timer);
     var a = camAnalyse(s.samples, CAM_TAP_SECS), ctx = tapContext(p.logs, p.oo);
@@ -2103,14 +2134,20 @@ function CamTapMod(p) {
       minsSinceDose: ctx.minsSinceDose, ooState: ctx.ooState, note: "", _series: a.series });
     sNote(""); sPhase("done");
     try { if (navigator.vibrate) navigator.vibrate(200); } catch (e) {}
+    camSay("Stop. Well done. " + a.taps + " taps. Say save, other hand, or discard.", function() { if (R.current.phase !== "done") return; R.current.voice = camVoice(function(w) { sHeard(w); var A = R.current.act;
+      if (/other hand|again|next/.test(w)) { A.save && A.save(true); return true; }
+      if (/\b(save|yes)\b/.test(w)) { A.save && A.save(false); return true; }
+      if (/\b(discard|delete)\b/.test(w)) { A.discard && A.discard(); return true; }
+      return false; }); });
   };
   var go = function() {
-    sPhase("count"); sCount(3); var c = 3, s = R.current;
+    var s = R.current; if (s.phase !== "aim") return; stopVoice(); s.phase = "count"; s.said10 = false;
+    sPhase("count"); sCount(3); var c = 3; camSay("Three");
     s.timer = setInterval(function() {
-      c--; if (c > 0) { sCount(c); return; }
-      clearInterval(s.timer);
+      c--; if (c > 0) { sCount(c); camSay(c === 2 ? "Two" : "One"); return; }
+      clearInterval(s.timer); camSay("Go");
       s.samples = []; s.live = { seek: "max", cur: null, peak: null, n: 0 }; sLive(0); s.t0 = performance.now(); s.rec = true; sLeft(CAM_TAP_SECS); sPhase("run");
-      s.timer = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sLeft(Math.max(0, Math.ceil(CAM_TAP_SECS - el))); if (el >= CAM_TAP_SECS) finish(); }, 100);
+      s.timer = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sLeft(Math.max(0, Math.ceil(CAM_TAP_SECS - el))); if (!s.said10 && CAM_TAP_SECS - el <= 10) { s.said10 = true; camSay("Ten seconds"); } if (el >= CAM_TAP_SECS) finish(); }, 100);
     }, 1000);
   };
   var prev = (p.taps || []).filter(function(t) { return t.method === "camera" && t.hand === (res ? res.hand : hand) && (!res || t.id !== res.id) && t.source !== "estimated"; })
@@ -2118,8 +2155,10 @@ function CamTapMod(p) {
   var med = tapMedian(prev.slice(0, 20).map(function(t) { return t.taps; }));
   var medAmp = tapMedian(prev.slice(0, 20).filter(function(t) { return t.ampMean != null; }).map(function(t) { return Number(t.ampMean); }));
   var clean = function(r) { var o = Object.assign({}, r, { note: note }); delete o._series; return o; };
-  var save = function(again) { p.onSave(clean(res)); if (again) { sHand(res.hand === "right" ? "left" : "right"); sRes(null); sPhase("setup"); } else p.onClose(); };
+  var save = function(again) { stopVoice(); p.onSave(clean(res)); if (again) { var nh = res.hand === "right" ? "left" : "right"; sHand(nh); sRes(null); openCamFor(nh); } else { camSay("Saved."); p.onClose(); } };
+  var discard = function() { stopVoice(); sRes(null); sPhase("setup"); camSay("Discarded."); };
   var busy = phase === "run" || phase === "count";
+  R.current.act = { go: go, save: save, discard: discard, close: function() { stop(); p.onClose(); } };
   var showCam = phase === "loading" || phase === "aim" || phase === "count" || phase === "run";
   var closeAll = function() { stop(); p.onClose(); };
   var pctTxt = function(x) { return x == null ? "–" : Math.round(x * 100) + "%"; };
@@ -2133,7 +2172,7 @@ function CamTapMod(p) {
       <p className="text-sm text-gray-600 mb-3">Tap your thumb and index finger together, opening as <b>wide</b> and as <b>fast</b> as you can, for {CAM_TAP_SECS} seconds. Keep the other fingers out of the way.</p>
       <div className="text-sm font-medium mb-2">Which hand?</div>
       <div className="flex gap-2 mb-4">{["left", "right"].map(function(h) { return <button key={h} onClick={function() { sHand(h); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (hand === h ? "bg-teal-600 text-white" : "bg-gray-100")}>{h === "left" ? "✋ Left" : "🤚 Right"}</button>; })}</div>
-      <p className="text-xs text-gray-500 mb-4">The video stays on your phone. Only the measurements are saved.</p>
+      <p className="text-xs text-gray-500 mb-4">Hands free: once the camera is open, just hold your hand in view for 2 seconds and it counts you in out loud. Turn the sound up. The video stays on your phone; only the measurements are saved.</p>
       <button onClick={openCam} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold">Open camera</button>
       {p.onBack && <button onClick={p.onBack} className="w-full mt-2 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Use the screen tap test instead</button>}
     </div>}
@@ -2146,7 +2185,9 @@ function CamTapMod(p) {
     </div>
     {phase === "loading" && <p className="text-sm text-gray-500 text-center">{msg}</p>}
     {phase === "aim" && <div>
-      <p className="text-sm text-gray-600 mb-3">{seen ? "Hand found. The amber and teal dots should sit on your thumb tip and index tip." : "Hold your " + hand + " hand up to the camera."}</p>
+      <p className="text-sm text-gray-600 mb-2">{seen ? "Hand found. Keep it there and the test starts by itself." : "Hold your " + hand + " hand up to the camera. No need to touch the phone."}</p>
+      <div style={{ height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden", marginBottom: "8px" }}><div style={{ width: Math.round(hold * 100) + "%", height: "100%", background: "#14b8a6", transition: "width 0.1s" }} /></div>
+      {hasVoice && <p className="text-xs text-gray-400 mb-3">🎙️ Or say "start". {heard ? "Heard: \u201c" + heard.slice(-40) + "\u201d" : ""}</p>}
       <button onClick={go} disabled={!seen} className={"w-full py-4 rounded-xl font-bold " + (seen ? "bg-teal-600 text-white" : "bg-gray-200 text-gray-400")}>Start {CAM_TAP_SECS}s test</button>
       <button onClick={function() { stop(); sPhase("setup"); }} className="w-full mt-2 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Back</button>
     </div>}
@@ -2171,8 +2212,9 @@ function CamTapMod(p) {
       {res.taps < 10 && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mb-3">Very few taps were detected. If you were tapping normally, the camera probably couldn't see the fingers clearly: retest.</p>}
       <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mb-1" />
       {ex ? <SaveDel canDel={true} color="bg-teal-600" label="Update" onDel={function() { p.onDelete(ex.id); p.onClose(); }} onSave={function() { p.onSave(clean(ex)); p.onClose(); }} />
-        : <div><div className="flex gap-2 mt-3"><button onClick={function() { sRes(null); sPhase("setup"); }} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Discard</button><button onClick={function() { save(false); }} className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold text-sm">Save</button></div>
-          <button onClick={function() { save(true); }} className="w-full mt-2 py-2.5 bg-teal-50 text-teal-700 rounded-xl font-semibold text-sm">Save and test {res.hand === "right" ? "left" : "right"} hand</button></div>}
+        : <div><div className="flex gap-2 mt-3"><button onClick={discard} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Discard</button><button onClick={function() { save(false); }} className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold text-sm">Save</button></div>
+          <button onClick={function() { save(true); }} className="w-full mt-2 py-2.5 bg-teal-50 text-teal-700 rounded-xl font-semibold text-sm">Save and test {res.hand === "right" ? "left" : "right"} hand</button>
+          {hasVoice && <p className="text-xs text-gray-400 text-center mt-2">🎙️ Say "save", "other hand" or "discard"</p>}</div>}
     </div>}
   </Mod>);
 }
@@ -2437,6 +2479,7 @@ var DEF_APP_BUTTONS = [
   { id: "onoff_pie", emoji: "", label: "ON/OFF",    grad: "from-gray-200 to-gray-300", isPie: true },
   { id: "quick_sym", emoji: "⚡", label: "Quick Sym", grad: "from-red-600 to-pink-500", isQuickSym: true },
   { id: "tap",      emoji: "👆", label: "Tap Test",  grad: "from-teal-600 to-emerald-500" },
+  { id: "camtap",   emoji: "📷", label: "Cam Tap",   grad: "from-cyan-600 to-teal-500" },
   { id: "pf",       emoji: "🌀", label: "Pelvic Floor", grad: "from-violet-600 to-fuchsia-500" },
 ];
 
@@ -3887,6 +3930,7 @@ function App() {
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
     {modal && modal.type === "pf" && <PelvicMod logs={logs} oo={oo} pf={pf} onSave={function(t) { aPf(t); }} onClose={close} />}
     {modal && modal.type === "ePf" && <PelvicMod existing={modal.data} logs={logs} oo={oo} pf={pf} onSave={function(t) { uPf(t); }} onDelete={function(id) { dPf(id); }} onClose={close} />}
+    {modal && modal.type === "camtap" && <CamTapMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "tap" && <TapTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "eTap" && <TapTestMod existing={modal.data} logs={logs} oo={oo} taps={taps} onSave={function(t) { uTap(t); }} onDelete={function(id) { dTap(id); }} onClose={close} />}
     {modal && modal.type === "activity" && <ActivityMod cactList={cactList} onSaveCact={function(v) { setCactList(v); sv(K.cact, v); }} onSave={function(a) { aAct(a); close(); }} onClose={close} />}

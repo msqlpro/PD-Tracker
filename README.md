@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v94)
+- **Cam Tap button and hands-free start**: own 📷 Cam Tap home button. Once the camera is open, holding the hand in view for 2s starts a spoken 3, 2, 1 countdown; spoken ten-second warning and result. Voice commands where the phone supports speech recognition: "start", "save", "other hand" (saves then reopens the camera for the other hand), "discard", "cancel". The mic only listens after the app finishes speaking.
+
 ### 2026-10-18
 - **Camera tap test (v93)**: Tap Test now offers a 60s camera mode. The front camera tracks thumb and index fingertips on the phone (MediaPipe Hand Landmarker; no video stored). Saves taps, rhythm CV, average opening (fraction of hand size), amplitude decrement first vs last 10 taps, hesitations and % of frames tracked to `tap_tests` (new columns `method`, `amp_mean`, `amp_first`, `amp_last`, `amp_decrement_pct`, `hesitations`, `track_pct`). Camera and screen results are compared only with their own kind.
 
