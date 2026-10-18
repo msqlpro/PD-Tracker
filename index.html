@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v104 Oct18 — walk test: steps and each arm tracked separately, brief tracking gaps bridged";
+var BUILD_VERSION = "v105 Oct18 — failed saves queued on the phone, retried, and flagged with a banner";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -221,7 +221,25 @@ var FROM_ROW = {
 };
 var LOAD_FAILED = {};
 async function dbLoad(key) { var t = TBL[key]; if (!t) return []; try { var { data, error } = await sb.from(t).select("*").eq("user_id", CURRENT_UID); if (error) { console.error("Load " + key, error); LOAD_FAILED[key] = true; return []; } LOAD_FAILED[key] = false; return (data || []).map(FROM_ROW[key]); } catch(e) { console.error("Load " + key, e); LOAD_FAILED[key] = true; return []; } }
-async function dbSave(key, item) { var t = TBL[key]; if (!t) return; var row = TO_ROW[key](item); var { error } = await sb.from(t).upsert(row); if (error) console.error("Save " + key, error); }
+// Saves that fail (no signal, or the database rejects them) are queued on the
+// phone and retried on the next load, when back online, or from the banner,
+// so a result is never silently lost.
+var SAVEQ_KEY = "pd_save_queue";
+function saveQGet() { try { return JSON.parse(localStorage.getItem(SAVEQ_KEY) || "[]"); } catch (e) { return []; } }
+function saveQSet(q) { try { localStorage.setItem(SAVEQ_KEY, JSON.stringify(q)); } catch (e) {} try { window.dispatchEvent(new CustomEvent("pd-saveq", { detail: q.length })); } catch (e) {} }
+function saveQAdd(key, item, err) { var q = saveQGet().filter(function(x) { return !(x.key === key && x.item && x.item.id === item.id); }); q.push({ key: key, item: item, err: String((err && (err.message || err.details)) || err || "").slice(0, 200), at: new Date().toISOString() }); saveQSet(q); }
+async function dbSave(key, item) {
+  var t = TBL[key]; if (!t) return;
+  try { var row = TO_ROW[key](item); var { error } = await sb.from(t).upsert(row); if (error) { console.error("Save " + key, error); saveQAdd(key, item, error); } }
+  catch (e) { console.error("Save " + key, e); saveQAdd(key, item, e); }
+}
+async function retrySaves() {
+  var q = saveQGet(); if (!q.length || !CURRENT_UID) return q.length;
+  var left = [];
+  for (var i = 0; i < q.length; i++) { var x = q[i]; try { var { error } = await sb.from(TBL[x.key]).upsert(TO_ROW[x.key](x.item)); if (error) { x.err = String(error.message || error.details || error).slice(0, 200); left.push(x); } } catch (e) { x.err = String(e).slice(0, 200); left.push(x); } }
+  saveQSet(left); return left.length;
+}
+try { window.addEventListener("online", function() { retrySaves(); }); } catch (e) {}
 async function dbDel(key, id) { var t = TBL[key]; if (!t) return; var { error } = await sb.from(t).delete().eq("id", id); if (error) console.error("Del " + key, error); }
 var K = { pf: "pf", tap: "tap", meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval", bowelReminderOn: "bowelReminderOn", bowelReminderTime: "bowelReminderTime", weeBtnOn: "weeBtnOn", prdOn: "prdOn", prdBfMax: "prdBfMax", prdLunchMax: "prdLunchMax", prdDayMax: "prdDayMax", prdEveStart: "prdEveStart", prdEveTarget: "prdEveTarget", carbTarget: "carbTarget", fibreTarget: "fibreTarget", weightGoal: "weightGoal", mealTarget: "mealTarget" };
 async function ld(k, fb) {
@@ -4134,10 +4152,13 @@ function App() {
   var [backfillProgress, setBackfillProgress] = useState("");
   var [backfillDone, setBackfillDone] = useState("");
   var [updateAvail, setUpdateAvail] = useState(null);
+  var [unsaved, setUnsaved] = useState(function() { return saveQGet().length; });
+  useEffect(function() { var h = function(e) { setUnsaved(e.detail || 0); }; window.addEventListener("pd-saveq", h); return function() { window.removeEventListener("pd-saveq", h); }; }, []);
   var DEF_MEDS = [{ id: "sinemet_default", name: "Sinemet", dose: "", times: [] }];
 
   var loadData = useCallback(async function(isInitial) {
     try {
+      try { await retrySaves(); } catch (e) {}
       exCfgLoad().then(setExCfg);
       irCfgLoad().then(setIrCfgState);
       ld(K.tap, []).then(function(tp) { sTaps(tp || []); });
@@ -4561,6 +4582,9 @@ function App() {
   if (!ready) return (<div className="max-w-md mx-auto min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-gray-500">Loading...</p></div></div>);
 
   return (<div className={"max-w-md mx-auto min-h-screen " + (dark ? "dark bg-gray-900 text-gray-100" : "bg-gray-50")}>
+    {unsaved > 0 && !updateAvail && (<div style={{position:"fixed",top:"calc(env(safe-area-inset-top, 0px) + 6px)",left:"8px",right:"8px",maxWidth:"28rem",margin:"0 auto",zIndex:70,background:"#b45309",color:"white",borderRadius:"12px",boxShadow:"0 4px 12px rgba(0,0,0,0.2)"}}>
+      <button onClick={function() { retrySaves().then(function(n) { if (!n) loadData(false); }); }} style={{width:"100%",background:"none",color:"white",padding:"0.65rem 1rem",border:"none",cursor:"pointer",fontSize:"0.85rem",fontWeight:600,textAlign:"center"}}>⚠️ {unsaved} {unsaved === 1 ? "result" : "results"} not saved yet. Tap to retry. <span style={{fontWeight:400,opacity:0.85,fontSize:"0.75rem",display:"block",marginTop:"2px"}}>They are kept on this phone until they save.</span></button>
+    </div>)}
     {updateAvail && (<div style={{position:"fixed",top:"calc(env(safe-area-inset-top, 0px) + 6px)",left:"8px",right:"8px",maxWidth:"28rem",margin:"0 auto",zIndex:90,borderRadius:"12px",overflow:"hidden",display:"flex",alignItems:"stretch",background:"linear-gradient(90deg,#10b981,#059669)",boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>
       <button onClick={function() { window.location.href = window.location.pathname + "?u=" + Date.now(); }} style={{flex:1,background:"none",color:"white",padding:"0.65rem 1rem",border:"none",cursor:"pointer",fontSize:"0.85rem",fontWeight:600,textAlign:"center"}}>🚀 New version available — tap to update <span style={{fontWeight:400,opacity:0.85,fontSize:"0.75rem",display:"block",marginTop:"2px"}}>{updateAvail}</span></button>
       <button onClick={function() { try { sessionStorage.setItem("pd_dismissed_update", updateAvail); } catch(e) {} setUpdateAvail(null); }} style={{background:"rgba(0,0,0,0.15)",color:"white",border:"none",cursor:"pointer",padding:"0 14px",fontSize:"1.1rem",fontWeight:700}}>×</button>

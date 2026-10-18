@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v105)
+- **No more silent save failures**: any record the database rejects (or that fails offline) is queued in localStorage (`pd_save_queue`), retried on load, when back online, or from an amber banner showing how many are unsaved. Root cause today: `tap_tests_hand_check` only allowed left/right, so walk, sit to stand and face results were rejected; constraint now allows body and face.
+
 ### 2026-10-18 (v104)
 - **Walk test robustness**: steps need only the feet and each arm only its own wrist (lower visibility bar for wrists), gaps up to 0.35 s are bridged, minimum clean stretch 1 s. Saves visibility diagnostics in extra.seen (body, feet, each wrist, turning %, clean seconds). Fixes a real run that tracked 59% but produced no figures.
 
