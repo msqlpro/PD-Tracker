@@ -159,7 +159,7 @@ async function generateReport(period, data) {
     if (data.weight && data.weight.length) { var ws = data.weight.slice().sort(function(a, b) { return (a.date || "").localeCompare(b.date || ""); }); summary += "\nWEIGHT (" + ws.length + " entries):\n"; ws.forEach(function(w, i) { var diff = i > 0 ? (w.weight - ws[i - 1].weight).toFixed(1) : null; summary += "- " + w.date + " " + w.weight + "kg" + (diff !== null ? " (" + (parseFloat(diff) > 0 ? "+" : "") + diff + "kg)" : "") + "\n"; }); }
     if (data.mood && data.mood.length) { summary += "\nMOOD (" + data.mood.length + " entries):\n"; data.mood.forEach(function(m) { summary += "- " + m.date + " " + ["", "Awful", "Low", "OK", "Good", "Great"][m.level] + " " + m.level + "/5\n"; }); var avg = (data.mood.reduce(function(s, m) { return s + m.level; }, 0) / data.mood.length).toFixed(1); summary += "Average mood: " + avg + "/5\n"; }
     if (data.bowel && data.bowel.length) { summary += "\nBOWEL (" + data.bowel.length + " entries):\n"; data.bowel.forEach(function(b) { summary += "- " + (b.loggedAt || "").slice(0, 16) + (b.strain ? " STRAINING" : "") + " " + (b.note || "") + "\n"; }); }
-    if (data.taps && data.taps.length) { summary += "\nFINGER TAPPING TESTS (" + data.taps.length + "). SCREEN = " + TAP_SECS + "s two-target alternating index-finger taps (more taps = less bradykinesia, lower CV = steadier). CAMERA = " + CAM_TAP_SECS + "s thumb-index tapping tracked by phone camera, MDS-UPDRS 3.4 style: amp = average opening as fraction of hand size, decrement = % drop in opening from first to last 10 taps (sequence effect), hesitations = gaps >2x median interval. ROTATION = " + ROT_SECS + "s rapid forearm pronation/supination tracked by camera (MDS-UPDRS 3.6 style): taps = number of turns, amp = average degrees per turn, decrement = % drop in turn size first vs last 10. Compare each method only with itself:\n"; data.taps.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(t) { var cam = t.method === "camera" || t.method === "rotation"; summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + (t.method === "rotation" ? "ROTATION " : cam ? "CAMERA " : "SCREEN ") + t.hand + " hand " + t.taps + " taps CV:" + (t.cvPct == null ? "?" : t.cvPct + "%") + (cam ? " amp:" + (t.ampMean == null ? "?" : t.ampMean) + " decrement:" + (t.ampDecrementPct == null ? "?" : t.ampDecrementPct + "%") + " hesitations:" + (t.hesitations == null ? "?" : t.hesitations) + " tracked:" + (t.trackPct == null ? "?" : t.trackPct + "%") : " misses:" + (t.misses || 0)) + " " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; }); }
+    if (data.taps && data.taps.length) { summary += "\nFINGER TAPPING TESTS (" + data.taps.length + "). SCREEN = " + TAP_SECS + "s two-target alternating index-finger taps (more taps = less bradykinesia, lower CV = steadier). CAMERA = " + CAM_TAP_SECS + "s thumb-index tapping tracked by phone camera, MDS-UPDRS 3.4 style: amp = average opening as fraction of hand size, decrement = % drop in opening from first to last 10 taps (sequence effect), hesitations = gaps >2x median interval. ROTATION = " + ROT_SECS + "s rapid forearm pronation/supination tracked by camera (MDS-UPDRS 3.6 style): taps = number of turns, amp = average degrees per turn, decrement = % drop in turn size first vs last 10. Other camera tests: OPEN/CLOSE hand (3.5), TREMOR at rest/arms out (size as % of hand size, frequency in Hz), SIT-TO-STAND x5 (seconds, lower = better), WALK (cadence, arm swing per side in relative units, asymmetry %), FACE (blinks/min, expression movement). Compare each method only with itself:\n"; data.taps.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(t) { if (MOTOR_SPECS[t.method]) { summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + MOTOR_SPECS[t.method].summary(t) + " tracked:" + t.trackPct + "% " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; return; } var cam = t.method === "camera" || t.method === "rotation"; summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + (t.method === "rotation" ? "ROTATION " : cam ? "CAMERA " : "SCREEN ") + t.hand + " hand " + t.taps + " taps CV:" + (t.cvPct == null ? "?" : t.cvPct + "%") + (cam ? " amp:" + (t.ampMean == null ? "?" : t.ampMean) + " decrement:" + (t.ampDecrementPct == null ? "?" : t.ampDecrementPct + "%") + " hesitations:" + (t.hesitations == null ? "?" : t.hesitations) + " tracked:" + (t.trackPct == null ? "?" : t.trackPct + "%") : " misses:" + (t.misses || 0)) + " " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; }); }
     if (data.pf && data.pf.length) { var pfS = data.pf.filter(function(x) { return x.kind !== "urge"; }), pfU = data.pf.filter(function(x) { return x.kind === "urge"; }); summary += "\nPELVIC FLOOR TRAINING (" + pfS.length + " sessions, target 3/day; " + pfU.length + " urge drills):\n"; data.pf.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(x) { summary += "- " + (x.loggedAt || "").slice(0, 16) + (x.kind === "urge" ? " URGE DRILL outcome=" + (x.urgeOutcome || "?") : " " + x.longReps + "x" + x.holdS + "s holds + " + x.quickReps + " quick, " + (x.position || "") + ", effort=" + (x.effort || "?") + (x.completed === false ? ", stopped early" : "")) + (x.minsSinceDose != null ? ", " + x.minsSinceDose + " min after levodopa" : "") + "\n"; }); }
     if (data.activity && data.activity.length) { summary += "\nACTIVITIES/THERAPIES (" + data.activity.length + "):\n"; data.activity.forEach(function(a) { summary += "- " + (a.loggedAt || "").slice(0, 16) + " " + a.type + " " + a.duration + "min\n"; }); }
     var response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v96 Oct18 — Arm Turns camera test (forearm rotation, both arms)";
+var BUILD_VERSION = "v97 Oct18 — Motor Tests hub: open/close, tremor, sit-to-stand, walk, face";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -199,7 +199,7 @@ var TO_ROW = {
   mood: function(d) { return { id: d.id, user_id: CURRENT_UID, level: d.level, note: d.note || "", date: d.date }; },
   bowel: function(d) { return { id: d.id, user_id: CURRENT_UID, strain: d.strain || false, note: (d.type === "urine" ? "type:urine|" : "type:bowel|") + (d.note || ""), logged_at: d.loggedAt }; },
   activity: function(d) { return { id: d.id, user_id: CURRENT_UID, type: d.type, duration: d.duration, note: d.note || "", logged_at: d.loggedAt }; },
-  tap: function(d) { return { id: d.id, user_id: CURRENT_UID, logged_at: d.loggedAt, hand: d.hand, duration_s: d.durationS || TAP_SECS, taps: d.taps, mean_iti_ms: d.meanItiMs, cv_pct: d.cvPct, misses: d.misses || 0, mins_since_dose: (d.minsSinceDose == null ? null : d.minsSinceDose), oo_state: d.ooState || null, note: d.note || "", source: d.source || "logged", method: d.method || "screen", amp_mean: (d.ampMean == null ? null : d.ampMean), amp_first: (d.ampFirst == null ? null : d.ampFirst), amp_last: (d.ampLast == null ? null : d.ampLast), amp_decrement_pct: (d.ampDecrementPct == null ? null : d.ampDecrementPct), hesitations: (d.hesitations == null ? null : d.hesitations), track_pct: (d.trackPct == null ? null : d.trackPct) }; },
+  tap: function(d) { return { id: d.id, user_id: CURRENT_UID, logged_at: d.loggedAt, hand: d.hand, duration_s: d.durationS || TAP_SECS, taps: d.taps, mean_iti_ms: d.meanItiMs, cv_pct: d.cvPct, misses: d.misses || 0, mins_since_dose: (d.minsSinceDose == null ? null : d.minsSinceDose), oo_state: d.ooState || null, note: d.note || "", source: d.source || "logged", method: d.method || "screen", amp_mean: (d.ampMean == null ? null : d.ampMean), amp_first: (d.ampFirst == null ? null : d.ampFirst), amp_last: (d.ampLast == null ? null : d.ampLast), amp_decrement_pct: (d.ampDecrementPct == null ? null : d.ampDecrementPct), hesitations: (d.hesitations == null ? null : d.hesitations), track_pct: (d.trackPct == null ? null : d.trackPct), condition: d.condition || null, total_s: (d.totalS == null ? null : d.totalS), extra: d.extra || null }; },
   pf: function(d) { return { id: d.id, user_id: CURRENT_UID, logged_at: d.loggedAt, kind: d.kind || "session", position: d.position || null, long_reps: d.longReps == null ? null : d.longReps, long_hold_s: d.holdS == null ? null : d.holdS, quick_reps: d.quickReps == null ? null : d.quickReps, completed: d.completed !== false, effort: d.effort || null, urge_outcome: d.urgeOutcome || null, mins_since_dose: (d.minsSinceDose == null ? null : d.minsSinceDose), note: d.note || "", source: d.source || "logged" }; }
 };
 var FROM_ROW = {
@@ -216,7 +216,7 @@ var FROM_ROW = {
   mood: function(r) { return { id: r.id, level: r.level, note: r.note, date: r.date }; },
   bowel: function(r) { var raw = r.note || ""; var type = raw.startsWith("type:urine|") ? "urine" : "bowel"; var note = raw.replace(/^type:(bowel|urine)\|/, ""); return { id: r.id, strain: r.strain, type: type, note: note, loggedAt: r.logged_at }; },
   activity: function(r) { return { id: r.id, type: r.type, duration: r.duration, note: r.note, loggedAt: r.logged_at }; },
-  tap: function(r) { return { id: r.id, loggedAt: r.logged_at, hand: r.hand, durationS: r.duration_s, taps: r.taps, meanItiMs: (r.mean_iti_ms == null ? null : Number(r.mean_iti_ms)), cvPct: (r.cv_pct == null ? null : Number(r.cv_pct)), misses: r.misses || 0, minsSinceDose: r.mins_since_dose, ooState: r.oo_state, note: r.note || "", source: r.source || "logged", method: r.method || "screen", ampMean: (r.amp_mean == null ? null : Number(r.amp_mean)), ampFirst: (r.amp_first == null ? null : Number(r.amp_first)), ampLast: (r.amp_last == null ? null : Number(r.amp_last)), ampDecrementPct: (r.amp_decrement_pct == null ? null : Number(r.amp_decrement_pct)), hesitations: r.hesitations, trackPct: (r.track_pct == null ? null : Number(r.track_pct)) }; },
+  tap: function(r) { return { id: r.id, loggedAt: r.logged_at, hand: r.hand, durationS: r.duration_s, taps: r.taps, meanItiMs: (r.mean_iti_ms == null ? null : Number(r.mean_iti_ms)), cvPct: (r.cv_pct == null ? null : Number(r.cv_pct)), misses: r.misses || 0, minsSinceDose: r.mins_since_dose, ooState: r.oo_state, note: r.note || "", source: r.source || "logged", method: r.method || "screen", ampMean: (r.amp_mean == null ? null : Number(r.amp_mean)), ampFirst: (r.amp_first == null ? null : Number(r.amp_first)), ampLast: (r.amp_last == null ? null : Number(r.amp_last)), ampDecrementPct: (r.amp_decrement_pct == null ? null : Number(r.amp_decrement_pct)), hesitations: r.hesitations, trackPct: (r.track_pct == null ? null : Number(r.track_pct)), condition: r.condition || null, totalS: (r.total_s == null ? null : Number(r.total_s)), extra: r.extra || null }; },
   pf: function(r) { return { id: r.id, loggedAt: r.logged_at, kind: r.kind || "session", position: r.position, longReps: r.long_reps, holdS: r.long_hold_s, quickReps: r.quick_reps, completed: r.completed !== false, effort: r.effort, urgeOutcome: r.urge_outcome, minsSinceDose: r.mins_since_dose, note: r.note || "", source: r.source || "logged" }; }
 };
 var LOAD_FAILED = {};
@@ -1885,6 +1885,7 @@ function TapTestMod(p) {
   var [mode, sMode] = useState(function() { if (p.existing) return p.existing.method === "camera" ? "camera" : "screen"; try { return localStorage.getItem("pd_tap_mode") || "screen"; } catch (e) { return "screen"; } });
   var pick = function(m) { try { localStorage.setItem("pd_tap_mode", m); } catch (e) {} sMode(m); };
   if (p.existing && p.existing.method === "rotation") return <RotTestMod {...p} />;
+  if (p.existing && MOTOR_SPECS[p.existing.method]) return <MotorCamMod {...p} />;
   if (mode === "camera") return <CamTapMod {...p} onBack={p.existing ? null : function() { pick("screen"); }} />;
   return <ScreenTapMod {...p} onCamera={function() { pick("camera"); }} />;
 }
@@ -2484,6 +2485,381 @@ function RotTestMod(p) {
   </Mod>);
 }
 
+// ── Motor camera tests (v97) ────────────────────────────────────────
+// One engine (MotorCamMod) runs several camera tests from MDS-UPDRS Part III
+// style tasks, each defined in MOTOR_SPECS: hand open/close (3.5), tremor at
+// rest / arms out (3.15, 3.17), five times sit to stand, walking and arm
+// swing (3.10), and blink rate / facial expression (3.2). All tracking runs
+// on the phone (MediaPipe); no video is stored. Results go in tap_tests with
+// method = spec key; test-specific numbers live in tap_tests.extra (jsonb).
+var MP_POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+var MP_FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+var _mpVis = null, _mpFs = null, _mpOther = {};
+async function mpLoadKind(kind) {
+  if (kind === "hand1") return mpLoad(1);
+  if (kind === "hand2") return mpLoad(2);
+  if (_mpOther[kind]) return _mpOther[kind];
+  if (!_mpVis) { _mpVis = await (new Function("u", "return import(u)"))(MP_BASE + "/vision_bundle.mjs"); _mpFs = await _mpVis.FilesetResolver.forVisionTasks(MP_BASE + "/wasm"); }
+  var v = _mpVis;
+  var make = function(dlg) {
+    if (kind === "pose") return v.PoseLandmarker.createFromOptions(_mpFs, { baseOptions: { modelAssetPath: MP_POSE_MODEL, delegate: dlg }, runningMode: "VIDEO", numPoses: 1 });
+    return v.FaceLandmarker.createFromOptions(_mpFs, { baseOptions: { modelAssetPath: MP_FACE_MODEL, delegate: dlg }, runningMode: "VIDEO", numFaces: 1, outputFaceBlendshapes: true });
+  };
+  try { _mpOther[kind] = await make("GPU"); } catch (e) { _mpOther[kind] = await make("CPU"); }
+  return _mpOther[kind];
+}
+// ---- signal helpers ----
+function sigResample(arr, hz) {
+  var pts = arr.filter(function(x) { return x.v != null && isFinite(x.v); }); if (pts.length < 4) return [];
+  var dt = 1000 / hz, out = [], j = 0, tEnd = pts[pts.length - 1].t;
+  for (var t = pts[0].t; t <= tEnd; t += dt) { while (j < pts.length - 2 && pts[j + 1].t < t) j++; var a = pts[j], b = pts[j + 1]; var f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t); out.push(a.v + (b.v - a.v) * Math.max(0, Math.min(1, f))); }
+  return out;
+}
+function sigHighpass(v, win) {
+  var h = Math.floor(win / 2);
+  return v.map(function(x, i) { var lo = Math.max(0, i - h), hi = Math.min(v.length - 1, i + h), s = 0; for (var k = lo; k <= hi; k++) s += v[k]; return x - s / (hi - lo + 1); });
+}
+function sigRms(v) { if (!v.length) return null; return Math.sqrt(v.reduce(function(z, x) { return z + x * x; }, 0) / v.length); }
+// Power spectrum (Hann window, 0.1 Hz steps) summed over the given series.
+function sigSpectrum(list, hz, lo, hi) {
+  var res = [];
+  for (var f = lo; f <= hi + 1e-9; f += 0.1) res.push({ f: Math.round(f * 10) / 10, p: 0 });
+  list.forEach(function(v) {
+    var n = v.length; if (n < 16) return; var m = v.reduce(function(z, x) { return z + x; }, 0) / n;
+    var w = v.map(function(x, i) { return (x - m) * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))); });
+    res.forEach(function(r) { var re = 0, im = 0, k = 2 * Math.PI * r.f / hz; for (var i = 0; i < n; i++) { re += w[i] * Math.cos(k * i); im -= w[i] * Math.sin(k * i); } r.p += (re * re + im * im) / n; });
+  });
+  if (!res.length) return { hz: null, ratio: 0 };
+  var best = res.reduce(function(a, b) { return b.p > a.p ? b : a; });
+  var ps = res.map(function(r) { return r.p; }).sort(function(a, b) { return a - b; }), med = ps[Math.floor(ps.length / 2)] || 1e-12;
+  return { hz: best.f, ratio: Math.round(best.p / med * 10) / 10 };
+}
+function mDist(a, b, w, h) { var x = (a.x - b.x) * w, y = (a.y - b.y) * h; return Math.sqrt(x * x + y * y); }
+function mVis(lm, idx) { return idx.every(function(i) { return lm[i] && (lm[i].visibility == null || lm[i].visibility > 0.5); }); }
+function mHands2(lms) { var o = {}; if (!lms || !lms.length) return o; if (lms.length === 1) { o[lms[0][0].x < 0.5 ? "right" : "left"] = lms[0]; return o; } var s = lms.slice(0, 2).sort(function(a, b) { return a[0].x - b[0].x; }); o.right = s[0]; o.left = s[1]; return o; }
+function mR1(x) { return x == null ? null : Math.round(x * 10) / 10; }
+function mTrack(samples, key) { if (!samples.length) return 0; return Math.round(samples.filter(function(s) { return key(s); }).length / samples.length * 100); }
+var POSE_LINKS = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+function mDrawPose(g, lm, w, h) { if (!lm) return; g.strokeStyle = "rgba(99,102,241,0.9)"; g.lineWidth = 5; POSE_LINKS.forEach(function(l) { var a = lm[l[0]], b = lm[l[1]]; if (!a || !b || (a.visibility != null && a.visibility < 0.5) || (b.visibility != null && b.visibility < 0.5)) return; g.beginPath(); g.moveTo(a.x * w, a.y * h); g.lineTo(b.x * w, b.y * h); g.stroke(); }); }
+function mDrawHand(g, lm, w, h, col) { if (!lm) return; g.strokeStyle = col; g.lineWidth = 4; [[0, 4], [0, 8], [0, 12], [0, 16], [0, 20]].forEach(function(l) { g.beginPath(); g.moveTo(lm[l[0]].x * w, lm[l[0]].y * h); g.lineTo(lm[l[1]].x * w, lm[l[1]].y * h); g.stroke(); }); }
+function mStat(label, val, big, warn) { return <div className={(big ? "bg-indigo-50" : "bg-gray-50") + " rounded-xl p-2 text-center"}><div className={(big ? "text-2xl text-indigo-700" : "text-lg " + (warn ? "text-red-600" : "text-gray-700")) + " font-bold"}>{val == null ? "–" : val}</div><div className="text-[10px] text-gray-500">{label}</div></div>; }
+var FACE_EXPR = ["browInnerUp", "browOuterUpLeft", "browOuterUpRight", "browDownLeft", "browDownRight", "cheekSquintLeft", "cheekSquintRight", "eyeSquintLeft", "eyeSquintRight", "mouthSmileLeft", "mouthSmileRight", "mouthFrownLeft", "mouthFrownRight"];
+function stsRun(samples) {
+  // Seated baseline from the first second; hip rise measured in seated torso lengths.
+  var first = samples.filter(function(s) { return s.hy != null && s.t < 1000; });
+  if (first.length < 5) first = samples.filter(function(s) { return s.hy != null; }).slice(0, 10);
+  if (!first.length) return { stands: 0, sits: [], standsAt: [] };
+  // Seated = lowest hip position (largest y) early on, robust to rising straight away.
+  var hs = first.map(function(s) { return s.hy; }).sort(function(a, b) { return b - a; }), base = tapMedian(hs.slice(0, Math.max(1, Math.ceil(hs.length / 4)))), T = tapMedian(first.map(function(s) { return s.T; })) || 1;
+  var st = "sit", stands = 0, sits = [], standsAt = [];
+  samples.forEach(function(s) { if (s.hy == null) return; var hgt = (base - s.hy) / T;
+    if (st === "sit" && hgt > 0.45) { st = "stand"; stands++; standsAt.push(s.t); }
+    else if (st === "stand" && hgt < 0.2) { st = "sit"; sits.push(s.t); } });
+  return { stands: stands, sits: sits, standsAt: standsAt };
+}
+var MOTOR_SPECS = {
+  openclose: {
+    title: "Hand Open/Close", emoji: "🖐️", model: "hand1", sides: "single", secs: 60,
+    setup: ["Prop the phone up so the front camera can see your hand, about an arm's length away, palm facing the camera.", "Make a tight fist, then open the hand fully with fingers spread, as fast and as wide as you can, for 60 seconds."],
+    prompt: function(c) { return "When you're ready, hold your " + c.side + " hand up to the camera, palm towards it."; },
+    frame: function(out, w, h) { var lm = out && out.landmarks && out.landmarks[0]; if (!lm) return { ready: false, sample: { d: null } };
+      var size = mDist(lm[0], lm[9], w, h) || 1, d = [4, 8, 12, 16, 20].reduce(function(z, i) { return z + mDist(lm[0], lm[i], w, h); }, 0) / 5 / size; return { ready: true, sample: { d: d }, lm: lm }; },
+    draw: function(g, f, w, h) { mDrawHand(g, f.lm, w, h, "#10b981"); },
+    live: function(L, smp) { if (smp.d == null) return null; if (L.cur == null) { L.cur = smp.d; L.seek = "max"; L.n = 0; return "0"; }
+      if (L.seek === "max") { if (smp.d > L.cur) L.cur = smp.d; else if (L.cur - smp.d >= 0.3) { L.seek = "min"; L.cur = smp.d; } } else { if (smp.d < L.cur) L.cur = smp.d; else if (smp.d - L.cur >= 0.3) { L.n++; L.seek = "max"; L.cur = smp.d; } } return String(L.n); },
+    analyse: function(S, c) { var a = camAnalyse(S, 60); return [{ hand: c.side, taps: a.taps, meanItiMs: a.meanItiMs, cvPct: a.cvPct, ampMean: a.ampMean, ampFirst: a.ampFirst, ampLast: a.ampLast, ampDecrementPct: a.ampDecrementPct, hesitations: a.hesitations, trackPct: a.trackPct, _series: a.series }]; },
+    stats: function(r) { return [[mStat("open/close / " + (r.durationS || 60) + "s", r.taps, true), mStat("avg opening (of hand size)", r.ampMean == null ? null : Math.round(r.ampMean * 100) + "%", true), mStat("size change, start → end", r.ampDecrementPct == null ? null : (r.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(r.ampDecrementPct)) + "%", true)],
+      [mStat("rhythm variation", r.cvPct == null ? null : r.cvPct + "%"), mStat("hesitations", r.hesitations), mStat("hand tracked", r.trackPct == null ? null : r.trackPct + "%")]]; },
+    main: { label: "movements", get: function(r) { return r.taps; }, higher: true },
+    warn: function(r) { return r.taps < 10 ? "Very few movements were detected. Keep the palm facing the camera and retest." : null; },
+    title2: function(t) { return "🖐️ " + t.taps + " open/close · " + t.hand + " hand"; },
+    sub: function(t) { return t.ampMean != null ? " · opening " + Math.round(t.ampMean * 100) + "%" + (t.ampDecrementPct != null ? ", " + (t.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(t.ampDecrementPct)) + "%" : "") : ""; },
+    summary: function(t) { return "OPEN/CLOSE " + t.hand + " " + t.taps + " cycles/60s amp:" + t.ampMean + " decrement:" + t.ampDecrementPct + "% CV:" + t.cvPct + "% hesitations:" + t.hesitations; }
+  },
+  tremor: {
+    title: "Tremor", emoji: "〰️", model: "hand2", sides: "both", secs: 30,
+    conds: [{ id: "rest", label: "😌 At rest", help: "Sit with your forearms resting on a table or the chair arms, hands relaxed and hanging loose, both in view. While it records, count backwards from 100 in sevens out loud: that helps bring out rest tremor." },
+            { id: "postural", label: "🙌 Arms out", help: "Hold both arms straight out in front of you, palms down, fingers apart, pointing towards the phone, and keep them as still as you can." }],
+    setup: ["Prop the phone up so it can see both hands. Keep the phone itself still: it must not be held.", "Records for 30 seconds. Lower size = less tremor."],
+    prompt: function(c) { return c.cond === "rest" ? "When you're ready, rest both hands in view of the camera." : "When you're ready, hold both arms out towards the camera, palms down."; },
+    frame: function(out, w, h) { var by = mHands2(out && out.landmarks), smp = {};
+      ["left", "right"].forEach(function(k) { var lm = by[k]; if (!lm) { smp[k] = null; return; } var size = mDist(lm[0], lm[9], w, h) || 1, xs = 0, ys = 0; [0, 5, 9, 13, 17].forEach(function(i) { xs += lm[i].x * w; ys += lm[i].y * h; }); smp[k] = { x: xs / 5 / size, y: ys / 5 / size }; });
+      return { ready: !!by.left && !!by.right, sample: smp, by: by }; },
+    draw: function(g, f, w, h) { mDrawHand(g, f.by && f.by.left, w, h, "#f59e0b"); mDrawHand(g, f.by && f.by.right, w, h, "#0d9488"); },
+    analyse: function(S, c) {
+      return ["left", "right"].map(function(k) {
+        var xs = sigHighpass(sigResample(S.map(function(s) { return { t: s.t, v: s[k] ? s[k].x : null }; }), 30), 10);
+        var ys = sigHighpass(sigResample(S.map(function(s) { return { t: s.t, v: s[k] ? s[k].y : null }; }), 30), 10);
+        var mag = xs.map(function(x, i) { return Math.sqrt(x * x + (ys[i] || 0) * (ys[i] || 0)); });
+        var amp = mR1((sigRms(mag) || 0) * 100), sp = sigSpectrum([xs, ys], 30, 3, 12), tr = mTrack(S, function(s) { return !!s[k]; });
+        var det = sp.ratio >= 6 && amp >= 0.8;
+        return { hand: k, taps: null, ampMean: amp, trackPct: tr, extra: { hz: det ? sp.hz : null, peakHz: sp.hz, peakRatio: sp.ratio, ampPct: amp, detected: det } };
+      }); },
+    stats: function(r) { var e = r.extra || {}; return [[mStat("tremor size (% of hand)", r.ampMean == null ? null : r.ampMean + "%", true), mStat("beats per second", e.detected ? e.hz + " Hz" : "none clear", true), mStat("hand tracked", r.trackPct == null ? null : r.trackPct + "%", true)]]; },
+    main: { label: "tremor size", get: function(r) { return r.ampMean; }, higher: false },
+    warn: function(r) { return null; },
+    title2: function(t) { var e = t.extra || {}; return "〰️ Tremor " + (t.condition === "postural" ? "arms out" : "at rest") + " · " + t.hand + " hand"; },
+    sub: function(t) { var e = t.extra || {}; return " · size " + t.ampMean + "%" + (e.detected ? ", " + e.hz + " Hz" : ", no clear tremor"); },
+    summary: function(t) { var e = t.extra || {}; return "TREMOR " + (t.condition || "") + " " + t.hand + " size:" + t.ampMean + "% of hand size, " + (e.detected ? e.hz + "Hz" : "no clear rhythmic tremor") + " (peak ratio " + e.peakRatio + ")"; }
+  },
+  sts: {
+    title: "Sit to Stand ×5", emoji: "🪑", model: "pose", sides: "none", secs: 60, countUp: true,
+    setup: ["Use a firm chair without arms if you can. Prop the phone 2 to 3 metres away at about waist height so your whole body is in view; side on is best.", "Sit back with your arms folded across your chest. When it says go, stand up fully and sit down again 5 times, as quickly as you safely can. It stops by itself after the fifth sit.", "Only do this if you can safely stand from a chair without help."],
+    prompt: function() { return "When you're ready, sit back with your arms folded, so the camera can see all of you."; },
+    frame: function(out, w, h) { var lm = out && out.landmarks && out.landmarks[0]; if (!lm || !mVis(lm, [11, 12, 23, 24])) return { ready: false, sample: { hy: null }, lm: lm };
+      var sy = (lm[11].y + lm[12].y) / 2 * h, hy = (lm[23].y + lm[24].y) / 2 * h; return { ready: true, sample: { hy: hy, T: Math.abs(hy - sy) }, lm: lm }; },
+    draw: function(g, f, w, h) { mDrawPose(g, f.lm, w, h); },
+    live: function(L, smp, t) { L.S = L.S || []; L.S.push({ t: t, hy: smp.hy, T: smp.T }); var r = stsRun(L.S); if (r.sits.length >= 5) L.done = true; return "Stands " + r.stands; },
+    analyse: function(S) { var r = stsRun(S); var done = r.sits.length >= 5; var reps = []; for (var i = 0; i < Math.min(5, r.sits.length); i++) reps.push(Math.round((r.sits[i] - (i ? r.sits[i - 1] : 0)) / 100) / 10);
+      var c = r.sits.length > 2 ? tapCalc(r.sits.slice(0, 5)) : { cvPct: null };
+      return [{ hand: "body", taps: Math.min(5, r.stands), totalS: done ? Math.round(r.sits[4] / 100) / 10 : null, cvPct: c.cvPct, trackPct: mTrack(S, function(s) { return s.hy != null; }), extra: { repTimes: reps, complete: done } }]; },
+    stats: function(r) { var e = r.extra || {}; return [[mStat("seconds for 5", r.totalS == null ? "–" : r.totalS + "s", true), mStat("stands done", r.taps, true), mStat("slowest stand", e.repTimes && e.repTimes.length ? Math.max.apply(null, e.repTimes) + "s" : null, true)],
+      [mStat("rhythm variation", r.cvPct == null ? null : r.cvPct + "%"), mStat("each stand", e.repTimes ? e.repTimes.join(" · ") : null), mStat("body tracked", r.trackPct == null ? null : r.trackPct + "%")]]; },
+    main: { label: "time", get: function(r) { return r.totalS; }, higher: false },
+    warn: function(r) { return (r.extra && !r.extra.complete) ? "It didn't see 5 full stands and sits, so there's no total time. Make sure your whole body stays in view and you stand fully upright." : null; },
+    title2: function(t) { return "🪑 Sit to stand ×5 · " + (t.totalS != null ? t.totalS + "s" : t.taps + " stands, incomplete"); },
+    sub: function(t) { var e = t.extra || {}; return e.repTimes ? " · " + e.repTimes.join("/") + "s" : ""; },
+    summary: function(t) { var e = t.extra || {}; return "SIT-TO-STAND x5 " + (t.totalS != null ? t.totalS + "s total" : "incomplete (" + t.taps + " stands)") + " reps:" + (e.repTimes || []).join("/") + "s"; }
+  },
+  gait: {
+    title: "Walk & Arm Swing", emoji: "🚶", model: "pose", sides: "none", secs: 30,
+    setup: ["You need about 5 metres of clear floor, like a hallway. Prop the phone at the far end at about waist height, facing you.", "Stand at the other end so your whole body is in view. When it says go, walk towards the phone at your normal pace, letting your arms swing naturally, turn round, walk back, and keep going for 30 seconds."],
+    prompt: function() { return "When you're ready, stand so the camera can see all of you."; },
+    frame: function(out, w, h) { var lm = out && out.landmarks && out.landmarks[0]; if (!lm || !mVis(lm, [11, 12, 15, 16, 23, 24, 27, 28])) return { ready: false, sample: { ok: false }, lm: lm };
+      var sx = (lm[11].x + lm[12].x) / 2 * w, sy = (lm[11].y + lm[12].y) / 2 * h, hx = (lm[23].x + lm[24].x) / 2 * w, hy = (lm[23].y + lm[24].y) / 2 * h, T = Math.sqrt((sx - hx) * (sx - hx) + (sy - hy) * (sy - hy)) || 1;
+      return { ready: true, lm: lm, sample: { ok: true, ad: (lm[27].y - lm[28].y) * h / T, lx: (lm[15].x - lm[11].x) * w / T, ly: (lm[15].y - lm[11].y) * h / T, rx: (lm[16].x - lm[12].x) * w / T, ry: (lm[16].y - lm[12].y) * h / T } }; },
+    draw: function(g, f, w, h) { mDrawPose(g, f.lm, w, h); },
+    analyse: function(S) {
+      var rs = function(k) { return sigHighpass(sigResample(S.map(function(s) { return { t: s.t, v: s.ok ? s[k] : null }; }), 30), 45); };
+      var ad = rs("ad"), sp = sigSpectrum([ad], 30, 0.4, 1.6);
+      var sw = function(a, b) { var x = rs(a), y = rs(b); return mR1((sigRms(x.map(function(v, i) { return Math.sqrt(v * v + (y[i] || 0) * (y[i] || 0)); })) || 0) * 100); };
+      var L = sw("lx", "ly"), R = sw("rx", "ry"), asym = (L && R) ? Math.round(Math.abs(L - R) / Math.max(L, R) * 100) : null;
+      var cad = sp.ratio >= 3 ? Math.round(sp.hz * 2 * 60) : null;
+      return [{ hand: "body", taps: null, ampMean: asym, trackPct: mTrack(S, function(s) { return s.ok; }), extra: { cadence: cad, swingL: L, swingR: R, asymPct: asym, less: L == null || R == null ? null : (L < R ? "left" : "right"), peakRatio: sp.ratio } }]; },
+    stats: function(r) { var e = r.extra || {}; return [[mStat("steps per minute", e.cadence, true), mStat("left arm swing", e.swingL, true), mStat("right arm swing", e.swingR, true)],
+      [mStat("arm swing difference", e.asymPct == null ? null : e.asymPct + "%", false, e.asymPct != null && e.asymPct >= 25), mStat("smaller swing", e.less), mStat("body tracked", r.trackPct == null ? null : r.trackPct + "%")]]; },
+    main: { label: "arm swing difference", get: function(r) { return r.extra ? r.extra.asymPct : null; }, higher: false },
+    warn: function(r) { var e = r.extra || {}; return e.cadence == null ? "Couldn't pick out a steady step rhythm. Make sure your feet stay in view." : null; },
+    title2: function(t) { var e = t.extra || {}; return "🚶 Walk · " + (e.cadence ? e.cadence + " steps/min" : "no step rhythm"); },
+    sub: function(t) { var e = t.extra || {}; return " · arm swing L " + e.swingL + " / R " + e.swingR + (e.asymPct != null ? " (" + e.asymPct + "% diff)" : ""); },
+    summary: function(t) { var e = t.extra || {}; return "WALK cadence:" + e.cadence + " steps/min arm swing L:" + e.swingL + " R:" + e.swingR + " (relative units) asymmetry:" + e.asymPct + "% smaller side:" + e.less; }
+  },
+  face: {
+    title: "Blink & Expression", emoji: "🙂", model: "face", sides: "none", secs: 60,
+    setup: ["Prop the phone up at face height about an arm's length away, in good light.", "When it says go, look at the screen and talk for 60 seconds about anything: what you did yesterday, your plans for today, a favourite trip. Talk naturally; it counts blinks and how much your face moves."],
+    prompt: function() { return "When you're ready, look at the screen."; },
+    frame: function(out, w, h) { var bs = out && out.faceBlendshapes && out.faceBlendshapes[0]; var lm = out && out.faceLandmarks && out.faceLandmarks[0]; if (!bs || !lm) return { ready: false, sample: { b: null } };
+      var m = {}; bs.categories.forEach(function(c) { m[c.categoryName] = c.score; }); var smp = { b: ((m.eyeBlinkLeft || 0) + (m.eyeBlinkRight || 0)) / 2, e: {} }; FACE_EXPR.forEach(function(k) { smp.e[k] = m[k] || 0; }); return { ready: true, sample: smp, lm: lm }; },
+    draw: function(g, f, w, h) { if (!f.lm) return; g.fillStyle = "rgba(99,102,241,0.8)"; [33, 133, 159, 145, 362, 263, 386, 374, 61, 291, 13, 14, 70, 300].forEach(function(i) { var p = f.lm[i]; if (!p) return; g.beginPath(); g.arc(p.x * w, p.y * h, 3, 0, 6.3); g.fill(); }); },
+    live: function(L, smp) { if (smp.b == null) return null; L.n = L.n || 0; if (!L.closed && smp.b > 0.5) { L.closed = true; L.n++; } else if (L.closed && smp.b < 0.3) L.closed = false; return "Blinks " + L.n; },
+    analyse: function(S) {
+      var n = 0, closed = false, seen = S.filter(function(s) { return s.b != null; });
+      seen.forEach(function(s) { if (!closed && s.b > 0.5) { closed = true; n++; } else if (closed && s.b < 0.3) closed = false; });
+      var span = S.length ? (S[S.length - 1].t - S[0].t) / 60000 : 0, mins = seen.length / Math.max(1, S.length) * span; var tr = mTrack(S, function(s) { return s.b != null; });
+      var sd = function(a) { if (a.length < 2) return 0; var m = a.reduce(function(z, x) { return z + x; }, 0) / a.length; return Math.sqrt(a.reduce(function(z, x) { return z + (x - m) * (x - m); }, 0) / a.length); };
+      var expr = mR1(FACE_EXPR.reduce(function(z, k) { return z + sd(seen.map(function(s) { return s.e[k]; })); }, 0) / FACE_EXPR.length * 100);
+      var sm = seen.map(function(s) { return (s.e.mouthSmileLeft + s.e.mouthSmileRight) / 2; }).sort(function(a, b) { return a - b; });
+      var smile = sm.length ? Math.round(sm[Math.floor(sm.length * 0.95)] * 100) : null;
+      var perMin = mins > 0 ? Math.round(n / mins) : null;
+      return [{ hand: "face", taps: n, ampMean: expr, trackPct: tr, extra: { blinksPerMin: perMin, expressivity: expr, smile: smile } }]; },
+    stats: function(r) { var e = r.extra || {}; return [[mStat("blinks per minute", e.blinksPerMin, true), mStat("expression movement", e.expressivity, true), mStat("biggest smile", e.smile == null ? null : e.smile + "%", true)], [mStat("blinks counted", r.taps), mStat("face tracked", r.trackPct == null ? null : r.trackPct + "%"), mStat("", "")]]; },
+    main: { label: "expression movement", get: function(r) { return r.ampMean; }, higher: true },
+    warn: function() { return null; },
+    title2: function(t) { var e = t.extra || {}; return "🙂 Face · " + e.blinksPerMin + " blinks/min"; },
+    sub: function(t) { var e = t.extra || {}; return " · expression " + e.expressivity + (e.smile != null ? ", smile " + e.smile + "%" : ""); },
+    summary: function(t) { var e = t.extra || {}; return "FACE blinks:" + e.blinksPerMin + "/min expression movement:" + e.expressivity + " (higher = more expressive) biggest smile:" + e.smile + "%"; }
+  }
+};
+function MotorCamMod(p) {
+  var kind = p.kind || (p.existing && p.existing.method);
+  var spec = MOTOR_SPECS[kind];
+  var ex = p.existing || null;
+  var lsGet = function(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+  var [side, sSide] = useState(function() { if (ex) return ex.hand; return spec.sides === "single" ? lsGet("pd_m_" + kind + "_side", "right") : spec.sides === "both" ? "both" : spec.sides; });
+  var [cond, sCond] = useState(function() { if (ex) return ex.condition || null; return spec.conds ? lsGet("pd_m_" + kind + "_cond", spec.conds[0].id) : null; });
+  var [phase, sPhase] = useState(ex ? "done" : "setup");
+  var [msg, sMsg] = useState("");
+  var [count, sCount] = useState(3);
+  var [clock, sClock] = useState(spec.countUp ? 0 : spec.secs);
+  var [live, sLive] = useState("");
+  var [ready, sReady] = useState(false);
+  var [hold, sHold] = useState(0);
+  var [heard, sHeard] = useState("");
+  var [hasVoice] = useState(function() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); });
+  var [res, sRes] = useState(ex ? [ex] : null);
+  var [note, sNote] = useState(ex ? (ex.note || "") : "");
+  var [doneSides, sDoneSides] = useState([]);
+  var vRef = React.useRef(null), cRef = React.useRef(null);
+  var R = React.useRef({ stream: null, raf: 0, timer: null, rec: false, t0: 0, samples: [], lastTs: -1, phase: "", seenSince: 0, holdShown: 0, voice: null, act: {}, L: {}, liveShown: "", readyShown: null });
+  R.current.phase = phase;
+  var stopVoice = function() { var s = R.current; if (s.voice) { s.voice.stop(); s.voice = null; } };
+  var stop = function() { var s = R.current; cancelAnimationFrame(s.raf); clearInterval(s.timer); s.rec = false; stopVoice(); if (s.stream) { s.stream.getTracks().forEach(function(t) { t.stop(); }); s.stream = null; } };
+  useEffect(function() { return stop; }, []);
+  var loop = function(det) {
+    var s = R.current, v = vRef.current;
+    if (!v || !s.stream) return;
+    if (v.readyState >= 2 && v.currentTime !== s.lastTs) {
+      s.lastTs = v.currentTime;
+      var now = performance.now(), out = null, W = v.videoWidth, H = v.videoHeight;
+      try { out = det.detectForVideo(v, now); } catch (e) {}
+      var f = spec.frame(out, W, H);
+      var cv = cRef.current; if (cv) { var g = cv.getContext("2d"); cv.width = W; cv.height = H; g.clearRect(0, 0, W, H); spec.draw(g, f, W, H); }
+      if (f.ready !== s.readyShown) { s.readyShown = f.ready; sReady(f.ready); }
+      if (s.phase === "aim") {
+        if (f.ready) { if (!s.seenSince) s.seenSince = now; } else s.seenSince = 0;
+        var hh = s.seenSince ? Math.min(1, (now - s.seenSince) / CAM_HOLD_MS) : 0, hs = Math.round(hh * 10) / 10;
+        if (hs !== s.holdShown) { s.holdShown = hs; sHold(hs); }
+        if (hh >= 1 && s.act.go) { s.seenSince = 0; s.act.go(); }
+      }
+      if (s.rec) {
+        var t = now - s.t0, smp = Object.assign({ t: t }, f.sample);
+        s.samples.push(smp);
+        if (spec.live) { var lv = spec.live(s.L, smp, t); if (lv != null && lv !== s.liveShown) { s.liveShown = lv; sLive(lv); } if (s.L.done && s.act.finish) { s.act.finish(); return; } }
+      }
+    }
+    s.raf = requestAnimationFrame(function() { loop(det); });
+  };
+  var openCamFor = async function(sd) {
+    try { if (spec.sides === "single") localStorage.setItem("pd_m_" + kind + "_side", sd); if (cond) localStorage.setItem("pd_m_" + kind + "_cond", cond); } catch (e) {}
+    camSay(" "); sPhase("loading"); sMsg("Starting camera…");
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
+      R.current.stream = stream; var v = vRef.current; v.srcObject = stream; await v.play();
+      sMsg("Loading tracking (first time can take a few seconds)…");
+      var det = await mpLoadKind(spec.model);
+      sPhase("aim"); R.current.phase = "aim"; R.current.seenSince = 0; R.current.readyShown = null; loop(det);
+      camSay(spec.prompt({ side: sd, cond: cond }), function() { if (R.current.phase !== "aim") return; stopVoice(); R.current.voice = camVoice(function(w) { sHeard(w); if (/\b(start|go|ready|yes)\b/.test(w) && R.current.act.go && R.current.phase === "aim") { R.current.act.go(); return true; } if (/\bcancel\b/.test(w)) { R.current.act.close && R.current.act.close(); return true; } return false; }); });
+    } catch (e) {
+      stop(); sPhase("error");
+      sMsg(e && e.name === "NotAllowedError" ? "Camera permission was refused. Allow camera access for this app in Settings, then try again." : "Couldn't start the camera test: " + (e && e.message ? e.message : e));
+    }
+  };
+  var finish = function() {
+    var s = R.current; if (!s.rec) return; s.rec = false; clearInterval(s.timer);
+    var ctx = tapContext(p.logs, p.oo), stamp = new Date().toISOString(), base = Date.now().toString(), dur = Math.round((performance.now() - s.t0) / 1000);
+    var rows = spec.analyse(s.samples, { side: side, cond: cond }).map(function(r) { return Object.assign({ id: base + "_" + kind + "_" + r.hand, loggedAt: stamp, method: kind, condition: cond, durationS: spec.countUp ? dur : spec.secs, misses: 0, minsSinceDose: ctx.minsSinceDose, ooState: ctx.ooState, note: "" }, r); });
+    stop(); sRes(rows); sNote(""); sPhase("done");
+    try { if (navigator.vibrate) navigator.vibrate(200); } catch (e) {}
+    camSay("And stop. Well done.");
+  };
+  var go = function() {
+    var s = R.current; if (s.phase !== "aim") return; stopVoice(); s.phase = "count";
+    sPhase("count"); sCount(3); var c = 3; camSay("Three...");
+    s.timer = setInterval(function() {
+      c--; if (c > 0) { sCount(c); camSay(c === 2 ? "Two..." : "One..."); return; }
+      clearInterval(s.timer); camSay("And go.");
+      s.samples = []; s.L = {}; s.liveShown = ""; sLive(""); s.t0 = performance.now(); s.rec = true; sClock(spec.countUp ? 0 : spec.secs); sPhase("run");
+      s.timer = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sClock(spec.countUp ? Math.floor(el) : Math.max(0, Math.ceil(spec.secs - el))); if (el >= spec.secs) finish(); }, 100);
+    }, 1000);
+  };
+  var clean = function(r) { var o = Object.assign({}, r, { note: note }); delete o._series; return o; };
+  var other = spec.sides === "single" ? (side === "right" ? "left" : "right") : null;
+  var save = function() { stopVoice(); res.forEach(function(r) { p.onSave(clean(r)); }); var ds = doneSides.concat([side]); sDoneSides(ds); if (!ex && other && ds.indexOf(other) < 0) sPhase("next"); else p.onClose(); };
+  var testOther = function() { sSide(other); sRes(null); openCamFor(other); };
+  var discard = function() { stopVoice(); sRes(null); sPhase("setup"); };
+  R.current.act = { go: go, finish: finish, close: function() { stop(); p.onClose(); } };
+  var busy = phase === "run" || phase === "count";
+  var showCam = phase === "loading" || phase === "aim" || phase === "count" || phase === "run";
+  var closeAll = function() { stop(); p.onClose(); };
+  var condObj = spec.conds ? spec.conds.find(function(c) { return c.id === cond; }) : null;
+  var history = function(r) { return (p.taps || []).filter(function(t) { return t.method === kind && t.hand === r.hand && (t.condition || null) === (r.condition || null) && t.source !== "estimated" && t.id !== r.id; }); };
+  return (<Mod onClose={busy ? function() {} : closeAll}>
+    <div className="flex justify-between items-center mb-3">
+      <h3 className="text-lg font-bold">{spec.emoji} {spec.title}</h3>
+      {!busy && <button onClick={closeAll} style={{ fontSize: "1.75rem", lineHeight: 1, width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#f3f4f6", border: "none", cursor: "pointer", color: "#6b7280" }}>×</button>}
+    </div>
+    {phase === "setup" && <div>
+      {spec.setup.map(function(t, i) { return <p key={i} className="text-sm text-gray-600 mb-2">{t}</p>; })}
+      {spec.conds && <div><div className="text-sm font-medium mb-2 mt-3">Which test?</div><div className="flex gap-2 mb-2">{spec.conds.map(function(c) { return <button key={c.id} onClick={function() { sCond(c.id); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (cond === c.id ? "bg-indigo-600 text-white" : "bg-gray-100")}>{c.label}</button>; })}</div>
+        {condObj && <p className="text-xs text-gray-600 bg-indigo-50 rounded-lg p-2 mb-3">{condObj.help}</p>}</div>}
+      {spec.sides === "single" && <div><div className="text-sm font-medium mb-2 mt-3">Which hand?</div><div className="flex gap-2 mb-3">{["left", "right"].map(function(h) { return <button key={h} onClick={function() { sSide(h); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (side === h ? "bg-indigo-600 text-white" : "bg-gray-100")}>{h === "left" ? "✋ Left" : "🤚 Right"}</button>; })}</div></div>}
+      <p className="text-xs text-gray-500 mb-4 mt-2">Hands free: once the camera is open, get into position and hold still for 2 seconds and it counts you in. The video stays on your phone; only the measurements are saved.</p>
+      <button onClick={function() { openCamFor(side); }} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">Open camera</button>
+    </div>}
+    <div style={{ display: showCam ? "block" : "none", position: "relative", borderRadius: "16px", overflow: "hidden", background: "#000", marginBottom: "12px" }}>
+      <video ref={vRef} playsInline muted autoPlay style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
+      <canvas ref={cRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "scaleX(-1)" }} />
+      {phase === "count" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "4rem", fontWeight: 800, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}>{count}</div>}
+      {phase === "run" && <div style={{ position: "absolute", top: 8, left: 12, right: 12, display: "flex", justifyContent: "space-between", color: "#fff", fontWeight: 800, fontSize: "1.4rem", textShadow: "0 2px 6px rgba(0,0,0,0.7)" }}><span>{live}</span><span>{clock}s</span></div>}
+      {(phase === "aim" || phase === "run") && !ready && <div style={{ position: "absolute", bottom: 8, left: 8, right: 8, background: "rgba(220,38,38,0.85)", color: "#fff", borderRadius: "10px", padding: "6px 10px", fontSize: "0.8rem", textAlign: "center" }}>{spec.model === "face" ? "Can't see your face" : spec.model === "pose" ? "Can't see enough of you. Step back so your whole body is in view." : spec.sides === "both" ? "Need both hands in view" : "Can't see your hand"}</div>}
+    </div>
+    {phase === "loading" && <p className="text-sm text-gray-500 text-center">{msg}</p>}
+    {phase === "aim" && <div>
+      <p className="text-sm text-gray-600 mb-2">{ready ? "Got you. Keep still and the test starts by itself." : spec.prompt({ side: side, cond: cond }) + " No need to touch the phone."}</p>
+      <div style={{ height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden", marginBottom: "8px" }}><div style={{ width: Math.round(hold * 100) + "%", height: "100%", background: "#6366f1", transition: "width 0.1s" }} /></div>
+      {hasVoice && <p className="text-xs text-gray-400 mb-3">🎙️ Or say "start". {heard ? "Heard: “" + heard.slice(-40) + "”" : ""}</p>}
+      <button onClick={function() { stop(); sPhase("setup"); }} className="w-full mt-2 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Back</button>
+    </div>}
+    {phase === "run" && condObj && <p className="text-xs text-gray-500 text-center">{condObj.help}</p>}
+    {phase === "run" && kind === "face" && <p className="text-sm text-gray-600 text-center">Talk about what you did yesterday, or your plans for today.</p>}
+    {phase === "error" && <div><p className="text-sm text-red-600 mb-3">{msg}</p><button onClick={function() { sPhase("setup"); }} className="w-full py-3 bg-gray-100 rounded-xl font-semibold text-sm">Back</button></div>}
+    {phase === "done" && res && <div>
+      {res.map(function(r) {
+        var prev = history(r), vals = prev.slice().sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); }).slice(0, 20).map(spec.main.get).filter(function(x) { return x != null; }).map(Number);
+        var med = tapMedian(vals), cur = spec.main.get(r), w = spec.warn(r);
+        return <div key={r.id} className="mb-4">
+          {spec.sides !== "none" && <div className="text-sm font-bold mb-1">{r.hand === "left" ? "✋ Left" : "🤚 Right"} {spec.model === "hand2" || spec.model === "hand1" ? "hand" : ""}</div>}
+          {spec.stats(r).map(function(row, i) { return <div key={i} className="grid grid-cols-3 gap-2 mb-2">{row}</div>; })}
+          {r._series && r._series.length > 1 && <div className="mb-2"><div className="flex items-end gap-px" style={{ height: "40px" }}>{(function() { var mx = Math.max.apply(null, r._series.map(function(t) { return t.amp; })) || 1; return r._series.map(function(t, i) { return <div key={i} style={{ flex: 1, height: Math.max(2, Math.round(t.amp / mx * 40)) + "px", background: "#818cf8", borderRadius: "1px" }} />; }); })()}</div></div>}
+          {med !== null && cur != null ? <div className="text-sm">{(function() { var d = med ? Math.round((cur - med) / med * 100) : 0; var good = spec.main.higher ? d >= 5 : d <= -5, bad = spec.main.higher ? d <= -5 : d >= 5; return <span>Your usual {spec.main.label}: <b>{Math.round(med * 10) / 10}</b>. Today: <b className={good ? "text-green-600" : bad ? "text-red-600" : "text-gray-700"}>{d > 0 ? "+" : ""}{d}%</b>.</span>; })()}</div>
+            : <p className="text-xs text-gray-500">First result like this. Comparisons start from the next one.</p>}
+          {r.trackPct != null && r.trackPct < 80 && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-2">The camera lost track for {100 - r.trackPct}% of the test, so these numbers are less reliable.</p>}
+          {w && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-2">{w}</p>}
+        </div>; })}
+      <div className="text-sm text-gray-600 mb-2">{tapSinceLabel(res[0].minsSinceDose)}{res[0].ooState ? " · " + (res[0].ooState === "on" ? "🟢 ON" : "🔴 OFF") : ""}</div>
+      <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mb-1" />
+      {ex ? <SaveDel canDel={true} color="bg-indigo-600" label="Update" onDel={function() { p.onDelete(ex.id); p.onClose(); }} onSave={function() { p.onSave(clean(ex)); p.onClose(); }} />
+        : <div className="flex gap-2 mt-3"><button onClick={discard} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Discard</button><button onClick={save} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm">Save</button></div>}
+    </div>}
+    {phase === "next" && <div className="text-center py-6">
+      <div className="text-5xl mb-3">{other === "left" ? "✋" : "🤚"}</div>
+      <div className="text-lg font-bold mb-1">Saved. Test your {other} hand now?</div>
+      <p className="text-sm text-gray-500 mb-5">Same as before: get into position and it starts by itself.</p>
+      <button onClick={testOther} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold mb-2">Yes, test {other} hand</button>
+      <button onClick={function() { p.onClose(); }} className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">No, finish</button>
+    </div>}
+  </Mod>);
+}
+// History / report text for every tap_tests row, whatever the method.
+function tapRowTitle(t) {
+  var sp = MOTOR_SPECS[t.method]; if (sp) return sp.title2(t);
+  var hd = (t.hand === "left" ? "left" : "right") + " hand";
+  if (t.method === "rotation") return "🔄 " + t.taps + " arm turns · " + (t.hand === "left" ? "left" : "right") + " arm";
+  return (t.method === "camera" ? "📷 " : "👆 ") + t.taps + " taps · " + hd;
+}
+function tapRowSub(t) {
+  var sp = MOTOR_SPECS[t.method]; if (sp) return sp.sub(t);
+  var s = "";
+  if (t.method === "rotation" && t.ampMean != null) s += " · " + Math.round(t.ampMean) + "° per turn" + (t.ampDecrementPct != null ? ", " + (t.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(t.ampDecrementPct)) + "%" : "");
+  if (t.method === "camera" && t.ampMean != null) s += " · opening " + Math.round(t.ampMean * 100) + "%" + (t.ampDecrementPct != null ? ", " + (t.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(t.ampDecrementPct)) + "%" : "");
+  if (t.cvPct != null) s += " · rhythm " + t.cvPct + "%";
+  return s;
+}
+var MOTOR_MENU = [
+  { type: "camtap", emoji: "📷", title: "Finger tapping", sub: "Thumb and index, 60s, one hand at a time" },
+  { type: "m_openclose", emoji: "🖐️", title: "Hand open/close", sub: "Fist to open hand, 60s, one hand at a time" },
+  { type: "rot", emoji: "🔄", title: "Arm turns", sub: "Palm up, palm down, 60s, one or both arms" },
+  { type: "m_tremor", emoji: "〰️", title: "Tremor", sub: "At rest or arms out, 30s, both hands" },
+  { type: "m_sts", emoji: "🪑", title: "Sit to stand ×5", sub: "Timed, needs a chair and space" },
+  { type: "m_gait", emoji: "🚶", title: "Walk & arm swing", sub: "30s, needs about 5 metres of floor" },
+  { type: "m_face", emoji: "🙂", title: "Blink & expression", sub: "Talk to the camera for 60s" },
+  { type: "tap", emoji: "👆", title: "Screen tap test", sub: "Tap two circles, 20s, no camera" }
+];
+function MotorHubMod(p) {
+  return (<Mod onClose={p.onClose}>
+    <div className="flex justify-between items-center mb-3">
+      <h3 className="text-lg font-bold">🧪 Motor Tests</h3>
+      <button onClick={p.onClose} style={{ fontSize: "1.75rem", lineHeight: 1, width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#f3f4f6", border: "none", cursor: "pointer", color: "#6b7280" }}>×</button>
+    </div>
+    {MOTOR_MENU.map(function(m) {
+      var last = (p.taps || []).filter(function(t) { var meth = m.type === "camtap" ? "camera" : m.type === "rot" ? "rotation" : m.type === "tap" ? "screen" : m.type.slice(2); return (t.method || "screen") === meth; }).sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0];
+      return <button key={m.type} onClick={function() { p.onPick(m.type); }} className="w-full flex items-center gap-3 bg-gray-50 rounded-xl p-3 mb-2 text-left">
+        <span style={{ fontSize: "1.6rem" }}>{m.emoji}</span>
+        <span className="flex-1"><span className="block font-semibold text-sm">{m.title}</span><span className="block text-xs text-gray-500">{m.sub}{last ? " · last " + fdt(last.loggedAt) : ""}</span></span>
+        <span className="text-gray-400">›</span></button>; })}
+  </Mod>);
+}
+
 // ── Pelvic floor trainer ────────────────────────────────────────────
 // Guided long holds + quick squeezes (the NHS / Squeezy programme:
 // work up to 10 x 10s holds and 10 quick squeezes, 3 times a day, for
@@ -2743,9 +3119,7 @@ var DEF_APP_BUTTONS = [
   { id: "slp",      emoji: "😴", label: "Sleep",     grad: "from-indigo-700 to-slate-600" },
   { id: "onoff_pie", emoji: "", label: "ON/OFF",    grad: "from-gray-200 to-gray-300", isPie: true },
   { id: "quick_sym", emoji: "⚡", label: "Quick Sym", grad: "from-red-600 to-pink-500", isQuickSym: true },
-  { id: "tap",      emoji: "👆", label: "Tap Test",  grad: "from-teal-600 to-emerald-500" },
-  { id: "camtap",   emoji: "📷", label: "Cam Tap",   grad: "from-cyan-600 to-teal-500" },
-  { id: "rot",      emoji: "🔄", label: "Arm Turns", grad: "from-indigo-600 to-violet-500" },
+  { id: "motor",    emoji: "🧪", label: "Motor Tests", grad: "from-indigo-600 to-teal-500" },
   { id: "pf",       emoji: "🌀", label: "Pelvic Floor", grad: "from-violet-600 to-fuchsia-500" },
 ];
 
@@ -3350,7 +3724,7 @@ function TodayPage(p) {
         if (it._t === "mood") return <button key={i.id} onClick={function() { setM({ type: "eMood", data: i }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{MOOD_EMOJI[i.level]} {MOOD_LABELS[i.level]}</span><span className="text-xs text-gray-400 ml-2">{(function(){ var ii = idIso(i.id); return (ii && dateOf(ii) === i.date) ? fdt(ii) : fdOnly(i.date); })()}</span></div></button>;
         if (it._t === "bowel") return <button key={i.id} onClick={function() { setM({ type: "eBowel", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}><span>{i.type === "urine" ? "💛 Urine" : "💩 Bowel" + (i.strain ? " ⚠️" : "")}</span><span className="text-xs text-gray-400 ml-2">{fdt(i.loggedAt)}</span></button>;
         if (it._t === "pf") return <button key={i.id} onClick={function() { setM({ type: "ePf", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.kind === "urge" ? "bg-rose-50" : "bg-violet-50")}><div className="flex justify-between"><span>{pfLabel(i)}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{pfSub(i)}</div></button>;
-        if (it._t === "tap") return <button key={i.id} onClick={function() { setM({ type: "eTap", data: i }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{i.method === "rotation" ? "🔄" : i.method === "camera" ? "📷" : "👆"} {i.taps} {i.method === "rotation" ? "arm turns" : "taps"} · {i.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(i.minsSinceDose)}{i.method === "rotation" && i.ampMean != null ? " · " + Math.round(i.ampMean) + "° per turn" + (i.ampDecrementPct != null ? ", " + (i.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(i.ampDecrementPct)) + "%" : "") : ""}{i.method === "camera" && i.ampMean != null ? " · opening " + Math.round(i.ampMean * 100) + "%" + (i.ampDecrementPct != null ? ", " + (i.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(i.ampDecrementPct)) + "%" : "") : ""}{i.cvPct != null ? " · rhythm " + i.cvPct + "%" : ""}</div></button>;
+        if (it._t === "tap") return <button key={i.id} onClick={function() { setM({ type: "eTap", data: i }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{tapRowTitle(i)}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(i.minsSinceDose)}{tapRowSub(i)}</div></button>;
         if (it._t === "activity") return <button key={i.id} onClick={function() { setM({ type: "eActivity", data: i }); }} className="w-full bg-pink-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>🧘 {i.type}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-600">{i.duration}min</div></button>;
         return null;
       });
@@ -3406,7 +3780,7 @@ function HistoryPage(p) {
           if (it._t === "mood") return <button key={it.id} onClick={function() { setM({ type: "eMood", data: it }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1 text-left text-sm">{MOOD_EMOJI[it.level]} {MOOD_LABELS[it.level]} ({it.level}/5)</button>;
           if (it._t === "bowel") return <button key={it.id} onClick={function() { setM({ type: "eBowel", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}>{it.type === "urine" ? "💛 Urine" : "💩 Bowel" + (it.strain ? " ⚠️" : "")}{it.note ? " · " + it.note : ""}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           if (it._t === "pf") return <button key={it.id} onClick={function() { setM({ type: "ePf", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (it.kind === "urge" ? "bg-rose-50" : "bg-violet-50")}><div className="flex justify-between"><span>{pfLabel(it)}</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{pfSub(it)}</div></button>;
-          if (it._t === "tap") return <button key={it.id} onClick={function() { setM({ type: "eTap", data: it }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{it.method === "rotation" ? "🔄" : it.method === "camera" ? "📷" : "👆"} {it.taps} {it.method === "rotation" ? "arm turns" : "taps"} · {it.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(it.minsSinceDose)}{it.method === "rotation" && it.ampMean != null ? " · " + Math.round(it.ampMean) + "° per turn" + (it.ampDecrementPct != null ? ", " + (it.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(it.ampDecrementPct)) + "%" : "") : ""}{it.method === "camera" && it.ampMean != null ? " · opening " + Math.round(it.ampMean * 100) + "%" + (it.ampDecrementPct != null ? ", " + (it.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(it.ampDecrementPct)) + "%" : "") : ""}{it.cvPct != null ? " · rhythm " + it.cvPct + "%" : ""}</div></button>;
+          if (it._t === "tap") return <button key={it.id} onClick={function() { setM({ type: "eTap", data: it }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{tapRowTitle(it)}</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(it.minsSinceDose)}{tapRowSub(it)}</div></button>;
           if (it._t === "activity") return <button key={it.id} onClick={function() { setM({ type: "eActivity", data: it }); }} className="w-full bg-pink-50 rounded-xl p-2.5 mb-1 text-left text-sm">🧘 {it.type} · {it.duration}min<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           return null;
         })}
@@ -4196,6 +4570,8 @@ function App() {
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
     {modal && modal.type === "pf" && <PelvicMod logs={logs} oo={oo} pf={pf} onSave={function(t) { aPf(t); }} onClose={close} />}
     {modal && modal.type === "ePf" && <PelvicMod existing={modal.data} logs={logs} oo={oo} pf={pf} onSave={function(t) { uPf(t); }} onDelete={function(id) { dPf(id); }} onClose={close} />}
+    {modal && modal.type === "motor" && <MotorHubMod taps={taps} onPick={function(t) { sModal({ type: t }); }} onClose={close} />}
+    {modal && modal.type && modal.type.indexOf("m_") === 0 && <MotorCamMod kind={modal.type.slice(2)} logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "rot" && <RotTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "camtap" && <CamTapMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "tap" && <TapTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
