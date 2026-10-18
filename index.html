@@ -159,7 +159,7 @@ async function generateReport(period, data) {
     if (data.weight && data.weight.length) { var ws = data.weight.slice().sort(function(a, b) { return (a.date || "").localeCompare(b.date || ""); }); summary += "\nWEIGHT (" + ws.length + " entries):\n"; ws.forEach(function(w, i) { var diff = i > 0 ? (w.weight - ws[i - 1].weight).toFixed(1) : null; summary += "- " + w.date + " " + w.weight + "kg" + (diff !== null ? " (" + (parseFloat(diff) > 0 ? "+" : "") + diff + "kg)" : "") + "\n"; }); }
     if (data.mood && data.mood.length) { summary += "\nMOOD (" + data.mood.length + " entries):\n"; data.mood.forEach(function(m) { summary += "- " + m.date + " " + ["", "Awful", "Low", "OK", "Good", "Great"][m.level] + " " + m.level + "/5\n"; }); var avg = (data.mood.reduce(function(s, m) { return s + m.level; }, 0) / data.mood.length).toFixed(1); summary += "Average mood: " + avg + "/5\n"; }
     if (data.bowel && data.bowel.length) { summary += "\nBOWEL (" + data.bowel.length + " entries):\n"; data.bowel.forEach(function(b) { summary += "- " + (b.loggedAt || "").slice(0, 16) + (b.strain ? " STRAINING" : "") + " " + (b.note || "") + "\n"; }); }
-    if (data.taps && data.taps.length) { summary += "\nFINGER TAPPING TESTS (" + data.taps.length + "). SCREEN = " + TAP_SECS + "s two-target alternating index-finger taps (more taps = less bradykinesia, lower CV = steadier). CAMERA = " + CAM_TAP_SECS + "s thumb-index tapping tracked by phone camera, MDS-UPDRS 3.4 style: amp = average opening as fraction of hand size, decrement = % drop in opening from first to last 10 taps (sequence effect), hesitations = gaps >2x median interval. Compare camera with camera and screen with screen only:\n"; data.taps.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(t) { var cam = t.method === "camera"; summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + (cam ? "CAMERA " : "SCREEN ") + t.hand + " hand " + t.taps + " taps CV:" + (t.cvPct == null ? "?" : t.cvPct + "%") + (cam ? " amp:" + (t.ampMean == null ? "?" : t.ampMean) + " decrement:" + (t.ampDecrementPct == null ? "?" : t.ampDecrementPct + "%") + " hesitations:" + (t.hesitations == null ? "?" : t.hesitations) + " tracked:" + (t.trackPct == null ? "?" : t.trackPct + "%") : " misses:" + (t.misses || 0)) + " " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; }); }
+    if (data.taps && data.taps.length) { summary += "\nFINGER TAPPING TESTS (" + data.taps.length + "). SCREEN = " + TAP_SECS + "s two-target alternating index-finger taps (more taps = less bradykinesia, lower CV = steadier). CAMERA = " + CAM_TAP_SECS + "s thumb-index tapping tracked by phone camera, MDS-UPDRS 3.4 style: amp = average opening as fraction of hand size, decrement = % drop in opening from first to last 10 taps (sequence effect), hesitations = gaps >2x median interval. ROTATION = " + ROT_SECS + "s rapid forearm pronation/supination tracked by camera (MDS-UPDRS 3.6 style): taps = number of turns, amp = average degrees per turn, decrement = % drop in turn size first vs last 10. Compare each method only with itself:\n"; data.taps.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(t) { var cam = t.method === "camera" || t.method === "rotation"; summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + (t.method === "rotation" ? "ROTATION " : cam ? "CAMERA " : "SCREEN ") + t.hand + " hand " + t.taps + " taps CV:" + (t.cvPct == null ? "?" : t.cvPct + "%") + (cam ? " amp:" + (t.ampMean == null ? "?" : t.ampMean) + " decrement:" + (t.ampDecrementPct == null ? "?" : t.ampDecrementPct + "%") + " hesitations:" + (t.hesitations == null ? "?" : t.hesitations) + " tracked:" + (t.trackPct == null ? "?" : t.trackPct + "%") : " misses:" + (t.misses || 0)) + " " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; }); }
     if (data.pf && data.pf.length) { var pfS = data.pf.filter(function(x) { return x.kind !== "urge"; }), pfU = data.pf.filter(function(x) { return x.kind === "urge"; }); summary += "\nPELVIC FLOOR TRAINING (" + pfS.length + " sessions, target 3/day; " + pfU.length + " urge drills):\n"; data.pf.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(x) { summary += "- " + (x.loggedAt || "").slice(0, 16) + (x.kind === "urge" ? " URGE DRILL outcome=" + (x.urgeOutcome || "?") : " " + x.longReps + "x" + x.holdS + "s holds + " + x.quickReps + " quick, " + (x.position || "") + ", effort=" + (x.effort || "?") + (x.completed === false ? ", stopped early" : "")) + (x.minsSinceDose != null ? ", " + x.minsSinceDose + " min after levodopa" : "") + "\n"; }); }
     if (data.activity && data.activity.length) { summary += "\nACTIVITIES/THERAPIES (" + data.activity.length + "):\n"; data.activity.forEach(function(a) { summary += "- " + (a.loggedAt || "").slice(0, 16) + " " + a.type + " " + a.duration + "min\n"; }); }
     var response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v95 Oct18 — Cam Tap: softer voice, start/stop only, offers other hand";
+var BUILD_VERSION = "v96 Oct18 — Arm Turns camera test (forearm rotation, both arms)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -1884,6 +1884,7 @@ function tapSinceLabel(m) { if (m === null || m === undefined) return "no dose l
 function TapTestMod(p) {
   var [mode, sMode] = useState(function() { if (p.existing) return p.existing.method === "camera" ? "camera" : "screen"; try { return localStorage.getItem("pd_tap_mode") || "screen"; } catch (e) { return "screen"; } });
   var pick = function(m) { try { localStorage.setItem("pd_tap_mode", m); } catch (e) {} sMode(m); };
+  if (p.existing && p.existing.method === "rotation") return <RotTestMod {...p} />;
   if (mode === "camera") return <CamTapMod {...p} onBack={p.existing ? null : function() { pick("screen"); }} />;
   return <ScreenTapMod {...p} onCamera={function() { pick("camera"); }} />;
 }
@@ -1983,15 +1984,16 @@ var CAM_TAP_SECS = 60;
 var MP_VER = "0.10.14";
 var MP_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MP_VER;
 var MP_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
-var _mpLandmarker = null;
-async function mpLoad() {
-  if (_mpLandmarker) return _mpLandmarker;
+var _mpLandmarker = {};
+async function mpLoad(nHands) {
+  var nh = nHands || 1;
+  if (_mpLandmarker[nh]) return _mpLandmarker[nh];
   // Function wrapper keeps Babel from rewriting the dynamic import.
   var vision = await (new Function("u", "return import(u)"))(MP_BASE + "/vision_bundle.mjs");
   var fs = await vision.FilesetResolver.forVisionTasks(MP_BASE + "/wasm");
-  var make = function(dlg) { return vision.HandLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: MP_MODEL, delegate: dlg }, runningMode: "VIDEO", numHands: 1, minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5 }); };
-  try { _mpLandmarker = await make("GPU"); } catch (e) { _mpLandmarker = await make("CPU"); }
-  return _mpLandmarker;
+  var make = function(dlg) { return vision.HandLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: MP_MODEL, delegate: dlg }, runningMode: "VIDEO", numHands: nh, minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5 }); };
+  try { _mpLandmarker[nh] = await make("GPU"); } catch (e) { _mpLandmarker[nh] = await make("CPU"); }
+  return _mpLandmarker[nh];
 }
 function camAperture(lm, w, h) {
   var dx = function(a, b) { var x = (lm[a].x - lm[b].x) * w, y = (lm[a].y - lm[b].y) * h; return Math.sqrt(x * x + y * y); };
@@ -2238,6 +2240,245 @@ function CamTapMod(p) {
       <div className="text-lg font-bold mb-1">Saved. Test your {otherHand} hand now?</div>
       <p className="text-sm text-gray-500 mb-5">Same as before: hold it up to the camera and it starts by itself.</p>
       <button onClick={testOther} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold mb-2">Yes, test {otherHand} hand</button>
+      <button onClick={function() { p.onClose(); }} className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">No, finish</button>
+    </div>}
+  </Mod>);
+}
+
+// ── Arm rotation test (v96) ─────────────────────────────────────────
+// Rapid alternating forearm rotation, palm down / palm up, after the
+// MDS-UPDRS 3.6 pronation-supination item, for ROT_SECS. Arms straight out
+// pointing at the phone, so each turn rotates the hand in the camera image.
+// The angle of the knuckle line (index knuckle to little-finger knuckle) is
+// tracked per hand; each change of direction is one turn. Range = degrees
+// turned per turn. Stored in tap_tests with method "rotation": taps = turns,
+// amp_* in degrees. Both hands can be recorded at once.
+var ROT_SECS = 60;
+function rotAngle(lm, w, h) { return Math.atan2((lm[17].y - lm[5].y) * h, (lm[17].x - lm[5].x) * w) * 180 / Math.PI; }
+function rotUnwrap(raw) {
+  var out = [], last = null, acc = 0;
+  raw.forEach(function(s) {
+    if (s.a == null) { out.push({ t: s.t, d: null }); return; }
+    if (last === null) { acc = s.a; } else { var dd = s.a - last; while (dd > 180) dd -= 360; while (dd < -180) dd += 360; acc += dd; }
+    last = s.a; out.push({ t: s.t, d: acc });
+  });
+  return out;
+}
+function rotAnalyse(raw, secs) {
+  var seen = raw.filter(function(s) { return s.a != null; });
+  var trackPct = raw.length ? Math.round(seen.length / raw.length * 100) : 0;
+  var u = rotUnwrap(raw);
+  var sm = u.map(function(s, i) { if (s.d == null) return s; var a = [u[i - 1], s, u[i + 1]].filter(function(x) { return x && x.d != null; }); return { t: s.t, d: a.reduce(function(z, x) { return z + x.d; }, 0) / a.length }; });
+  var vals = sm.filter(function(s) { return s.d != null; }).map(function(s) { return s.d; }).sort(function(a, b) { return a - b; });
+  var pct = function(q) { return vals.length ? vals[Math.min(vals.length - 1, Math.floor(q * vals.length))] : 0; };
+  var delta = Math.max(0.25 * (pct(0.95) - pct(0.05)), 25);
+  // Each reversal (either direction) is a turn; amplitude = degrees since the previous reversal.
+  var turns = [], seek = null, cur = null, prev = null;
+  sm.forEach(function(s) {
+    if (s.d == null) return;
+    if (cur === null) { cur = { t: s.t, d: s.d }; return; }
+    if (seek === null) { if (Math.abs(s.d - cur.d) >= delta) { seek = s.d > cur.d ? "max" : "min"; prev = cur; cur = { t: s.t, d: s.d }; } else if (Math.abs(s.d - cur.d) < 1) cur = { t: s.t, d: s.d }; return; }
+    if (seek === "max") { if (s.d > cur.d) cur = { t: s.t, d: s.d }; else if (cur.d - s.d >= delta) { turns.push({ t: cur.t, amp: Math.abs(cur.d - prev.d) }); prev = cur; seek = "min"; cur = { t: s.t, d: s.d }; } }
+    else { if (s.d < cur.d) cur = { t: s.t, d: s.d }; else if (s.d - cur.d >= delta) { turns.push({ t: cur.t, amp: Math.abs(cur.d - prev.d) }); prev = cur; seek = "max"; cur = { t: s.t, d: s.d }; } }
+  });
+  if (seek && prev && cur && Math.abs(cur.d - prev.d) >= delta) turns.push({ t: cur.t, amp: Math.abs(cur.d - prev.d) });
+  var times = turns.map(function(t) { return t.t; }), c = tapCalc(times);
+  var it = []; for (var i = 1; i < times.length; i++) it.push(times[i] - times[i - 1]);
+  var medIt = tapMedian(it), hes = medIt ? it.filter(function(x) { return x > 2 * medIt; }).length : null;
+  var amps = turns.map(function(t) { return t.amp; }), k = Math.min(10, Math.floor(amps.length / 3));
+  var avg = function(a) { return a.length ? a.reduce(function(z, x) { return z + x; }, 0) / a.length : null; };
+  var r0 = function(x) { return x == null ? null : Math.round(x); };
+  var first = k >= 3 ? avg(amps.slice(0, k)) : null, last = k >= 3 ? avg(amps.slice(-k)) : null;
+  return { taps: turns.length, meanItiMs: c.meanItiMs, cvPct: c.cvPct, ampMean: r0(avg(amps)), ampFirst: r0(first), ampLast: r0(last),
+    ampDecrementPct: (first && last) ? Math.round((first - last) / first * 1000) / 10 : null, hesitations: hes, trackPct: trackPct, series: turns };
+}
+function RotTestMod(p) {
+  var ex = p.existing || null;
+  var [mode, sMode] = useState(function() { if (ex) return ex.hand; try { return localStorage.getItem("pd_rot_mode") || "both"; } catch (e) { return "both"; } });
+  var [phase, sPhase] = useState(ex ? "done" : "setup");
+  var [msg, sMsg] = useState("");
+  var [count, sCount] = useState(3);
+  var [left, sLeft] = useState(ROT_SECS);
+  var [live, sLive] = useState({ left: 0, right: 0 });
+  var [seen, sSeen] = useState({ left: false, right: false });
+  var [hold, sHold] = useState(0);
+  var [heard, sHeard] = useState("");
+  var [hasVoice] = useState(function() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); });
+  var [res, sRes] = useState(ex ? [ex] : null);
+  var [note, sNote] = useState(ex ? (ex.note || "") : "");
+  var [doneHands, sDoneHands] = useState([]);
+  var vRef = React.useRef(null), cRef = React.useRef(null);
+  var R = React.useRef({ stream: null, raf: 0, timer: null, rec: false, t0: 0, samples: { left: [], right: [] }, lastTs: -1, phase: "", mode: "both", seenSince: 0, holdShown: 0, voice: null, act: {}, liveA: {}, seenKey: "" });
+  R.current.phase = phase; R.current.mode = mode;
+  var hands = mode === "both" ? ["left", "right"] : [mode];
+  var stopVoice = function() { var s = R.current; if (s.voice) { s.voice.stop(); s.voice = null; } };
+  var stop = function() { var s = R.current; cancelAnimationFrame(s.raf); clearInterval(s.timer); s.rec = false; stopVoice(); if (s.stream) { s.stream.getTracks().forEach(function(t) { t.stop(); }); s.stream = null; } };
+  useEffect(function() { return stop; }, []);
+  // Front camera image is not mirrored: the user's right hand is on the image's left.
+  var assign = function(lms, md) {
+    var o = {}; if (!lms || !lms.length) return o;
+    if (md !== "both") { var best = lms[0]; if (lms.length > 1) { best = lms.slice().sort(function(a, b) { return md === "right" ? a[0].x - b[0].x : b[0].x - a[0].x; })[0]; } o[md] = best; return o; }
+    if (lms.length === 1) { o[lms[0][0].x < 0.5 ? "right" : "left"] = lms[0]; return o; }
+    var srt = lms.slice(0, 2).sort(function(a, b) { return a[0].x - b[0].x; }); o.right = srt[0]; o.left = srt[1]; return o;
+  };
+  var draw = function(by, w, h) {
+    var cv = cRef.current; if (!cv) return; var g = cv.getContext("2d"); cv.width = w; cv.height = h; g.clearRect(0, 0, w, h);
+    Object.keys(by).forEach(function(k) { var lm = by[k]; g.strokeStyle = k === "left" ? "#f59e0b" : "#0d9488"; g.lineWidth = 6;
+      g.beginPath(); g.moveTo(lm[5].x * w, lm[5].y * h); g.lineTo(lm[17].x * w, lm[17].y * h); g.stroke();
+      [5, 17].forEach(function(i) { g.fillStyle = "#fff"; g.beginPath(); g.arc(lm[i].x * w, lm[i].y * h, 7, 0, 6.3); g.fill(); }); });
+  };
+  var loop = function(det) {
+    var s = R.current, v = vRef.current;
+    if (!v || !s.stream) return;
+    if (v.readyState >= 2 && v.currentTime !== s.lastTs) {
+      s.lastTs = v.currentTime;
+      var now = performance.now(), out = null;
+      try { out = det.detectForVideo(v, now); } catch (e) {}
+      var by = assign(out && out.landmarks, s.mode), W = v.videoWidth, H = v.videoHeight;
+      draw(by, W, H);
+      var need = s.mode === "both" ? ["left", "right"] : [s.mode];
+      var sk = need.map(function(k) { return by[k] ? 1 : 0; }).join("");
+      if (sk !== s.seenKey) { s.seenKey = sk; sSeen({ left: !!by.left, right: !!by.right }); }
+      var all = need.every(function(k) { return !!by[k]; });
+      if (s.phase === "aim") {
+        if (all) { if (!s.seenSince) s.seenSince = now; } else s.seenSince = 0;
+        var hh = s.seenSince ? Math.min(1, (now - s.seenSince) / CAM_HOLD_MS) : 0, hs = Math.round(hh * 10) / 10;
+        if (hs !== s.holdShown) { s.holdShown = hs; sHold(hs); }
+        if (hh >= 1 && s.act.go) { s.seenSince = 0; s.act.go(); }
+      }
+      if (s.rec) {
+        var changed = false;
+        need.forEach(function(k) {
+          var a = by[k] ? rotAngle(by[k], W, H) : null;
+          s.samples[k].push({ t: now, a: a });
+          // Rough live counter on the unwrapped angle.
+          var L = s.liveA[k] || (s.liveA[k] = { last: null, acc: 0, seek: null, cur: null, n: 0 });
+          if (a == null) return;
+          if (L.last === null) L.acc = a; else { var dd = a - L.last; while (dd > 180) dd -= 360; while (dd < -180) dd += 360; L.acc += dd; }
+          L.last = a;
+          if (L.cur === null) { L.cur = L.acc; return; }
+          if (L.seek === null) { if (Math.abs(L.acc - L.cur) >= 40) { L.seek = L.acc > L.cur ? "max" : "min"; L.cur = L.acc; } return; }
+          if (L.seek === "max") { if (L.acc > L.cur) L.cur = L.acc; else if (L.cur - L.acc >= 40) { L.n++; changed = true; L.seek = "min"; L.cur = L.acc; } }
+          else { if (L.acc < L.cur) L.cur = L.acc; else if (L.acc - L.cur >= 40) { L.n++; changed = true; L.seek = "max"; L.cur = L.acc; } }
+        });
+        if (changed) sLive({ left: s.liveA.left ? s.liveA.left.n : 0, right: s.liveA.right ? s.liveA.right.n : 0 });
+      }
+    }
+    s.raf = requestAnimationFrame(function() { loop(det); });
+  };
+  var handWords = function(md) { return md === "both" ? "both arms" : "your " + md + " arm"; };
+  var openCamFor = async function(md) {
+    try { localStorage.setItem("pd_rot_mode", md); } catch (e) {}
+    camSay(" "); sPhase("loading"); sMsg("Starting camera…");
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
+      R.current.stream = stream; var v = vRef.current; v.srcObject = stream; await v.play();
+      sMsg("Loading hand tracking (first time can take a few seconds)…");
+      var det = await mpLoad(2);
+      R.current.mode = md; sPhase("aim"); R.current.seenSince = 0; R.current.seenKey = ""; loop(det);
+      camSay("When you're ready, hold " + handWords(md) + " out straight towards the camera, palms down.", function() { if (R.current.phase !== "aim") return; stopVoice(); R.current.voice = camVoice(function(w) { sHeard(w); if (/\b(start|go|ready|yes)\b/.test(w) && R.current.act.go && R.current.phase === "aim") { R.current.act.go(); return true; } if (/\bcancel\b/.test(w)) { R.current.act.close && R.current.act.close(); return true; } return false; }); });
+    } catch (e) {
+      stop(); sPhase("error");
+      sMsg(e && e.name === "NotAllowedError" ? "Camera permission was refused. Allow camera access for this app in Settings, then try again." : "Couldn't start the camera test: " + (e && e.message ? e.message : e));
+    }
+  };
+  var openCam = function() { openCamFor(mode); };
+  var finish = function() {
+    var s = R.current; s.rec = false; clearInterval(s.timer);
+    var ctx = tapContext(p.logs, p.oo), stamp = new Date().toISOString(), base = Date.now().toString();
+    var out = hands.map(function(k) { var a = rotAnalyse(s.samples[k], ROT_SECS);
+      return { id: base + "_rot_" + k, loggedAt: stamp, hand: k, method: "rotation", durationS: ROT_SECS, taps: a.taps, meanItiMs: a.meanItiMs, cvPct: a.cvPct, misses: 0,
+        ampMean: a.ampMean, ampFirst: a.ampFirst, ampLast: a.ampLast, ampDecrementPct: a.ampDecrementPct, hesitations: a.hesitations, trackPct: a.trackPct,
+        minsSinceDose: ctx.minsSinceDose, ooState: ctx.ooState, note: mode === "both" ? "both arms together" : "", _series: a.series }; });
+    stop(); sRes(out); sNote(""); sPhase("done");
+    try { if (navigator.vibrate) navigator.vibrate(200); } catch (e) {}
+    camSay("And stop. Well done.");
+  };
+  var go = function() {
+    var s = R.current; if (s.phase !== "aim") return; stopVoice(); s.phase = "count";
+    sPhase("count"); sCount(3); var c = 3; camSay("Three...");
+    s.timer = setInterval(function() {
+      c--; if (c > 0) { sCount(c); camSay(c === 2 ? "Two..." : "One..."); return; }
+      clearInterval(s.timer); camSay("And go.");
+      s.samples = { left: [], right: [] }; s.liveA = {}; sLive({ left: 0, right: 0 }); s.t0 = performance.now(); s.rec = true; sLeft(ROT_SECS); sPhase("run");
+      s.timer = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sLeft(Math.max(0, Math.ceil(ROT_SECS - el))); if (el >= ROT_SECS) finish(); }, 100);
+    }, 1000);
+  };
+  var history = function(k) { return (p.taps || []).filter(function(t) { return t.method === "rotation" && t.hand === k && t.source !== "estimated" && !(res || []).some(function(r) { return r.id === t.id; }); })
+    .sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); }); };
+  var clean = function(r) { var o = Object.assign({}, r); if (!ex) o.note = [r.note, note].filter(Boolean).join(" · "); else o.note = note; delete o._series; return o; };
+  var otherHand = (mode === "left" || mode === "right") ? (mode === "right" ? "left" : "right") : null;
+  var save = function() { stopVoice(); res.forEach(function(r) { p.onSave(clean(r)); }); var dh = doneHands.concat(res.map(function(r) { return r.hand; })); sDoneHands(dh);
+    if (!ex && otherHand && dh.indexOf(otherHand) < 0) sPhase("next"); else p.onClose(); };
+  var testOther = function() { var nh = otherHand; sMode(nh); sRes(null); openCamFor(nh); };
+  var discard = function() { stopVoice(); sRes(null); sPhase("setup"); };
+  var busy = phase === "run" || phase === "count";
+  R.current.act = { go: go, close: function() { stop(); p.onClose(); } };
+  var showCam = phase === "loading" || phase === "aim" || phase === "count" || phase === "run";
+  var closeAll = function() { stop(); p.onClose(); };
+  var allSeen = hands.every(function(k) { return seen[k]; });
+  var lbl = function(k) { return k === "left" ? "✋ Left" : "🤚 Right"; };
+  return (<Mod onClose={busy ? function() {} : closeAll}>
+    <div className="flex justify-between items-center mb-3">
+      <h3 className="text-lg font-bold">🔄 Arm Turns</h3>
+      {!busy && <button onClick={closeAll} style={{ fontSize: "1.75rem", lineHeight: 1, width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#f3f4f6", border: "none", cursor: "pointer", color: "#6b7280" }}>×</button>}
+    </div>
+    {phase === "setup" && <div>
+      <p className="text-sm text-gray-600 mb-2">Prop the phone up in front of you at chest height. Hold your arm straight out, pointing at the phone, palm down.</p>
+      <p className="text-sm text-gray-600 mb-3">Turn your palm up, then down, then up, as <b>fast</b> and as <b>fully</b> as you can, for {ROT_SECS} seconds. Keep the arm straight; the turn comes from the forearm.</p>
+      <div className="text-sm font-medium mb-2">Which arm?</div>
+      <div className="flex gap-2 mb-4">{["left", "both", "right"].map(function(h) { return <button key={h} onClick={function() { sMode(h); }} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (mode === h ? "bg-indigo-600 text-white" : "bg-gray-100")}>{h === "both" ? "🙌 Both" : lbl(h)}</button>; })}</div>
+      <p className="text-xs text-gray-500 mb-4">Hands free: once the camera is open, hold {mode === "both" ? "both hands" : "your hand"} in view for 2 seconds and it counts you in. One arm at a time gives the cleanest result per side; both together is quicker. The video stays on your phone.</p>
+      <button onClick={openCam} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">Open camera</button>
+    </div>}
+    <div style={{ display: showCam ? "block" : "none", position: "relative", borderRadius: "16px", overflow: "hidden", background: "#000", marginBottom: "12px" }}>
+      <video ref={vRef} playsInline muted autoPlay style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
+      <canvas ref={cRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "scaleX(-1)" }} />
+      {phase === "count" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "4rem", fontWeight: 800, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}>{count}</div>}
+      {phase === "run" && <div style={{ position: "absolute", top: 8, left: 12, right: 12, display: "flex", justifyContent: "space-between", color: "#fff", fontWeight: 800, fontSize: "1.4rem", textShadow: "0 2px 6px rgba(0,0,0,0.7)" }}>
+        <span>{hands.indexOf("left") >= 0 ? "L " + live.left : ""}</span><span>{left}s</span><span>{hands.indexOf("right") >= 0 ? "R " + live.right : ""}</span></div>}
+      {(phase === "aim" || phase === "run") && !allSeen && <div style={{ position: "absolute", bottom: 8, left: 8, right: 8, background: "rgba(220,38,38,0.85)", color: "#fff", borderRadius: "10px", padding: "6px 10px", fontSize: "0.8rem", textAlign: "center" }}>{hands.filter(function(k) { return !seen[k]; }).map(function(k) { return k; }).join(" and ")} hand not in view</div>}
+    </div>
+    {phase === "loading" && <p className="text-sm text-gray-500 text-center">{msg}</p>}
+    {phase === "aim" && <div>
+      <p className="text-sm text-gray-600 mb-2">{allSeen ? "Got you. Keep still and the test starts by itself." : "Hold " + handWords(mode) + " out towards the camera, palm down. No need to touch the phone."}</p>
+      <div style={{ height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden", marginBottom: "8px" }}><div style={{ width: Math.round(hold * 100) + "%", height: "100%", background: "#6366f1", transition: "width 0.1s" }} /></div>
+      {hasVoice && <p className="text-xs text-gray-400 mb-3">🎙️ Or say "start". {heard ? "Heard: “" + heard.slice(-40) + "”" : ""}</p>}
+      <button onClick={function() { stop(); sPhase("setup"); }} className="w-full mt-2 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Back</button>
+    </div>}
+    {phase === "run" && <p className="text-xs text-gray-400 text-center">Palm up, palm down, as fast and as fully as you can. Live counts are approximate.</p>}
+    {phase === "error" && <div><p className="text-sm text-red-600 mb-3">{msg}</p><button onClick={function() { sPhase("setup"); }} className="w-full py-3 bg-gray-100 rounded-xl font-semibold text-sm">Back</button></div>}
+    {phase === "done" && res && <div>
+      {res.map(function(r) {
+        var prev = history(r.hand), med = tapMedian(prev.slice(0, 20).map(function(t) { return t.taps; })), medAmp = tapMedian(prev.slice(0, 20).filter(function(t) { return t.ampMean != null; }).map(function(t) { return Number(t.ampMean); }));
+        return <div key={r.id} className="mb-4">
+          <div className="text-sm font-bold mb-1">{lbl(r.hand)} arm</div>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <div className="bg-indigo-50 rounded-xl p-2 text-center"><div className="text-2xl font-bold text-indigo-700">{r.taps}</div><div className="text-[10px] text-gray-500">turns / {r.durationS || ROT_SECS}s</div></div>
+            <div className="bg-gray-50 rounded-xl p-2 text-center"><div className="text-2xl font-bold text-gray-700">{r.ampMean == null ? "–" : r.ampMean + "°"}</div><div className="text-[10px] text-gray-500">avg turn</div></div>
+            <div className="bg-gray-50 rounded-xl p-2 text-center"><div className={"text-2xl font-bold " + (r.ampDecrementPct != null && r.ampDecrementPct >= 20 ? "text-red-600" : "text-gray-700")}>{r.ampDecrementPct == null ? "–" : (r.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(r.ampDecrementPct)) + "%"}</div><div className="text-[10px] text-gray-500">turn size, start → end</div></div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <div className="bg-gray-50 rounded-xl p-2 text-center"><div className="text-lg font-bold text-gray-700">{r.cvPct == null ? "–" : r.cvPct + "%"}</div><div className="text-[10px] text-gray-500">rhythm variation</div></div>
+            <div className="bg-gray-50 rounded-xl p-2 text-center"><div className="text-lg font-bold text-gray-700">{r.hesitations == null ? "–" : r.hesitations}</div><div className="text-[10px] text-gray-500">hesitations</div></div>
+            <div className="bg-gray-50 rounded-xl p-2 text-center"><div className="text-lg font-bold text-gray-700">{r.trackPct == null ? "–" : r.trackPct + "%"}</div><div className="text-[10px] text-gray-500">hand tracked</div></div>
+          </div>
+          {r._series && r._series.length > 1 && <div className="mb-2"><div className="flex items-end gap-px" style={{ height: "40px" }}>{(function() { var mx = Math.max.apply(null, r._series.map(function(t) { return t.amp; })) || 1; return r._series.map(function(t, i) { return <div key={i} style={{ flex: 1, height: Math.max(2, Math.round(t.amp / mx * 40)) + "px", background: "#818cf8", borderRadius: "1px" }} />; }); })()}</div></div>}
+          {med !== null ? <div className="text-sm">{(function() { var d = Math.round((r.taps - med) / med * 100); var da = (medAmp && r.ampMean != null) ? Math.round((r.ampMean - medAmp) / medAmp * 100) : null; return <span>Usual: <b>{Math.round(med)}</b> turns{medAmp ? <span>, <b>{Math.round(medAmp)}°</b></span> : null}. Today: <b className={d >= 5 ? "text-green-600" : d <= -5 ? "text-red-600" : "text-gray-700"}>{d > 0 ? "+" : ""}{d}%</b> turns{da !== null ? <span>, <b className={da >= 5 ? "text-green-600" : da <= -5 ? "text-red-600" : "text-gray-700"}>{da > 0 ? "+" : ""}{da}%</b> range</span> : null}.</span>; })()}</div>
+            : <p className="text-xs text-gray-500">First {r.hand} arm test. Comparisons start from the next one.</p>}
+          {r.trackPct != null && r.trackPct < 80 && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-2">The camera lost this hand for {100 - r.trackPct}% of the test, so these numbers are less reliable.</p>}
+          {r.taps < 10 && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mt-2">Very few turns were detected. Keep the arm pointing at the camera and retest.</p>}
+        </div>; })}
+      <div className="text-sm text-gray-600 mb-2">{tapSinceLabel(res[0].minsSinceDose)}{res[0].ooState ? " · " + (res[0].ooState === "on" ? "🟢 ON" : "🔴 OFF") : ""}</div>
+      <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mb-1" />
+      {ex ? <SaveDel canDel={true} color="bg-indigo-600" label="Update" onDel={function() { p.onDelete(ex.id); p.onClose(); }} onSave={function() { p.onSave(clean(ex)); p.onClose(); }} />
+        : <div className="flex gap-2 mt-3"><button onClick={discard} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Discard</button><button onClick={save} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm">Save</button></div>}
+    </div>}
+    {phase === "next" && <div className="text-center py-6">
+      <div className="text-5xl mb-3">{otherHand === "left" ? "✋" : "🤚"}</div>
+      <div className="text-lg font-bold mb-1">Saved. Test your {otherHand} arm now?</div>
+      <p className="text-sm text-gray-500 mb-5">Same as before: hold it out to the camera and it starts by itself.</p>
+      <button onClick={testOther} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold mb-2">Yes, test {otherHand} arm</button>
       <button onClick={function() { p.onClose(); }} className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">No, finish</button>
     </div>}
   </Mod>);
@@ -2504,6 +2745,7 @@ var DEF_APP_BUTTONS = [
   { id: "quick_sym", emoji: "⚡", label: "Quick Sym", grad: "from-red-600 to-pink-500", isQuickSym: true },
   { id: "tap",      emoji: "👆", label: "Tap Test",  grad: "from-teal-600 to-emerald-500" },
   { id: "camtap",   emoji: "📷", label: "Cam Tap",   grad: "from-cyan-600 to-teal-500" },
+  { id: "rot",      emoji: "🔄", label: "Arm Turns", grad: "from-indigo-600 to-violet-500" },
   { id: "pf",       emoji: "🌀", label: "Pelvic Floor", grad: "from-violet-600 to-fuchsia-500" },
 ];
 
@@ -3108,7 +3350,7 @@ function TodayPage(p) {
         if (it._t === "mood") return <button key={i.id} onClick={function() { setM({ type: "eMood", data: i }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{MOOD_EMOJI[i.level]} {MOOD_LABELS[i.level]}</span><span className="text-xs text-gray-400 ml-2">{(function(){ var ii = idIso(i.id); return (ii && dateOf(ii) === i.date) ? fdt(ii) : fdOnly(i.date); })()}</span></div></button>;
         if (it._t === "bowel") return <button key={i.id} onClick={function() { setM({ type: "eBowel", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}><span>{i.type === "urine" ? "💛 Urine" : "💩 Bowel" + (i.strain ? " ⚠️" : "")}</span><span className="text-xs text-gray-400 ml-2">{fdt(i.loggedAt)}</span></button>;
         if (it._t === "pf") return <button key={i.id} onClick={function() { setM({ type: "ePf", data: i }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (i.kind === "urge" ? "bg-rose-50" : "bg-violet-50")}><div className="flex justify-between"><span>{pfLabel(i)}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{pfSub(i)}</div></button>;
-        if (it._t === "tap") return <button key={i.id} onClick={function() { setM({ type: "eTap", data: i }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{i.method === "camera" ? "📷" : "👆"} {i.taps} taps · {i.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(i.minsSinceDose)}{i.method === "camera" && i.ampMean != null ? " · opening " + Math.round(i.ampMean * 100) + "%" + (i.ampDecrementPct != null ? ", " + (i.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(i.ampDecrementPct)) + "%" : "") : ""}{i.cvPct != null ? " · rhythm " + i.cvPct + "%" : ""}</div></button>;
+        if (it._t === "tap") return <button key={i.id} onClick={function() { setM({ type: "eTap", data: i }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{i.method === "rotation" ? "🔄" : i.method === "camera" ? "📷" : "👆"} {i.taps} {i.method === "rotation" ? "arm turns" : "taps"} · {i.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(i.minsSinceDose)}{i.method === "rotation" && i.ampMean != null ? " · " + Math.round(i.ampMean) + "° per turn" + (i.ampDecrementPct != null ? ", " + (i.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(i.ampDecrementPct)) + "%" : "") : ""}{i.method === "camera" && i.ampMean != null ? " · opening " + Math.round(i.ampMean * 100) + "%" + (i.ampDecrementPct != null ? ", " + (i.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(i.ampDecrementPct)) + "%" : "") : ""}{i.cvPct != null ? " · rhythm " + i.cvPct + "%" : ""}</div></button>;
         if (it._t === "activity") return <button key={i.id} onClick={function() { setM({ type: "eActivity", data: i }); }} className="w-full bg-pink-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>🧘 {i.type}</span><span className="text-xs text-gray-400">{fdt(i.loggedAt)}</span></div><div className="text-xs text-gray-600">{i.duration}min</div></button>;
         return null;
       });
@@ -3164,7 +3406,7 @@ function HistoryPage(p) {
           if (it._t === "mood") return <button key={it.id} onClick={function() { setM({ type: "eMood", data: it }); }} className="w-full bg-yellow-50 rounded-xl p-2.5 mb-1 text-left text-sm">{MOOD_EMOJI[it.level]} {MOOD_LABELS[it.level]} ({it.level}/5)</button>;
           if (it._t === "bowel") return <button key={it.id} onClick={function() { setM({ type: "eBowel", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1 text-left text-sm " + (it.type === "urine" ? "bg-yellow-50" : "bg-amber-50")}>{it.type === "urine" ? "💛 Urine" : "💩 Bowel" + (it.strain ? " ⚠️" : "")}{it.note ? " · " + it.note : ""}<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           if (it._t === "pf") return <button key={it.id} onClick={function() { setM({ type: "ePf", data: it }); }} className={"w-full rounded-xl p-2.5 mb-1.5 text-sm text-left " + (it.kind === "urge" ? "bg-rose-50" : "bg-violet-50")}><div className="flex justify-between"><span>{pfLabel(it)}</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{pfSub(it)}</div></button>;
-          if (it._t === "tap") return <button key={it.id} onClick={function() { setM({ type: "eTap", data: it }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{it.method === "camera" ? "📷" : "👆"} {it.taps} taps · {it.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(it.minsSinceDose)}{it.method === "camera" && it.ampMean != null ? " · opening " + Math.round(it.ampMean * 100) + "%" + (it.ampDecrementPct != null ? ", " + (it.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(it.ampDecrementPct)) + "%" : "") : ""}{it.cvPct != null ? " · rhythm " + it.cvPct + "%" : ""}</div></button>;
+          if (it._t === "tap") return <button key={it.id} onClick={function() { setM({ type: "eTap", data: it }); }} className="w-full bg-teal-50 rounded-xl p-2.5 mb-1.5 text-sm text-left"><div className="flex justify-between"><span>{it.method === "rotation" ? "🔄" : it.method === "camera" ? "📷" : "👆"} {it.taps} {it.method === "rotation" ? "arm turns" : "taps"} · {it.hand === "left" ? "left" : "right"} hand</span><span className="text-xs text-gray-400">{fdt(it.loggedAt)}</span></div><div className="text-xs text-gray-500">{tapSinceLabel(it.minsSinceDose)}{it.method === "rotation" && it.ampMean != null ? " · " + Math.round(it.ampMean) + "° per turn" + (it.ampDecrementPct != null ? ", " + (it.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(it.ampDecrementPct)) + "%" : "") : ""}{it.method === "camera" && it.ampMean != null ? " · opening " + Math.round(it.ampMean * 100) + "%" + (it.ampDecrementPct != null ? ", " + (it.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(it.ampDecrementPct)) + "%" : "") : ""}{it.cvPct != null ? " · rhythm " + it.cvPct + "%" : ""}</div></button>;
           if (it._t === "activity") return <button key={it.id} onClick={function() { setM({ type: "eActivity", data: it }); }} className="w-full bg-pink-50 rounded-xl p-2.5 mb-1 text-left text-sm">🧘 {it.type} · {it.duration}min<span className="text-gray-400 text-xs float-right">{ft(it.loggedAt)}</span></button>;
           return null;
         })}
@@ -3954,6 +4196,7 @@ function App() {
     {modal && modal.type === "eBowel" && <BowelMod existing={modal.data} onSave={function(b) { uBowel(b); close(); }} onDelete={function(id) { dBowel(id); close(); }} onClose={close} />}
     {modal && modal.type === "pf" && <PelvicMod logs={logs} oo={oo} pf={pf} onSave={function(t) { aPf(t); }} onClose={close} />}
     {modal && modal.type === "ePf" && <PelvicMod existing={modal.data} logs={logs} oo={oo} pf={pf} onSave={function(t) { uPf(t); }} onDelete={function(id) { dPf(id); }} onClose={close} />}
+    {modal && modal.type === "rot" && <RotTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "camtap" && <CamTapMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "tap" && <TapTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "eTap" && <TapTestMod existing={modal.data} logs={logs} oo={oo} taps={taps} onSave={function(t) { uTap(t); }} onDelete={function(id) { dTap(id); }} onClose={close} />}

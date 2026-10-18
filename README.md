@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v96)
+- **Arm Turns**: new 🔄 home button. 60s rapid forearm rotation (palm up / palm down, MDS-UPDRS 3.6 style) with arms pointing at the front camera. Tracks the knuckle line angle per hand; saves turns, degrees per turn, turn-size decrement first vs last 10, rhythm CV, hesitations and tracking %. Both arms together or one at a time (offers the other arm after saving). Same hands-free start and soft start/stop voice as Cam Tap. Stored in `tap_tests` with `method = 'rotation'` (amp_* in degrees).
+
 ### 2026-10-18 (v95)
 - **Cam Tap tweaks**: voice now only at start (prompt and countdown) and stop; no listening or spoken results after the test. Softer voice: picks the phone's Enhanced/Premium English voice if installed, slower and quieter. After saving one hand it asks whether to test the other hand now.
 
