@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v100)
+- MediaPipe library updated 0.10.14 to 0.10.35 (checksum verified). Deliberately not 1.x, which reports usage to Google.
+
 ### 2026-10-18 (v99)
 - Model files now in `vendor/mediapipe/models` (verified as genuine model bundles); Google fallback removed, so camera tests load only from this site.
 
