@@ -38,6 +38,9 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ## Changelog
 
+### 2026-10-18 (v104)
+- **Walk test robustness**: steps need only the feet and each arm only its own wrist (lower visibility bar for wrists), gaps up to 0.35 s are bridged, minimum clean stretch 1 s. Saves visibility diagnostics in extra.seen (body, feet, each wrist, turning %, clean seconds). Fixes a real run that tracked 59% but produced no figures.
+
 ### 2026-10-18 (v103)
 - **Walk test fix**: upper body visible with legs out of frame now counts as close to the phone (triggers Turn on the way in, no warning on the way back). Out-of-view warning only when the whole body is lost, and not within 3 s of a turn.
 
