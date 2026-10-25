@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v108 Oct18 — forms stay above the keyboard";
+var BUILD_VERSION = "v109 Oct25 — screen tap test always opens the screen test";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -1936,8 +1936,11 @@ function tapContext(logs, oo) {
 }
 function tapSinceLabel(m) { if (m === null || m === undefined) return "no dose logged in last 12h"; if (m < 60) return m + " min after dose"; return Math.floor(m / 60) + "h " + (m % 60) + "m after dose"; }
 function TapTestMod(p) {
-  var [mode, sMode] = useState(function() { if (p.existing) return p.existing.method === "camera" ? "camera" : "screen"; try { return localStorage.getItem("pd_tap_mode") || "screen"; } catch (e) { return "screen"; } });
-  var pick = function(m) { try { localStorage.setItem("pd_tap_mode", m); } catch (e) {} sMode(m); };
+  // v109: the "Screen tap test" button always opens the screen test. The old
+  // remembered choice (pd_tap_mode) made it open the camera test after the
+  // camera link had been used once; the camera test has its own home button.
+  var [mode, sMode] = useState(function() { if (p.existing) return p.existing.method === "camera" ? "camera" : "screen"; try { localStorage.removeItem("pd_tap_mode"); } catch (e) {} return "screen"; });
+  var pick = function(m) { sMode(m); };
   if (p.existing && p.existing.method === "rotation") return <RotTestMod {...p} />;
   if (p.existing && MOTOR_SPECS[p.existing.method]) return <MotorCamMod {...p} />;
   if (mode === "camera") return <CamTapMod {...p} onBack={p.existing ? null : function() { pick("screen"); }} />;
