@@ -159,7 +159,7 @@ async function generateReport(period, data) {
     if (data.weight && data.weight.length) { var ws = data.weight.slice().sort(function(a, b) { return (a.date || "").localeCompare(b.date || ""); }); summary += "\nWEIGHT (" + ws.length + " entries):\n"; ws.forEach(function(w, i) { var diff = i > 0 ? (w.weight - ws[i - 1].weight).toFixed(1) : null; summary += "- " + w.date + " " + w.weight + "kg" + (diff !== null ? " (" + (parseFloat(diff) > 0 ? "+" : "") + diff + "kg)" : "") + "\n"; }); }
     if (data.mood && data.mood.length) { summary += "\nMOOD (" + data.mood.length + " entries):\n"; data.mood.forEach(function(m) { summary += "- " + m.date + " " + ["", "Awful", "Low", "OK", "Good", "Great"][m.level] + " " + m.level + "/5\n"; }); var avg = (data.mood.reduce(function(s, m) { return s + m.level; }, 0) / data.mood.length).toFixed(1); summary += "Average mood: " + avg + "/5\n"; }
     if (data.bowel && data.bowel.length) { summary += "\nBOWEL (" + data.bowel.length + " entries):\n"; data.bowel.forEach(function(b) { summary += "- " + (b.loggedAt || "").slice(0, 16) + (b.strain ? " STRAINING" : "") + " " + (b.note || "") + "\n"; }); }
-    if (data.taps && data.taps.length) { summary += "\nFINGER TAPPING TESTS (" + data.taps.length + "). SCREEN = " + TAP_SECS + "s two-target alternating index-finger taps (more taps = less bradykinesia, lower CV = steadier). CAMERA = " + CAM_TAP_SECS + "s thumb-index tapping tracked by phone camera, MDS-UPDRS 3.4 style: amp = average opening as fraction of hand size, decrement = % drop in opening from first to last 10 taps (sequence effect), hesitations = gaps >2x median interval. ROTATION = " + ROT_SECS + "s rapid forearm pronation/supination tracked by camera (MDS-UPDRS 3.6 style): taps = number of turns, amp = average degrees per turn, decrement = % drop in turn size first vs last 10. Other camera tests: OPEN/CLOSE hand (3.5), TREMOR at rest/arms out (size as % of hand size, frequency in Hz), SIT-TO-STAND x5 (seconds, lower = better), WALK (cadence, arm swing per side in relative units, asymmetry %), FACE (blinks/min, expression movement). Compare each method only with itself:\n"; data.taps.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(t) { if (MOTOR_SPECS[t.method]) { summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + MOTOR_SPECS[t.method].summary(t) + " tracked:" + t.trackPct + "% " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; return; } var cam = t.method === "camera" || t.method === "rotation"; summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + (t.method === "rotation" ? "ROTATION " : cam ? "CAMERA " : "SCREEN ") + t.hand + " hand " + t.taps + " taps CV:" + (t.cvPct == null ? "?" : t.cvPct + "%") + (cam ? " amp:" + (t.ampMean == null ? "?" : t.ampMean) + " decrement:" + (t.ampDecrementPct == null ? "?" : t.ampDecrementPct + "%") + " hesitations:" + (t.hesitations == null ? "?" : t.hesitations) + " tracked:" + (t.trackPct == null ? "?" : t.trackPct + "%") : " misses:" + (t.misses || 0)) + " " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; }); }
+    if (data.taps && data.taps.length) { summary += "\nFINGER TAPPING TESTS (" + data.taps.length + "). SCREEN = " + TAP_SECS + "s two-target alternating index-finger taps (more taps = less bradykinesia, lower CV = steadier). CAMERA = " + CAM_TAP_SECS + "s thumb-index tapping tracked by phone camera, MDS-UPDRS 3.4 style: amp = average opening as fraction of hand size, decrement = % drop in opening from first to last 10 taps (sequence effect), hesitations = gaps >2x median interval. ROTATION = " + ROT_SECS + "s rapid forearm pronation/supination tracked by camera (MDS-UPDRS 3.6 style): taps = number of turns, amp = average degrees per turn, decrement = % drop in turn size first vs last 10. Other camera tests: OPEN/CLOSE hand (3.5), TREMOR at rest/arms out (size as % of hand size, frequency in Hz), SIT-TO-STAND x5 (seconds, lower = better), WALK (cadence, arm swing per side in relative units, asymmetry %), FACE (blinks/min, expression movement). VOICE = phone microphone speech test, MDS-UPDRS 3.1 style: sustained aah (seconds held, pitch wobble in cents, loudness wobble dB) then reading a fixed passage (loudness in dBFS from an uncalibrated mic, higher = louder, only comparable between voice tests; fade = last third minus first third in dB, negative = tailing off; pitch variation in semitones, lower = more monotone; pauses %). Compare each method only with itself:\n"; data.taps.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(t) { if (t.method === "voice") { var vx = t.extra || {}; summary += "- " + (t.loggedAt || "").slice(0, 16) + " VOICE loudness:" + vx.readDb + "dB fade:" + vx.readFadeDb + "dB pitchVar:" + vx.readPitchSdSt + "st pauses:" + vx.readPausePct + "% aah:" + vx.aahSecs + "s aahWobble:" + vx.aahPitchSdCents + "c " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; return; } if (MOTOR_SPECS[t.method]) { summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + MOTOR_SPECS[t.method].summary(t) + " tracked:" + t.trackPct + "% " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; return; } var cam = t.method === "camera" || t.method === "rotation"; summary += "- " + (t.loggedAt || "").slice(0, 16) + " " + (t.method === "rotation" ? "ROTATION " : cam ? "CAMERA " : "SCREEN ") + t.hand + " hand " + t.taps + " taps CV:" + (t.cvPct == null ? "?" : t.cvPct + "%") + (cam ? " amp:" + (t.ampMean == null ? "?" : t.ampMean) + " decrement:" + (t.ampDecrementPct == null ? "?" : t.ampDecrementPct + "%") + " hesitations:" + (t.hesitations == null ? "?" : t.hesitations) + " tracked:" + (t.trackPct == null ? "?" : t.trackPct + "%") : " misses:" + (t.misses || 0)) + " " + (t.minsSinceDose == null ? "no recent dose" : t.minsSinceDose + "min after levodopa") + (t.ooState ? " (" + t.ooState.toUpperCase() + ")" : "") + "\n"; }); }
     if (data.pf && data.pf.length) { var pfS = data.pf.filter(function(x) { return x.kind !== "urge"; }), pfU = data.pf.filter(function(x) { return x.kind === "urge"; }); summary += "\nPELVIC FLOOR TRAINING (" + pfS.length + " sessions, target 3/day; " + pfU.length + " urge drills):\n"; data.pf.slice().sort(function(a, b) { return (a.loggedAt || "").localeCompare(b.loggedAt || ""); }).forEach(function(x) { summary += "- " + (x.loggedAt || "").slice(0, 16) + (x.kind === "urge" ? " URGE DRILL outcome=" + (x.urgeOutcome || "?") : " " + x.longReps + "x" + x.holdS + "s holds + " + x.quickReps + " quick, " + (x.position || "") + ", effort=" + (x.effort || "?") + (x.completed === false ? ", stopped early" : "")) + (x.minsSinceDose != null ? ", " + x.minsSinceDose + " min after levodopa" : "") + "\n"; }); }
     if (data.activity && data.activity.length) { summary += "\nACTIVITIES/THERAPIES (" + data.activity.length + "):\n"; data.activity.forEach(function(a) { summary += "- " + (a.loggedAt || "").slice(0, 16) + " " + a.type + " " + a.duration + "min\n"; }); }
     var response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v109 Oct25 — screen tap test always opens the screen test";
+var BUILD_VERSION = "v110 Oct25 — voice test";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -1942,6 +1942,7 @@ function TapTestMod(p) {
   var [mode, sMode] = useState(function() { if (p.existing) return p.existing.method === "camera" ? "camera" : "screen"; try { localStorage.removeItem("pd_tap_mode"); } catch (e) {} return "screen"; });
   var pick = function(m) { sMode(m); };
   if (p.existing && p.existing.method === "rotation") return <RotTestMod {...p} />;
+  if (p.existing && p.existing.method === "voice") return <VoiceTestMod {...p} />;
   if (p.existing && MOTOR_SPECS[p.existing.method]) return <MotorCamMod {...p} />;
   if (mode === "camera") return <CamTapMod {...p} onBack={p.existing ? null : function() { pick("screen"); }} />;
   return <ScreenTapMod {...p} onCamera={function() { pick("camera"); }} />;
@@ -2982,14 +2983,237 @@ function MotorCamMod(p) {
     </div>}
   </Mod>);
 }
+// ── Voice test (v110) ───────────────────────────────────────────────
+// Speech changes in PD (MDS-UPDRS 3.1 style): quieter voice, flatter pitch,
+// loudness fading as you go on, more pauses. Two parts, both on the phone
+// microphone: a sustained "aah" for as long as is comfortable, then reading
+// a short passage aloud. No audio is stored; only the measurements, in
+// tap_tests with method "voice", hand "voice", numbers in extra. The phone
+// mic is not calibrated, so loudness is dB relative to the mic's maximum
+// (dBFS): it only means something compared with earlier voice tests done
+// with the phone in the same place, in a similarly quiet room.
+// Main number (ampMean) = reading loudness in dBFS, higher = louder.
+var VOICE_PASSAGE = "Every morning I walk down to the seafront before the town wakes up. The tide is usually out, and the mud shines like wet slate. A few gulls argue over something on the sand, and a man throws a ball for his dog, which never brings it back. By the time I reach the pier the cafe is opening, and the smell of toast and coffee drifts across the road. I buy a cup, sit on the wall, and watch the boats slowly come back to life.";
+var VOICE_GAP_DB = 12; // a frame counts as voice when this many dB above the quiet-room level
+// Pitch by normalised autocorrelation (McLeod style), 70 to 400 Hz.
+function vPitch(x, sr) {
+  var N = x.length, lo = Math.floor(sr / 400), hi = Math.min(Math.floor(sr / 70), N - 4), n = N - hi - 2;
+  if (n < 256) return null;
+  var ns = new Float32Array(hi + 2), mx = 0;
+  for (var lag = lo - 1; lag <= hi + 1; lag++) {
+    var r = 0, m = 0;
+    for (var i = 0; i < n; i++) { var a = x[i], b = x[i + lag]; r += a * b; m += a * a + b * b; }
+    ns[lag] = m > 0 ? 2 * r / m : 0;
+    if (lag >= lo && lag <= hi && ns[lag] > mx) mx = ns[lag];
+  }
+  if (mx < 0.6) return null;
+  var k = 0.85 * mx;
+  for (var L = lo; L <= hi; L++) {
+    if (ns[L] >= k && ns[L] >= ns[L - 1] && ns[L] >= ns[L + 1]) {
+      var a1 = ns[L - 1], b1 = ns[L], c1 = ns[L + 1], den = a1 - 2 * b1 + c1;
+      var sh = den !== 0 ? (a1 - c1) / (2 * den) : 0;
+      return sr / (L + Math.max(-0.5, Math.min(0.5, sh)));
+    }
+  }
+  return null;
+}
+function vMean(a) { return a.length ? a.reduce(function(s, v) { return s + v; }, 0) / a.length : null; }
+function vSd(a) { if (a.length < 3) return null; var m = vMean(a); return Math.sqrt(a.reduce(function(s, v) { return s + (v - m) * (v - m); }, 0) / (a.length - 1)); }
+function voiceAnalyse(noise, A, B) {
+  var thr = noise + VOICE_GAP_DB, x = { noiseDb: mR1(noise) };
+  var all = A.concat(B);
+  x.clipPct = all.length ? mR1(all.filter(function(f) { return f.clip; }).length / all.length * 100) : 0;
+  // Part 1: the longest stretch of voice in the "aah", allowing breaks under 0.3 s.
+  var best = null, cur = null;
+  A.forEach(function(f) { if (f.db <= thr) return; if (cur && f.t - cur.e <= 300) cur.e = f.t; else { cur = { s: f.t, e: f.t }; } if (!best || cur.e - cur.s > best.e - best.s) best = { s: cur.s, e: cur.e }; });
+  if (best && best.e - best.s >= 500) {
+    x.aahSecs = mR1((best.e - best.s) / 1000);
+    var inRun = A.filter(function(f) { return f.t >= best.s && f.t <= best.e && f.db > thr; });
+    x.aahDb = mR1(vMean(inRun.map(function(f) { return f.db; })));
+    var mid = inRun.filter(function(f) { return f.t >= best.s + 500 && f.t <= best.e - 500; });
+    var f0s = mid.map(function(f) { return f.f0; }).filter(function(v) { return v; });
+    if (f0s.length >= 10) {
+      var med = tapMedian(f0s), cents = f0s.map(function(v) { return 1200 * Math.log2(v / med); }).filter(function(c) { return Math.abs(c) <= 600; });
+      x.aahPitchHz = Math.round(med); x.aahPitchSdCents = cents.length >= 10 ? Math.round(vSd(cents)) : null;
+    }
+    if (mid.length >= 10) x.aahLoudSdDb = mR1(vSd(mid.map(function(f) { return f.db; })));
+  } else x.aahSecs = null;
+  // Part 2: reading. Span = first to last voiced frame.
+  var sp = B.filter(function(f) { return f.db > thr; });
+  if (sp.length >= 20) {
+    var t0 = sp[0].t, t1 = sp[sp.length - 1].t, span = t1 - t0;
+    x.readSecs = mR1(span / 1000);
+    x.readDb = mR1(vMean(sp.map(function(f) { return f.db; })));
+    var third = span / 3;
+    var first = sp.filter(function(f) { return f.t < t0 + third; }).map(function(f) { return f.db; }), last = sp.filter(function(f) { return f.t > t1 - third; }).map(function(f) { return f.db; });
+    if (first.length >= 5 && last.length >= 5) x.readFadeDb = mR1(vMean(last) - vMean(first));
+    var rf = sp.map(function(f) { return f.f0; }).filter(function(v) { return v; });
+    if (rf.length >= 20) {
+      var rmed = tapMedian(rf), st = rf.map(function(v) { return 12 * Math.log2(v / rmed); }).filter(function(s) { return Math.abs(s) <= 12; });
+      x.readPitchHz = Math.round(rmed); x.readPitchSdSt = st.length >= 20 ? mR1(vSd(st)) : null;
+    }
+    // Pauses: silent gaps of a quarter second or more inside the reading.
+    var pauseMs = 0, pauses = 0, lastV = null;
+    B.forEach(function(f) { if (f.t < t0 || f.t > t1 || f.db <= thr) return; if (lastV != null && f.t - lastV >= 250) { pauseMs += f.t - lastV; pauses++; } lastV = f.t; });
+    x.readPausePct = span > 0 ? Math.round(pauseMs / span * 100) : null; x.readPauses = pauses;
+  } else x.readDb = null;
+  return x;
+}
+function voiceWarn(x) {
+  var w = [];
+  if (x.noiseDb != null && x.noiseDb > -45) w.push("The room was fairly noisy, so these numbers are less reliable. A quiet room works best.");
+  if (x.clipPct > 2) w.push("Your voice overloaded the microphone at times. Put the phone a little further away next time, in the same spot each time.");
+  if (x.aahSecs == null) w.push("No steady “aah” was heard.");
+  if (x.readDb == null) w.push("Not enough reading was heard to measure.");
+  return w;
+}
+function VoiceTestMod(p) {
+  var ex = p.existing || null;
+  var [phase, sPhase] = useState(ex ? "done" : "setup");
+  var [msg, sMsg] = useState("");
+  var [clock, sClock] = useState(0);
+  var [level, sLevel] = useState(0);
+  var [res, sRes] = useState(ex);
+  var [note, sNote] = useState(ex ? (ex.note || "") : "");
+  var R = React.useRef({ ctx: null, stream: null, an: null, buf: null, timer: null, clockT: null, phase: "", t0: 0, noise: -60, Q: [], A: [], B: [], firstLoud: 0, lastLoud: 0, n: 0, stopped: false });
+  R.current.phase = phase;
+  var setP = function(ph) { R.current.phase = ph; sPhase(ph); };
+  var stop = function() {
+    var s = R.current; s.stopped = true; clearInterval(s.timer); clearInterval(s.clockT); s.timer = null; s.an = null;
+    if (s.stream) { s.stream.getTracks().forEach(function(t) { t.stop(); }); s.stream = null; }
+    if (s.ctx) { try { s.ctx.close(); } catch (e) {} s.ctx = null; }
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+  };
+  useEffect(function() { return stop; }, []);
+  var clockFrom = function(down) { var s = R.current; clearInterval(s.clockT); sClock(down || 0); s.clockT = setInterval(function() { var el = (performance.now() - s.t0) / 1000; sClock(down ? Math.max(0, Math.ceil(down - el)) : Math.floor(el)); }, 200); };
+  var finishAll = function() {
+    var s = R.current; if (s.phase !== "read") return;
+    var x = voiceAnalyse(s.noise, s.A, s.B), ctx = tapContext(p.logs, p.oo);
+    stop();
+    var row = { id: Date.now().toString() + "_voice", loggedAt: new Date().toISOString(), method: "voice", hand: "voice", condition: null, durationS: Math.max(1, Math.round((x.aahSecs || 0) + (x.readSecs || 0))), taps: null, misses: 0, meanItiMs: null, cvPct: null, ampMean: x.readDb, ampFirst: null, ampLast: null, ampDecrementPct: null, hesitations: null, trackPct: null, minsSinceDose: ctx.minsSinceDose, ooState: ctx.ooState, note: "", extra: x };
+    sRes(row); sNote(""); setP("done");
+    try { if (navigator.vibrate) navigator.vibrate(200); } catch (e) {}
+    camSay("And stop. Well done.");
+  };
+  var startRead = function() {
+    var s = R.current; if (s.stopped) return;
+    setP("readPrep");
+    camSay("Good. Now read the passage on the screen out loud, in your normal voice.", function() { if (s.stopped) return; s.B = []; s.firstLoud = 0; s.lastLoud = 0; s.t0 = performance.now(); setP("read"); clockFrom(0); });
+  };
+  var endAah = function() { var s = R.current; if (s.phase !== "aah") return; startRead(); };
+  var startAah = function() {
+    var s = R.current; if (s.stopped) return;
+    var q = s.Q.slice().sort(function(a, b) { return a - b; });
+    s.noise = q.length ? Math.max(-90, q[Math.floor(q.length * 0.5)]) : -60;
+    setP("aahPrep");
+    camSay("Now take a deep breath, and say aah, steady and comfortable, for as long as you can.", function() { if (s.stopped) return; s.A = []; s.firstLoud = 0; s.lastLoud = 0; s.t0 = performance.now(); setP("aah"); clockFrom(0); });
+  };
+  var startQuiet = function() { var s = R.current; if (s.stopped) return; s.Q = []; s.t0 = performance.now(); setP("quiet"); clockFrom(3); setTimeout(startAah, 3000); };
+  var tick = function() {
+    var s = R.current; if (!s.an || !s.ctx) return;
+    s.an.getFloatTimeDomainData(s.buf);
+    var sum = 0, pk = 0, b = s.buf;
+    for (var i = 0; i < b.length; i++) { var v = b[i]; sum += v * v; var av = v < 0 ? -v : v; if (av > pk) pk = av; }
+    var db = 10 * Math.log10(sum / b.length + 1e-12), ph = s.phase;
+    if (++s.n % 3 === 0) sLevel(Math.max(0, Math.min(1, (db - s.noise) / 40)));
+    if (ph === "quiet") { s.Q.push(db); return; }
+    if (ph !== "aah" && ph !== "read") return;
+    var f = { t: performance.now() - s.t0, db: db, clip: pk >= 0.98, f0: null };
+    var loud = db > s.noise + VOICE_GAP_DB;
+    if (loud) { f.f0 = vPitch(b, s.ctx.sampleRate); if (!s.firstLoud) s.firstLoud = f.t || 1; s.lastLoud = f.t; }
+    if (ph === "aah") {
+      s.A.push(f);
+      if ((s.firstLoud && f.t - s.lastLoud > 1200 && s.lastLoud - s.firstLoud > 800) || (!s.firstLoud && f.t > 8000) || f.t > 40000) endAah();
+    } else {
+      s.B.push(f);
+      if ((s.firstLoud && f.t - s.lastLoud > 3000 && s.lastLoud - s.firstLoud > 8000) || (!s.firstLoud && f.t > 12000) || f.t > 75000) finishAll();
+    }
+  };
+  var begin = async function() {
+    var s = R.current; s.stopped = false; s.Q = []; s.A = []; s.B = []; s.n = 0;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { sMsg("This phone's browser can't run the voice test."); setP("error"); return; }
+    var ctx = new AC(); s.ctx = ctx; try { ctx.resume(); } catch (e) {}
+    camSay(" ");
+    setP("loading"); sMsg("Starting microphone…");
+    try {
+      var st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+      if (s.stopped) { st.getTracks().forEach(function(t) { t.stop(); }); return; }
+      s.stream = st;
+      var src = ctx.createMediaStreamSource(st), an = ctx.createAnalyser(); an.fftSize = 2048; src.connect(an);
+      s.an = an; s.buf = new Float32Array(2048);
+      if (ctx.state === "suspended") await ctx.resume();
+      s.timer = setInterval(tick, 30);
+      setP("prep");
+      camSay("Put the phone down in front of you, about a forearm's length from your mouth. Then stay quiet for three seconds.", function() { if (s.stopped) return; setTimeout(startQuiet, 1200); });
+    } catch (e) {
+      stop(); setP("error");
+      sMsg(e && e.name === "NotAllowedError" ? "Microphone permission was refused. Allow microphone access for this app in Settings, then try again." : "Couldn't start the microphone: " + (e && e.message ? e.message : e));
+    }
+  };
+  var cancel = function() { stop(); setP("setup"); };
+  var closeAll = function() { stop(); p.onClose(); };
+  var running = ["loading", "prep", "quiet", "aahPrep", "aah", "readPrep", "read"].indexOf(phase) >= 0;
+  var clean = function(r) { return Object.assign({}, r, { note: note }); };
+  var prev = (p.taps || []).filter(function(t) { return t.method === "voice" && t.source !== "estimated" && (!res || t.id !== res.id); }).sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); }).slice(0, 20);
+  var usual = function(k) { var v = prev.map(function(t) { return t.extra ? t.extra[k] : null; }).filter(function(z) { return z != null; }).map(Number); return v.length ? tapMedian(v) : null; };
+  var cmp = function(label, k, unit, higherBetter, dp) {
+    var x = res && res.extra ? res.extra[k] : null, u = usual(k); if (x == null || u == null) return null;
+    var d = x - u, thr = k === "aahSecs" ? 1 : k === "readPitchSdSt" ? 0.3 : 2, good = higherBetter ? d >= thr : d <= -thr, bad = higherBetter ? d <= -thr : d >= thr;
+    var f = function(v) { return (Math.round(v * Math.pow(10, dp)) / Math.pow(10, dp)) + unit; };
+    return <div key={k} className="text-sm">{label}: usual <b>{f(u)}</b>, today <b className={good ? "text-green-600" : bad ? "text-red-600" : "text-gray-700"}>{f(x)}</b></div>;
+  };
+  var big = phase === "quiet" ? "Stay quiet" : phase === "aah" ? "Say “aah”" : phase === "aahPrep" ? "Deep breath…" : phase === "prep" ? "Phone down, then quiet" : phase === "readPrep" ? "Get ready to read" : "";
+  var x = res && res.extra ? res.extra : {};
+  var warns = res ? voiceWarn(x) : [];
+  var sgn = function(v, u) { return v == null ? null : (v > 0 ? "+" : "") + v + u; };
+  return (<Mod onClose={running ? function() {} : closeAll}>
+    <div className="flex justify-between items-center mb-3">
+      <h3 className="text-lg font-bold">🗣️ Voice</h3>
+      {!running && <button onClick={closeAll} style={{ fontSize: "1.75rem", lineHeight: 1, width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#f3f4f6", border: "none", cursor: "pointer", color: "#6b7280" }}>×</button>}
+    </div>
+    {phase === "setup" && <div>
+      <p className="text-sm text-gray-600 mb-2">Two parts, about a minute in all: say “aah” for as long as you comfortably can, then read a short passage out loud.</p>
+      <p className="text-sm text-gray-600 mb-2">Use a quiet room. Put the phone flat on the table in front of you, about a forearm's length from your mouth, in the same spot each time. That matters: the loudness numbers only compare like with like.</p>
+      <p className="text-xs text-gray-500 mb-4">Tap Start once and the rest is spoken. Nothing is recorded; only the measurements are saved.</p>
+      <button onClick={begin} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">Start</button>
+    </div>}
+    {phase === "loading" && <p className="text-sm text-gray-500 text-center">{msg}</p>}
+    {running && phase !== "loading" && <div>
+      {phase !== "read" && <div className="text-center py-4"><div className="text-2xl font-bold mb-1">{big}</div>{(phase === "quiet" || phase === "aah") && <div className="text-4xl font-extrabold text-indigo-600">{clock}{phase === "aah" ? "s" : ""}</div>}</div>}
+      {(phase === "read" || phase === "readPrep") && <div className="bg-indigo-50 rounded-xl p-3 mb-3" style={{ fontSize: "1.2rem", lineHeight: 1.55 }}>{VOICE_PASSAGE}</div>}
+      <div style={{ height: "10px", background: "#e5e7eb", borderRadius: "5px", overflow: "hidden", marginBottom: "10px" }}><div style={{ width: Math.round(level * 100) + "%", height: "100%", background: "#6366f1", transition: "width 0.1s" }} /></div>
+      {phase === "read" && <button onClick={finishAll} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold mb-2">I've finished reading</button>}
+      <button onClick={cancel} className="w-full py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Cancel</button>
+    </div>}
+    {phase === "error" && <div><p className="text-sm text-red-600 mb-3">{msg}</p><button onClick={function() { setP("setup"); }} className="w-full py-3 bg-gray-100 rounded-xl font-semibold text-sm">Back</button></div>}
+    {phase === "done" && res && <div>
+      <div className="text-sm font-bold mb-1">Reading</div>
+      <div className="grid grid-cols-3 gap-2 mb-2">{mStat("loudness", x.readDb == null ? null : x.readDb + " dB", true)}{mStat("pitch variation", x.readPitchSdSt == null ? null : x.readPitchSdSt + " st", true)}{mStat("fade, start → end", sgn(x.readFadeDb, " dB"), true)}</div>
+      <div className="grid grid-cols-3 gap-2 mb-3">{mStat("pauses", x.readPausePct == null ? null : x.readPausePct + "%")}{mStat("reading time", x.readSecs == null ? null : x.readSecs + "s")}{mStat("voice pitch", x.readPitchHz == null ? null : x.readPitchHz + " Hz")}</div>
+      <div className="text-sm font-bold mb-1">Aah</div>
+      <div className="grid grid-cols-3 gap-2 mb-3">{mStat("held for", x.aahSecs == null ? null : x.aahSecs + "s", true)}{mStat("pitch wobble", x.aahPitchSdCents == null ? null : x.aahPitchSdCents + " cents")}{mStat("loudness wobble", x.aahLoudSdDb == null ? null : x.aahLoudSdDb + " dB")}</div>
+      {prev.length ? <div className="mb-2">{cmp("Loudness", "readDb", " dB", true, 1)}{cmp("Pitch variation", "readPitchSdSt", " st", true, 1)}{cmp("Aah held", "aahSecs", "s", true, 1)}</div>
+        : <p className="text-xs text-gray-500 mb-2">First voice test. Comparisons start from the next one.</p>}
+      <p className="text-xs text-gray-500 mb-2">Louder, more pitch variation and a longer “aah” are better; a fade below about −3 dB means your voice tailed off.</p>
+      {warns.map(function(w, i) { return <p key={i} className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2 mb-2">{w}</p>; })}
+      <div className="text-sm text-gray-600 mb-2">{tapSinceLabel(res.minsSinceDose)}{res.ooState ? " · " + (res.ooState === "on" ? "🟢 ON" : "🔴 OFF") : ""}</div>
+      <input value={note} onChange={function(e) { sNote(e.target.value); }} placeholder="Note (optional)" className="w-full border rounded-xl p-2.5 text-sm mb-1" />
+      {ex ? <SaveDel canDel={true} color="bg-indigo-600" label="Update" onDel={function() { p.onDelete(ex.id); p.onClose(); }} onSave={function() { p.onSave(clean(ex)); p.onClose(); }} />
+        : <div className="flex gap-2 mt-3"><button onClick={function() { sRes(null); setP("setup"); }} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm">Discard</button><button onClick={function() { p.onSave(clean(res)); p.onClose(); }} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm">Save</button></div>}
+    </div>}
+  </Mod>);
+}
 // History / report text for every tap_tests row, whatever the method.
 function tapRowTitle(t) {
+  if (t.method === "voice") { var vx = t.extra || {}; return "🗣️ Voice" + (vx.readDb != null ? " · " + vx.readDb + " dB" : ""); }
   var sp = MOTOR_SPECS[t.method]; if (sp) return sp.title2(t);
   var hd = (t.hand === "left" ? "left" : "right") + " hand";
   if (t.method === "rotation") return "🔄 " + t.taps + " arm turns · " + (t.hand === "left" ? "left" : "right") + " arm";
   return (t.method === "camera" ? "📷 " : "👆 ") + t.taps + " taps · " + hd;
 }
 function tapRowSub(t) {
+  if (t.method === "voice") { var vy = t.extra || {}; return (vy.readPitchSdSt != null ? " · pitch variation " + vy.readPitchSdSt + " st" : "") + (vy.aahSecs != null ? " · aah " + vy.aahSecs + "s" : ""); }
   var sp = MOTOR_SPECS[t.method]; if (sp) return sp.sub(t);
   var s = "";
   if (t.method === "rotation" && t.ampMean != null) s += " · " + Math.round(t.ampMean) + "° per turn" + (t.ampDecrementPct != null ? ", " + (t.ampDecrementPct > 0 ? "↓" : "↑") + Math.abs(Math.round(t.ampDecrementPct)) + "%" : "");
@@ -3005,6 +3229,7 @@ var MOTOR_MENU = [
   { type: "m_sts", emoji: "🪑", title: "Sit to stand ×5", sub: "Timed, needs a chair and space" },
   { type: "m_gait", emoji: "🚶", title: "Walk & arm swing", sub: "30s, needs about 5 metres of floor" },
   { type: "m_face", emoji: "🙂", title: "Blink & expression", sub: "Talk to the camera for 60s" },
+  { type: "voice", emoji: "🗣️", title: "Voice", sub: "Say aah, then read aloud, about 1 min, microphone" },
   { type: "tap", emoji: "👆", title: "Screen tap test", sub: "Tap two circles, 20s, no camera" }
 ];
 function MotorHubMod(p) {
@@ -3014,7 +3239,7 @@ function MotorHubMod(p) {
       <button onClick={p.onClose} style={{ fontSize: "1.75rem", lineHeight: 1, width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#f3f4f6", border: "none", cursor: "pointer", color: "#6b7280" }}>×</button>
     </div>
     {MOTOR_MENU.map(function(m) {
-      var last = (p.taps || []).filter(function(t) { var meth = m.type === "camtap" ? "camera" : m.type === "rot" ? "rotation" : m.type === "tap" ? "screen" : m.type.slice(2); return (t.method || "screen") === meth; }).sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0];
+      var last = (p.taps || []).filter(function(t) { var meth = m.type === "camtap" ? "camera" : m.type === "rot" ? "rotation" : m.type === "tap" ? "screen" : m.type === "voice" ? "voice" : m.type.slice(2); return (t.method || "screen") === meth; }).sort(function(a, b) { return (b.loggedAt || "").localeCompare(a.loggedAt || ""); })[0];
       return <button key={m.type} onClick={function() { p.onPick(m.type); }} className="w-full flex items-center gap-3 bg-gray-50 rounded-xl p-3 mb-2 text-left">
         <span style={{ fontSize: "1.6rem" }}>{m.emoji}</span>
         <span className="flex-1"><span className="block font-semibold text-sm">{m.title}</span><span className="block text-xs text-gray-500">{m.sub}{last ? " · last " + fdt(last.loggedAt) : ""}</span></span>
@@ -4740,6 +4965,7 @@ function App() {
     {modal && modal.type === "ePf" && <PelvicMod existing={modal.data} logs={logs} oo={oo} pf={pf} onSave={function(t) { uPf(t); }} onDelete={function(id) { dPf(id); }} onClose={close} />}
     {modal && modal.type === "motor" && <MotorHubMod taps={taps} onPick={function(t) { sModal({ type: t }); }} onClose={close} />}
     {modal && modal.type && modal.type.indexOf("m_") === 0 && <MotorCamMod kind={modal.type.slice(2)} logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
+    {modal && modal.type === "voice" && <VoiceTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "rot" && <RotTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "camtap" && <CamTapMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
     {modal && modal.type === "tap" && <TapTestMod logs={logs} oo={oo} taps={taps} onSave={function(t) { aTap(t); }} onClose={close} />}
