@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v111 Oct30 — padel exercise type";
+var BUILD_VERSION = "v112 Nov3 — bowel tracking on/off setting";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -241,18 +241,18 @@ async function retrySaves() {
 }
 try { window.addEventListener("online", function() { retrySaves(); }); } catch (e) {}
 async function dbDel(key, id) { var t = TBL[key]; if (!t) return; var { error } = await sb.from(t).delete().eq("id", id); if (error) console.error("Del " + key, error); }
-var K = { pf: "pf", tap: "tap", meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval", bowelReminderOn: "bowelReminderOn", bowelReminderTime: "bowelReminderTime", weeBtnOn: "weeBtnOn", prdOn: "prdOn", prdBfMax: "prdBfMax", prdLunchMax: "prdLunchMax", prdDayMax: "prdDayMax", prdEveStart: "prdEveStart", prdEveTarget: "prdEveTarget", carbTarget: "carbTarget", fibreTarget: "fibreTarget", weightGoal: "weightGoal", mealTarget: "mealTarget" };
+var K = { pf: "pf", tap: "tap", meds: "meds", logs: "logs", meals: "meals", ex: "ex", sleep: "sleep", sym: "sym", onoff: "onoff", cex: "cex", fast: "fast", drinks: "drinks", waterTarget: "waterTarget", weight: "weight", mood: "mood", bowel: "bowel", darkMode: "darkMode", activity: "activity", cact: "cact", calTarget: "calTarget", protTarget: "protTarget", medTarget: "medTarget", companionDrinks: "companionDrinks", alarms: "alarms", alarmTimes: "alarmTimes", ooReminderOn: "ooReminderOn", ooReminderInterval: "ooReminderInterval", bowelReminderOn: "bowelReminderOn", bowelReminderTime: "bowelReminderTime", weeBtnOn: "weeBtnOn", bowelBtnOn: "bowelBtnOn", prdOn: "prdOn", prdBfMax: "prdBfMax", prdLunchMax: "prdLunchMax", prdDayMax: "prdDayMax", prdEveStart: "prdEveStart", prdEveTarget: "prdEveTarget", carbTarget: "carbTarget", fibreTarget: "fibreTarget", weightGoal: "weightGoal", mealTarget: "mealTarget" };
 async function ld(k, fb) {
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime || k === K.weeBtnOn || k === K.prdOn || k === K.prdBfMax || k === K.prdLunchMax || k === K.prdDayMax || k === K.prdEveStart || k === K.prdEveTarget || k === K.carbTarget || k === K.fibreTarget || k === K.weightGoal || k === K.mealTarget) {
-    try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); if (data && data.settings) { var s = data.settings; if (k === K.waterTarget) return s.waterTarget || fb; if (k === K.calTarget) return s.calTarget || fb; if (k === K.protTarget) return s.protTarget || fb; if (k === K.medTarget) return s.medTarget || fb; if (k === K.darkMode) return s.darkMode || fb; if (k === K.companionDrinks) return s.companionDrinks || fb; if (k === K.cex) return s.cex || fb; if (k === K.cact) return s.cact || fb; if (k === K.alarms) return s.alarms || fb; if (k === K.alarmTimes) return s.alarmTimes || fb; if (k === K.ooReminderOn) return s.ooReminderOn !== undefined ? s.ooReminderOn : fb; if (k === K.ooReminderInterval) return s.ooReminderInterval || fb; if (k === K.bowelReminderOn) return s.bowelReminderOn !== undefined ? s.bowelReminderOn : fb; if (k === K.bowelReminderTime) return s.bowelReminderTime || fb; if (k === K.weeBtnOn) return s.weeBtnOn !== undefined ? s.weeBtnOn : fb; if (k === K.prdOn) return s.prdOn !== undefined ? s.prdOn : fb; if (k === K.prdBfMax) return (s.prdBfMax === undefined || s.prdBfMax === null || s.prdBfMax === "") ? fb : s.prdBfMax; if (k === K.prdLunchMax) return (s.prdLunchMax === undefined || s.prdLunchMax === null || s.prdLunchMax === "") ? fb : s.prdLunchMax; if (k === K.prdDayMax) return (s.prdDayMax === undefined || s.prdDayMax === null || s.prdDayMax === "") ? fb : s.prdDayMax; if (k === K.prdEveStart) return s.prdEveStart || fb; if (k === K.prdEveTarget) return (s.prdEveTarget === undefined || s.prdEveTarget === null || s.prdEveTarget === "") ? fb : s.prdEveTarget; if (k === K.carbTarget) return (s.carbTarget === undefined || s.carbTarget === null || s.carbTarget === "") ? fb : s.carbTarget; if (k === K.mealTarget) return s.mealTarget || fb; if (k === K.weightGoal) return (s.weightGoal === undefined || s.weightGoal === null || s.weightGoal === "") ? fb : s.weightGoal; if (k === K.fibreTarget) return (s.fibreTarget === undefined || s.fibreTarget === null || s.fibreTarget === "") ? fb : s.fibreTarget; } } catch(e) {}
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime || k === K.weeBtnOn || k === K.bowelBtnOn || k === K.prdOn || k === K.prdBfMax || k === K.prdLunchMax || k === K.prdDayMax || k === K.prdEveStart || k === K.prdEveTarget || k === K.carbTarget || k === K.fibreTarget || k === K.weightGoal || k === K.mealTarget) {
+    try { var { data } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); if (data && data.settings) { var s = data.settings; if (k === K.waterTarget) return s.waterTarget || fb; if (k === K.calTarget) return s.calTarget || fb; if (k === K.protTarget) return s.protTarget || fb; if (k === K.medTarget) return s.medTarget || fb; if (k === K.darkMode) return s.darkMode || fb; if (k === K.companionDrinks) return s.companionDrinks || fb; if (k === K.cex) return s.cex || fb; if (k === K.cact) return s.cact || fb; if (k === K.alarms) return s.alarms || fb; if (k === K.alarmTimes) return s.alarmTimes || fb; if (k === K.ooReminderOn) return s.ooReminderOn !== undefined ? s.ooReminderOn : fb; if (k === K.ooReminderInterval) return s.ooReminderInterval || fb; if (k === K.bowelReminderOn) return s.bowelReminderOn !== undefined ? s.bowelReminderOn : fb; if (k === K.bowelReminderTime) return s.bowelReminderTime || fb; if (k === K.weeBtnOn) return s.weeBtnOn !== undefined ? s.weeBtnOn : fb; if (k === K.bowelBtnOn) return s.bowelBtnOn !== undefined ? s.bowelBtnOn : fb; if (k === K.prdOn) return s.prdOn !== undefined ? s.prdOn : fb; if (k === K.prdBfMax) return (s.prdBfMax === undefined || s.prdBfMax === null || s.prdBfMax === "") ? fb : s.prdBfMax; if (k === K.prdLunchMax) return (s.prdLunchMax === undefined || s.prdLunchMax === null || s.prdLunchMax === "") ? fb : s.prdLunchMax; if (k === K.prdDayMax) return (s.prdDayMax === undefined || s.prdDayMax === null || s.prdDayMax === "") ? fb : s.prdDayMax; if (k === K.prdEveStart) return s.prdEveStart || fb; if (k === K.prdEveTarget) return (s.prdEveTarget === undefined || s.prdEveTarget === null || s.prdEveTarget === "") ? fb : s.prdEveTarget; if (k === K.carbTarget) return (s.carbTarget === undefined || s.carbTarget === null || s.carbTarget === "") ? fb : s.carbTarget; if (k === K.mealTarget) return s.mealTarget || fb; if (k === K.weightGoal) return (s.weightGoal === undefined || s.weightGoal === null || s.weightGoal === "") ? fb : s.weightGoal; if (k === K.fibreTarget) return (s.fibreTarget === undefined || s.fibreTarget === null || s.fibreTarget === "") ? fb : s.fibreTarget; } } catch(e) {}
     return fb;
   }
   if (TBL[k]) return await dbLoad(k);
   return fb;
 }
 async function sv(k, v) {
-  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime || k === K.weeBtnOn || k === K.prdOn || k === K.prdBfMax || k === K.prdLunchMax || k === K.prdDayMax || k === K.prdEveStart || k === K.prdEveTarget || k === K.carbTarget || k === K.fibreTarget || k === K.weightGoal || k === K.mealTarget) {
-    try { var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var settings = (existing && existing.settings) || {}; if (k === K.waterTarget) settings.waterTarget = v; else if (k === K.calTarget) settings.calTarget = v; else if (k === K.protTarget) settings.protTarget = v; else if (k === K.medTarget) settings.medTarget = v; else if (k === K.darkMode) settings.darkMode = v; else if (k === K.companionDrinks) settings.companionDrinks = v; else if (k === K.cex) settings.cex = v; else if (k === K.cact) settings.cact = v; else if (k === K.alarms) settings.alarms = v; else if (k === K.alarmTimes) settings.alarmTimes = v; else if (k === K.ooReminderOn) settings.ooReminderOn = v; else if (k === K.ooReminderInterval) settings.ooReminderInterval = v; else if (k === K.bowelReminderOn) settings.bowelReminderOn = v; else if (k === K.bowelReminderTime) settings.bowelReminderTime = v; else if (k === K.weeBtnOn) settings.weeBtnOn = v; else if (k === K.prdOn) settings.prdOn = v; else if (k === K.prdBfMax) settings.prdBfMax = v; else if (k === K.prdLunchMax) settings.prdLunchMax = v; else if (k === K.prdDayMax) settings.prdDayMax = v; else if (k === K.prdEveStart) settings.prdEveStart = v; else if (k === K.prdEveTarget) settings.prdEveTarget = v; else if (k === K.carbTarget) settings.carbTarget = v; else if (k === K.fibreTarget) settings.fibreTarget = v; else if (k === K.weightGoal) settings.weightGoal = v; else if (k === K.mealTarget) settings.mealTarget = v; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings }); } catch(e) { console.error("Save setting", e); }
+  if (k === K.waterTarget || k === K.calTarget || k === K.protTarget || k === K.medTarget || k === K.darkMode || k === K.companionDrinks || k === K.cex || k === K.cact || k === K.alarms || k === K.alarmTimes || k === K.ooReminderOn || k === K.ooReminderInterval || k === K.bowelReminderOn || k === K.bowelReminderTime || k === K.weeBtnOn || k === K.bowelBtnOn || k === K.prdOn || k === K.prdBfMax || k === K.prdLunchMax || k === K.prdDayMax || k === K.prdEveStart || k === K.prdEveTarget || k === K.carbTarget || k === K.fibreTarget || k === K.weightGoal || k === K.mealTarget) {
+    try { var { data: existing } = await sb.from("profiles").select("settings").eq("id", CURRENT_UID).single(); var settings = (existing && existing.settings) || {}; if (k === K.waterTarget) settings.waterTarget = v; else if (k === K.calTarget) settings.calTarget = v; else if (k === K.protTarget) settings.protTarget = v; else if (k === K.medTarget) settings.medTarget = v; else if (k === K.darkMode) settings.darkMode = v; else if (k === K.companionDrinks) settings.companionDrinks = v; else if (k === K.cex) settings.cex = v; else if (k === K.cact) settings.cact = v; else if (k === K.alarms) settings.alarms = v; else if (k === K.alarmTimes) settings.alarmTimes = v; else if (k === K.ooReminderOn) settings.ooReminderOn = v; else if (k === K.ooReminderInterval) settings.ooReminderInterval = v; else if (k === K.bowelReminderOn) settings.bowelReminderOn = v; else if (k === K.bowelReminderTime) settings.bowelReminderTime = v; else if (k === K.weeBtnOn) settings.weeBtnOn = v; else if (k === K.bowelBtnOn) settings.bowelBtnOn = v; else if (k === K.prdOn) settings.prdOn = v; else if (k === K.prdBfMax) settings.prdBfMax = v; else if (k === K.prdLunchMax) settings.prdLunchMax = v; else if (k === K.prdDayMax) settings.prdDayMax = v; else if (k === K.prdEveStart) settings.prdEveStart = v; else if (k === K.prdEveTarget) settings.prdEveTarget = v; else if (k === K.carbTarget) settings.carbTarget = v; else if (k === K.fibreTarget) settings.fibreTarget = v; else if (k === K.weightGoal) settings.weightGoal = v; else if (k === K.mealTarget) settings.mealTarget = v; await sb.from("profiles").upsert({ id: CURRENT_UID, settings: settings }); } catch(e) { console.error("Save setting", e); }
     return;
   }
   if (TBL[k] && Array.isArray(v)) { if (k === K.meds) { if (!v.length) { console.warn("sv(meds): refusing to save an empty medication list"); return; } if (LOAD_FAILED[K.meds]) { console.warn("sv(meds): last load failed, refusing to overwrite medication list"); return; } await sb.from(TBL[k]).delete().eq("user_id", CURRENT_UID); for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } else { for (var i = 0; i < v.length; i++) { await dbSave(k, v[i]); } } return; }
@@ -1163,7 +1163,7 @@ function MorningCheckinMod(p) {
       p.onSaveOo({ id: (baseId + 2).toString() + "_ci_oo", state: ooState, loggedAt: now });
     }
     // Bowel
-    if (bowelChoice === "yes") {
+    if (bowelChoice === "yes" && p.bowelEnabled !== false) {
       p.onSaveBowel({ id: (baseId + 3).toString() + "_ci_bw", type: "bowel", strain: strain, note: "", loggedAt: now });
     }
     // Symptoms
@@ -1210,7 +1210,7 @@ function MorningCheckinMod(p) {
     </div>
 
     {/* Bowel */}
-    <div className="bg-orange-50 rounded-xl p-3 mb-3">
+    {p.bowelEnabled !== false && <div className="bg-orange-50 rounded-xl p-3 mb-3">
       <div className="text-xs font-bold text-orange-800 mb-2">🚽 BOWEL THIS MORNING?</div>
       <div className="flex gap-2 mb-2">
         <button onClick={function() { setBowelChoice(bowelChoice === "yes" ? null : "yes"); }} className={"flex-1 py-2.5 rounded-lg text-sm font-bold " + (bowelChoice === "yes" ? "bg-amber-500 text-white" : "bg-white text-gray-600")}>✓ Yes</button>
@@ -1219,7 +1219,7 @@ function MorningCheckinMod(p) {
       {bowelChoice === "yes" && (
         <button onClick={function() { setStrain(!strain); }} className={"w-full py-2 rounded-lg text-xs font-medium " + (strain ? "bg-red-100 text-red-700 border-2 border-red-300" : "bg-white text-gray-500 border border-gray-200")}>{strain ? "⚠️ Straining: Yes" : "Straining: No"}</button>
       )}
-    </div>
+    </div>}
 
     {/* Symptoms */}
     <div className="bg-red-50 rounded-xl p-3 mb-4">
@@ -1250,7 +1250,7 @@ function MorningCheckinMod(p) {
     </div>
 
     <button onClick={handleSave} className="w-full py-3.5 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-xl font-bold text-base">✓ Save Check-in</button>
-    <div className="text-center text-xs text-gray-400 mt-2">Logs sleep, mood{ooState ? ", ON/OFF" : ""}{bowelChoice === "yes" ? ", bowel" : ""}{symptoms.length > 0 ? ", " + symptoms.length + " symptom" + (symptoms.length === 1 ? "" : "s") : ""}</div>
+    <div className="text-center text-xs text-gray-400 mt-2">Logs sleep, mood{ooState ? ", ON/OFF" : ""}{bowelChoice === "yes" && p.bowelEnabled !== false ? ", bowel" : ""}{symptoms.length > 0 ? ", " + symptoms.length + " symptom" + (symptoms.length === 1 ? "" : "s") : ""}</div>
   </Mod>);
 }
 
@@ -1421,6 +1421,17 @@ function Setup(p) {
         </div>
         <button onClick={function() { p.setWeeBtnOn(!p.weeBtnOn); }} className={"w-14 h-8 rounded-full relative transition-colors flex-shrink-0 " + (p.weeBtnOn ? "bg-amber-500" : "bg-gray-300")}>
           <div className={"w-6 h-6 bg-white rounded-full absolute top-1 transition-transform " + (p.weeBtnOn ? "translate-x-7" : "translate-x-1")} />
+        </button>
+      </div>
+    </div>
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+      <div className="flex justify-between items-center">
+        <div className="flex-1 pr-3">
+          <h3 className="font-bold text-gray-700">🚽 Bowel Tracking</h3>
+          <p className="text-xs text-gray-500 mt-1">Show the Toilet button, the Bowel row in My pace, the bowel question in the Morning Check-in and the bowel reminder. Off hides them all; past entries stay in History.</p>
+        </div>
+        <button onClick={function() { p.setBowelBtnOn(!(p.bowelBtnOn !== false)); }} className={"w-14 h-8 rounded-full relative transition-colors flex-shrink-0 " + (p.bowelBtnOn !== false ? "bg-amber-500" : "bg-gray-300")}>
+          <div className={"w-6 h-6 bg-white rounded-full absolute top-1 transition-transform " + (p.bowelBtnOn !== false ? "translate-x-7" : "translate-x-1")} />
         </button>
       </div>
     </div>
@@ -3571,7 +3582,7 @@ function AppGrid(p) {
   var buildButtons = function() {
     var medBtn = { id: "med_picker", emoji: "💊", label: "Medication", grad: "from-indigo-600 to-blue-500", isMedPicker: true };
     var all = [medBtn].concat(DEF_APP_BUTTONS);
-    if (!p.weeEnabled) all = all.filter(function(b) { return b.id !== "wee"; });
+    if (!p.weeEnabled) all = all.filter(function(b) { return b.id !== "wee"; }); if (p.bowelEnabled === false) all = all.filter(function(b) { return b.id !== "bowel"; });
     try {
       var saved = JSON.parse(localStorage.getItem(APP_BTN_ORDER_KEY) || "null");
       if (saved && Array.isArray(saved)) {
@@ -3608,13 +3619,13 @@ function AppGrid(p) {
     setButtons(function(prev) {
       var medBtn = { id: "med_picker", emoji: "💊", label: "Medication", grad: "from-indigo-600 to-blue-500", isMedPicker: true };
       var all = [medBtn].concat(DEF_APP_BUTTONS);
-      if (!p.weeEnabled) all = all.filter(function(b) { return b.id !== "wee"; });
+      if (!p.weeEnabled) all = all.filter(function(b) { return b.id !== "wee"; }); if (p.bowelEnabled === false) all = all.filter(function(b) { return b.id !== "bowel"; });
       var updated = prev.filter(function(b) { return all.find(function(x) { return x.id === b.id; }); });
       updated = updated.map(function(b) { var fresh = all.find(function(x) { return x.id === b.id; }); return fresh || b; });
       all.forEach(function(b) { if (!updated.find(function(x) { return x.id === b.id; })) updated.unshift(b); });
       return updated;
     });
-  }, [p.meds, p.weeEnabled]);
+  }, [p.meds, p.weeEnabled, p.bowelEnabled]);
 
   var exitWiggle = function() {
     setWiggle(false);
@@ -3884,7 +3895,7 @@ function TodayPage(p) {
 
   return (<div className="pb-28">
     <div className="sticky-grid px-4 pt-4 pb-2">
-      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} weeCount={todayWeeCount} onOpenExercise={p.onOpenExercise} counts={{ med_picker: { done: tLD.length, target: p.medTarget || 4 }, meal: { done: tMl.length, target: p.mealTarget || 3 } }} weightVal={wTop ? wTop.weight : null} weightGoal={p.weightGoal} weightDiff={wTop && wPrev ? (wTop.weight - wPrev.weight).toFixed(1) : null} moodEmoji={todayMoodTop ? MOOD_EMOJI[todayMoodTop.level] : null} moodLabel={todayMoodTop ? MOOD_LABELS[todayMoodTop.level] : null} />
+      <AppGrid meds={meds} setM={setM} oo={tO} lO={lO} onQuickOo={p.onQuickOo} onQuickSym={p.onQuickSym} onQuickWee={p.onQuickWee} weeEnabled={p.weeBtnOn} bowelEnabled={p.bowelBtnOn !== false} weeCount={todayWeeCount} onOpenExercise={p.onOpenExercise} counts={{ med_picker: { done: tLD.length, target: p.medTarget || 4 }, meal: { done: tMl.length, target: p.mealTarget || 3 } }} weightVal={wTop ? wTop.weight : null} weightGoal={p.weightGoal} weightDiff={wTop && wPrev ? (wTop.weight - wPrev.weight).toFixed(1) : null} moodEmoji={todayMoodTop ? MOOD_EMOJI[todayMoodTop.level] : null} moodLabel={todayMoodTop ? MOOD_LABELS[todayMoodTop.level] : null} />
     </div>
     <div className="px-4">
       <QuickChips meds={meds} logs={logs} drinks={drinks} alarmTimes={p.alarmTimes} onQuickDose={p.onQuickDose} onRepeatDrink={p.onRepeatDrink} onWater={p.onWater} />
@@ -3909,7 +3920,7 @@ function TodayPage(p) {
       })()}
       {(function() {
         // Bowel reminder banner: show on Today after reminder time if no bowel logged
-        if (!p.bowelReminderOn) return null;
+        if (!p.bowelReminderOn || p.bowelBtnOn === false) return null;
         var remTime = p.bowelReminderTime || "08:30";
         var now = new Date();
         var nowMins = now.getHours() * 60 + now.getMinutes();
@@ -4043,7 +4054,7 @@ function TodayPage(p) {
           {row("Fibre", dn.fibre, typicalFib, "g", "text-green-700")}
           {row("Protein", dn.protein, typicalProt, "g", "text-red-700")}
           {row("Calories", Math.round(totalCalsIn), typicalCal, "", "text-amber-700")}
-          {typeof typicalBowel === "string" ? null : (<div className="flex justify-between items-center gap-2 py-1.5 px-2 rounded-lg bg-white/60">
+          {(typeof typicalBowel === "string" || p.bowelBtnOn === false) ? null : (<div className="flex justify-between items-center gap-2 py-1.5 px-2 rounded-lg bg-white/60">
             <span className="text-xs font-bold text-orange-700 whitespace-nowrap shrink-0">Bowel</span>
             <span className="text-[10px] text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis">today: <strong className="text-gray-800">{todayBowelCount}</strong> · typical/day: <strong className="text-gray-700">{typicalBowel}</strong></span>
             <span className={"text-[10px] font-bold whitespace-nowrap shrink-0 " + (todayBowelCount >= 1 ? "text-emerald-600" : "text-orange-600")}>{todayBowelCount >= 1 ? "✓ logged" : "— none yet"}</span>
@@ -4401,6 +4412,7 @@ function App() {
   var [bowelReminderOn, setBowelReminderOn] = useState(false);
   var [bowelReminderTime, setBowelReminderTime] = useState("08:30");
   var [weeBtnOn, setWeeBtnOn] = useState(true);
+  var [bowelBtnOn, setBowelBtnOn] = useState(true);
   var [prdOn, setPrdOn] = useState(true);
   var [prdBfMax, setPrdBfMax] = useState(PRD.bf);
   var [prdLunchMax, setPrdLunchMax] = useState(PRD.lunch);
@@ -4436,6 +4448,7 @@ function App() {
     try {
       try { await retrySaves(); } catch (e) {}
       exCfgLoad().then(setExCfg);
+      ld(K.bowelBtnOn, true).then(function(v) { setBowelBtnOn(v !== false); });
       irCfgLoad().then(setIrCfgState);
       ld(K.tap, []).then(function(tp) { sTaps(tp || []); });
       ld(K.pf, []).then(function(x) { sPf(x || []); });
@@ -4621,7 +4634,7 @@ function App() {
 
   // Bowel reminder — fires once a day at bowelReminderTime if no bowel log yet today
   useEffect(function() {
-    if (!bowelReminderOn) return;
+    if (!bowelReminderOn || !bowelBtnOn) return;
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     var firedKey = "pd_bowel_reminder_fired_" + td();
     var fired = localStorage.getItem(firedKey) === "1";
@@ -4642,7 +4655,7 @@ function App() {
     check();
     var interval = setInterval(check, 30000);
     return function() { clearInterval(interval); };
-  }, [bowelReminderOn, bowelReminderTime, bowel]);
+  }, [bowelReminderOn, bowelReminderTime, bowel, bowelBtnOn]);
 
   // Poll deployed index.html for a newer BUILD_VERSION every 60s.
   // Surfaces a banner when GitHub Pages has shipped a new build.
@@ -4867,12 +4880,12 @@ function App() {
     </div>)}
     <div style={{position:"fixed",top:0,left:0,right:0,height:"env(safe-area-inset-top, 0px)",background:"#0f172a",zIndex:45}} />
     <div style={{height:"env(safe-area-inset-top, 0px)"}} />
-    {tab === "today" && <TodayPage pf={pf} taps={taps} irCfg={irCfg} onIrOpen={function() { setShowIrPopup(true); }} onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} onUpdMeal={uMeal} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
+    {tab === "today" && <TodayPage pf={pf} taps={taps} irCfg={irCfg} onIrOpen={function() { setShowIrPopup(true); }} onOpenExercise={function() { switchTab("exercise"); window.scrollTo(0, 0); }} meds={meds} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} waterTarget={waterTarget} calTarget={calTarget} protTarget={protTarget} medTarget={medTarget} prdOn={prdOn} prdBfMax={prdBfMax} prdLunchMax={prdLunchMax} prdDayMax={prdDayMax} prdEveStart={prdEveStart} prdEveTarget={prdEveTarget} carbTarget={carbTarget} fibreTarget={fibreTarget} weightGoal={weightGoal} mealTarget={mealTarget} bowelReminderOn={bowelReminderOn} bowelReminderTime={bowelReminderTime} weeBtnOn={weeBtnOn} bowelBtnOn={bowelBtnOn} setM={sModal} alarmTimes={alarmTimesList} onQuickDose={quickDoseLog} onRepeatDrink={repeatDrink} onWater={quickWater} reanalyzing={reanalyzing} reProgress={reProgress} onReanalyse={reanalyseMeals} onUpdMeal={uMeal} appleHealth={appleHealth} onQuickOo={aOo} onQuickSym={function() { setShowQuickSym(true); }} onQuickWee={function() { aBowel({ id: Date.now().toString() + "_wee", type: "urine", strain: false, note: "", loggedAt: new Date().toISOString() }); }} />}
     {tab === "history" && <HistoryPage pf={pf} taps={taps} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} setM={sModal} />}
     {tab === "exercise" && <ExercisePage ex={ex} setM={sModal} dark={dark} cfg={exCfg} setCfg={setExCfg} />}
     {tab === "insights" && <InsightsPage logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} />}
     {tab === "report" && <ReportPage pf={pf} taps={taps} logs={logs} meals={meals} ex={ex} slp={slp} sym={sym} oo={oo} fast={fast} drinks={drinks} weight={weight} mood={mood} bowel={bowel} activity={activity} />}
-    {tab === "setup" && <Setup irCfg={irCfg} setIrCfg={setIrCfg} meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} carbTarget={carbTarget} setCarbTarget={function(v){setCarbTarget(v); sv(K.carbTarget,v);}} fibreTarget={fibreTarget} setFibreTarget={function(v){setFibreTarget(v); sv(K.fibreTarget,v);}} weightGoal={weightGoal} setWeightGoal={function(v){setWeightGoal(v); sv(K.weightGoal,v);}} mealTarget={mealTarget} setMealTarget={function(v){setMealTarget(v); sv(K.mealTarget,v);}} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} bowelReminderOn={bowelReminderOn} setBowelReminderOn={function(v) { setBowelReminderOn(v); sv(K.bowelReminderOn, v); }} bowelReminderTime={bowelReminderTime} setBowelReminderTime={function(v) { setBowelReminderTime(v); sv(K.bowelReminderTime, v); }} weeBtnOn={weeBtnOn} setWeeBtnOn={function(v) { setWeeBtnOn(v); sv(K.weeBtnOn, v); }} prdOn={prdOn} setPrdOn={function(v){setPrdOn(v); sv(K.prdOn,v);}} prdBfMax={prdBfMax} setPrdBfMax={function(v){setPrdBfMax(v); sv(K.prdBfMax,v);}} prdLunchMax={prdLunchMax} setPrdLunchMax={function(v){setPrdLunchMax(v); sv(K.prdLunchMax,v);}} prdDayMax={prdDayMax} setPrdDayMax={function(v){setPrdDayMax(v); sv(K.prdDayMax,v);}} prdEveTarget={prdEveTarget} setPrdEveTarget={function(v){setPrdEveTarget(v); sv(K.prdEveTarget,v);}} prdEveStart={prdEveStart} setPrdEveStart={function(v){setPrdEveStart(v); sv(K.prdEveStart,v);}} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
+    {tab === "setup" && <Setup irCfg={irCfg} setIrCfg={setIrCfg} meds={meds} setMeds={sMeds} waterTarget={waterTarget} setWaterTarget={setWT} calTarget={calTarget} setCalTarget={setCT} protTarget={protTarget} setProtTarget={setPT} carbTarget={carbTarget} setCarbTarget={function(v){setCarbTarget(v); sv(K.carbTarget,v);}} fibreTarget={fibreTarget} setFibreTarget={function(v){setFibreTarget(v); sv(K.fibreTarget,v);}} weightGoal={weightGoal} setWeightGoal={function(v){setWeightGoal(v); sv(K.weightGoal,v);}} mealTarget={mealTarget} setMealTarget={function(v){setMealTarget(v); sv(K.mealTarget,v);}} medTarget={medTarget} setMedTarget={setMT} dark={dark} toggleDark={toggleDark} companionDrinks={companionDrinks} setCompanionDrinks={setCompanionDrinks} cexList={cexList} setCexList={function(v) { setCexList(v); sv(K.cex, v); }} cactList={cactList} setCactList={function(v) { setCactList(v); sv(K.cact, v); }} alarmsOn={alarmsOn} setAlarmsOn={function(v) { setAlarmsOn(v); sv(K.alarms, v); }} alarmTimesList={alarmTimesList} setAlarmTimesList={function(v) { setAlarmTimesList(v); sv(K.alarmTimes, v); }} ooReminderOn={ooReminderOn} setOoReminderOn={function(v) { setOoReminderOn(v); sv(K.ooReminderOn, v); }} ooReminderInterval={ooReminderInterval} setOoReminderInterval={function(v) { setOoReminderInterval(v); sv(K.ooReminderInterval, v); }} bowelReminderOn={bowelReminderOn} setBowelReminderOn={function(v) { setBowelReminderOn(v); sv(K.bowelReminderOn, v); }} bowelReminderTime={bowelReminderTime} setBowelReminderTime={function(v) { setBowelReminderTime(v); sv(K.bowelReminderTime, v); }} weeBtnOn={weeBtnOn} setWeeBtnOn={function(v) { setWeeBtnOn(v); sv(K.weeBtnOn, v); }} bowelBtnOn={bowelBtnOn} setBowelBtnOn={function(v) { setBowelBtnOn(v); sv(K.bowelBtnOn, v); }} prdOn={prdOn} setPrdOn={function(v){setPrdOn(v); sv(K.prdOn,v);}} prdBfMax={prdBfMax} setPrdBfMax={function(v){setPrdBfMax(v); sv(K.prdBfMax,v);}} prdLunchMax={prdLunchMax} setPrdLunchMax={function(v){setPrdLunchMax(v); sv(K.prdLunchMax,v);}} prdDayMax={prdDayMax} setPrdDayMax={function(v){setPrdDayMax(v); sv(K.prdDayMax,v);}} prdEveTarget={prdEveTarget} setPrdEveTarget={function(v){setPrdEveTarget(v); sv(K.prdEveTarget,v);}} prdEveStart={prdEveStart} setPrdEveStart={function(v){setPrdEveStart(v); sv(K.prdEveStart,v);}} onBackfillMeals={backfillAllMeals} backfilling={backfilling} backfillProgress={backfillProgress} backfillDone={backfillDone} />}
     <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white px-4 py-2 mx-4 rounded-xl flex justify-between items-center" style={{marginTop:"-5rem",marginBottom:"10.5rem"}}>
       <div className="min-w-0"><div className="text-sm font-bold">PD Tracker <span className="text-xs font-normal text-indigo-300">☁️ Cloud</span></div><div className="text-xs text-indigo-300 font-medium">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</div><div className="text-[10px] text-indigo-400 truncate">Build {BUILD_VERSION}</div></div>
       <button onClick={function() { window.location.href = window.location.pathname + "?u=" + Date.now(); }} aria-label="Refresh app" style={{background:"rgba(255,255,255,0.15)",border:"none",cursor:"pointer",color:"white",fontSize:"1.2rem",width:"40px",height:"40px",borderRadius:"50%",flexShrink:0,marginLeft:"8px"}}>🔄</button>
@@ -4942,6 +4955,7 @@ function App() {
     {modal && modal.type === "eEx" && <ExMod cfg={exCfg} existing={modal.data} cexList={cexList} onSaveCex={function(v) { setCexList(v); sv(K.cex, v); }} onSave={function(e) { uEx(e); close(); }} onDelete={function(id) { dEx(id); close(); }} onClose={close} />}
     {modal && modal.type === "slp" && <SlpMod onSave={function(s) { aSlp(s); close(); }} onClose={close} />}
     {modal && modal.type === "morningCheckin" && <MorningCheckinMod
+      bowelEnabled={bowelBtnOn}
       onSaveSleep={function(s) { aSlp(s); }}
       onSaveMood={function(m) { aMood(m); }}
       onSaveOo={function(o) { aOo(o); }}
