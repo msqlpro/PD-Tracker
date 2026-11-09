@@ -173,7 +173,7 @@ async function generateReport(period, data) {
 
 // Build version stamp — updated on every code deploy. Changes when you see
 // a new commit hash, so you can confirm the app is on the latest build.
-var BUILD_VERSION = "v112 Nov3 — bowel tracking on/off setting";
+var BUILD_VERSION = "v113 Nov9 — History filter buttons (Food, Tablets, Exercise)";
 
 var TBL = { meds: "medications", logs: "med_logs", meals: "meals", ex: "exercise", sleep: "sleep", sym: "symptoms", onoff: "on_off_state", fast: "fasting", drinks: "drinks", weight: "weight", mood: "mood", bowel: "bowel", activity: "activity", tap: "tap_tests", pf: "pelvic_floor" };
 
@@ -4157,11 +4157,18 @@ function HistoryPage(p) {
     (p.taps || []).map(function(t) { return Object.assign({}, t, { _t: "tap", _d: t.loggedAt || "" }); }),
     (p.pf || []).map(function(t) { return Object.assign({}, t, { _t: "pf", _d: t.loggedAt || "" }); })
   ).filter(function(i) { return i._d; }).sort(function(a, b) { return (b._d).localeCompare(a._d); });
+  var [hFilter, setHFilter] = useState("all");
+  var H_FILTERS = [{ id: "all", l: "All", t: null }, { id: "food", l: "🍽️ Food", t: ["meal", "drink"] }, { id: "tablets", l: "💊 Tablets", t: ["med"] }, { id: "exercise", l: "🏃 Exercise", t: ["ex", "activity"] }];
+  var hf = H_FILTERS.find(function(f) { return f.id === hFilter; }) || H_FILTERS[0];
+  if (hf.t) all = all.filter(function(i) { return hf.t.indexOf(i._t) >= 0; });
   var groups = {}; all.forEach(function(i) { var d = i._d.slice(0, 10); if (!groups[d]) groups[d] = []; groups[d].push(i); });
   var sortedDays = Object.entries(groups).sort(function(a, b) { return b[0].localeCompare(a[0]); }).filter(function(e) { return e[0] !== td(); });
+  var dayLimit = hf.t ? 14 : 4;
   return (<div className="p-4 pb-28">
-    <h2 className="text-xl font-bold mb-4">📋 History</h2>
-    {sortedDays.slice(0, 4).map(function(entry) {
+    <h2 className="text-xl font-bold mb-3">📋 History</h2>
+    <div className="flex gap-2 mb-4 flex-wrap">{H_FILTERS.map(function(f) { var on = f.id === hFilter; return <button key={f.id} onClick={function() { setHFilter(f.id); }} className={"px-3 py-1.5 rounded-full text-sm font-semibold border " + (on ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300")}>{f.l}</button>; })}</div>
+    {sortedDays.length === 0 && <div className="text-sm text-gray-400 text-center py-8">Nothing logged for this filter before today.</div>}
+    {sortedDays.slice(0, dayLimit).map(function(entry) {
       var date = entry[0], items = entry[1];
       return (<div key={date} className="mb-4">
         <h3 className="font-bold text-gray-500 text-sm mb-2">{new Date(date + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}{stepsByDate[date] !== undefined && <span className="ml-2 text-xs font-normal text-green-600">👟 {stepsByDate[date].toLocaleString()} steps</span>}</h3>
