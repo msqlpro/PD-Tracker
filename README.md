@@ -36,7 +36,21 @@ All data is stored in Supabase. Apple Watch health data is piped in via iOS Shor
 
 ---
 
+### Apple Watch workout import (`workout-sync`)
+
+Edge function `supabase/functions/workout-sync` takes workouts posted by an iOS Shortcut and files them into the Exercise tab.
+
+- `POST https://dbhsxzbqkwuisvvvukxq.supabase.co/functions/v1/workout-sync` with header `x-sync-key` (the key is kept out of this repo; only its SHA-256 hash is in the function).
+- JSON body: `types`, `starts`, `ends` (one line per workout, ISO 8601 times), optional `kcal`, `km`, and optional `hr_values` + `hr_times` (raw heart-rate samples; the server averages the ones inside each workout).
+- Each workout lands once in `apple_health_workouts`. If a manually logged session of the same category exists that day it is linked and its empty HR fields filled; otherwise a new `exercise` row is created with the note "Apple Watch".
+- Re-sending is safe: no duplicates, sessions deleted in the app stay deleted, late-arriving HR is filled in. Workouts under 5 minutes are ignored.
+
+---
+
 ## Changelog
+
+### 2026-11-11
+- **Apple Watch workout import**: new `workout-sync` edge function plus `apple_health_workouts.exercise_id` link column. Watch workouts posted by a Shortcut appear in the Exercise tab with duration, distance and average, high and low heart rate, so aerobic sessions can count toward the high-intensity target without typing HR in. No app code change.
 
 ### 2026-10-18 (v107)
 - **Walk test**: 60 s instead of 30. Step rate now from the torso's up-and-down bob (visible even when the feet are out of frame near the phone), with foot changeovers as fallback; values outside 50 to 160 steps/min are discarded. Prompted by five real runs where only 0 to 3 s of clean foot data survived per run.
