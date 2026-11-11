@@ -49,6 +49,9 @@ Edge function `supabase/functions/workout-sync` takes workouts posted by an iOS 
 
 ## Changelog
 
+### 2026-11-11 (v114)
+- **Clinic report** (Report tab, "Open clinic report"): a one page A4 summary for neurology appointments, built in the app from real entries only (anything tagged estimated is excluded, no AI). Choose 30 days, 90 days or 6 months. Covers levodopa dose times and gaps, dose to ON and dose to wearing off, share of OFF entries by time since dose and time of day, symptoms, motor tests, weight, exercise against targets, sleep, mood, bowel and pelvic floor, plus a box for questions. "Print or save as PDF" prints only the report; "Share text" and "Copy" give a plain text version.
+
 ### 2026-11-11
 - **Apple Watch workout import**: new `workout-sync` edge function plus `apple_health_workouts.exercise_id` link column. Watch workouts posted by a Shortcut appear in the Exercise tab with duration, distance and average, high and low heart rate, so aerobic sessions can count toward the high-intensity target without typing HR in. No app code change.
 
